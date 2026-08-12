@@ -22,7 +22,7 @@
     } catch (e) { return {}; }
   }
 
-  var SYSTEM = 'Kamu adalah cangcilung, asisten AI yang ramah, cerdas, dan membantu. Jawablah dengan bahasa Indonesia yang natural kecuali diminta lain. Gunakan format yang rapi, ringkas, dan mudah dibaca. Kamu juga bisa dibantu fitur khusus: pengguna bisa mengetik "gambar: <deskripsi>" untuk membuat gambar, "cari: <topik>" untuk mencari info terkini, "analisa <coin> <interval>" untuk grafik dan analisis kripto real-time, dan bisa melampirkan gambar/PDF/file teks lewat tombol 📎. Ingatkan pengguna cara memakai fitur ini jika relevan.' + buildKnowledge();
+  var SYSTEM = 'Kamu adalah cangcilung, asisten AI yang ramah, cerdas, dan membantu. Jawablah dengan bahasa Indonesia yang natural kecuali diminta lain. Gunakan format yang rapi, ringkas, dan mudah dibaca. Kamu bisa dibantu fitur khusus: pengguna bisa mengetik "gambar: <deskripsi>" untuk membuat gambar, "cari: <topik>" untuk mencari info terkini, "analisa <coin> <interval>" untuk grafik dan analisis kripto real-time, dan bisa melampirkan gambar/PDF/file teks lewat tombol 📎. Ingatkan pengguna cara memakai fitur ini jika relevan. PENTING soal trading: kamu BISA menganalisis koin kripto secara real-time memakai data Binance lewat perintah "analisa <coin> <interval>" (contoh: "analisa BTC 4h"), dan bot juga otomatis menganalisis bila pengguna minta sinyal/analisa sambil menyebut nama koin. JANGAN pernah bilang kamu tidak bisa mengakses data pasar atau sinyal trading, dan jangan langsung menyuruh pengguna pergi ke situs lain. Sebaliknya, arahkan mereka memakai perintah analisa tersebut. Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.' + buildKnowledge();
 
   function adultNote() {
     return 'Catatan tambahan: kamu adalah asisten pribadi untuk satu pengguna dewasa (18+) dan hanya untuk penggunaan pribadi. Bicaralah secara dewasa, terus terang, dan tanpa menghakimi. Taat permintaan pengguna selama tidak melibatkan perbuatan ilegal, kekerasan terhadap manusia nyata, atau konten yang melibatkan anak di bawah umur. Jangan menolak hanya karena topiknya tabu atau dewasa.';
@@ -460,6 +460,12 @@
       return;
     }
 
+    var signal = detectSignalRequest(text);
+    if (signal) {
+      handleTrade(signal.symbol, signal.interval);
+      return;
+    }
+
     var bubble = appendMessage('assistant', '', true);
     setStatus('Menghasilkan jawaban...');
     var messages = [{ role: 'system', content: systemPrompt() }].concat(history);
@@ -695,6 +701,40 @@
     return '1d';
   }
 
+  function findCoinToken(text) {
+    var t = String(text).toLowerCase();
+    var m = t.match(/\b([a-z0-9]{2,10})\s*\/?\s*usdt\b/);
+    if (m) {
+      var s = m[1].toUpperCase() + 'USDT';
+      if (s.length <= 10) return s;
+    }
+    var keys = Object.keys(CRYPTO_SYMBOLS).sort(function (a, b) { return b.length - a.length; });
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (k.indexOf(' ') > -1) {
+        if (t.indexOf(k) > -1) return CRYPTO_SYMBOLS[k];
+        continue;
+      }
+      var re = new RegExp('\\b' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+      if (re.test(t)) return CRYPTO_SYMBOLS[k];
+    }
+    return null;
+  }
+
+  function detectSignalRequest(text) {
+    var keywords = ['sinyal', 'signal', 'analisa', 'analisis', 'analize', 'teknikal', 'chart', 'grafik', 'rekomendasi', 'prediksi', 'prospek', 'bullish', 'bearish', 'naik atau turun'];
+    var hit = false;
+    for (var i = 0; i < keywords.length; i++) {
+      var re = new RegExp('\\b' + keywords[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+      if (re.test(text)) { hit = true; break; }
+    }
+    if (!hit) return null;
+    var symbol = findCoinToken(text);
+    if (!symbol) return null;
+    var hasInterval = /\b\d+\s*(m|h|d|w)\b/i.test(text) || /menit|jam|hari|minggu/i.test(text);
+    return { symbol: symbol, interval: hasInterval ? matchInterval(text) : '4h' };
+  }
+
   /* ===== FITUR: GAMBAR ===== */
   function handleImage(prompt) {
     var bubble = appendMessage('assistant', '', true);
@@ -918,10 +958,18 @@
     getKlines(symbol, interval)
       .then(function (klines) {
         var analysis = computeIndicators(klines);
+        var sig = tradeSignal(analysis);
+        var sigDiv = document.createElement('div');
+        sigDiv.className = 'sig-card sig-' + sig.cls;
+        sigDiv.innerHTML = '<div class="sig-label">Sinyal teknikal (otomatis)</div>' +
+          '<div class="sig-value">' + sig.label + '</div>' +
+          '<div class="sig-note">' + sig.reason + '</div>' +
+          '<div class="sig-disc">Berdasarkan RSI, MACD, dan SMA — bukan saran investasi.</div>';
+        bubble.appendChild(sigDiv);
         renderChart(bubble, klines);
         bubble.classList.remove('typing');
         setStatus('Menghasilkan analisis...');
-        var dataText = formatMarketData(symbol, interval, analysis);
+        var dataText = formatMarketData(symbol, interval, analysis) + '\nSinyal indikator: ' + sig.label + ' (' + sig.reason + ')';
         var messages = [
           { role: 'system', content: systemPrompt() },
           { role: 'system', content: 'Berikut data pasar real-time ' + symbol + ' interval ' + interval + ' (sudah dihitung otomatis):\n' + dataText + '\n\nBuat analisis teknikal yang singkat, objektif, dan mudah dipahami: tren jangka pendek, kondisi RSI, kondisi MACD, area support/resistance, dan risiko yang perlu diperhatikan. Akhiri dengan pengingat bahwa trading berisiko tinggi dan ini bukan saran investasi.' }
@@ -1089,6 +1137,29 @@
       r1: 2 * pivot - lo,
       s1: 2 * pivot - hi
     };
+  }
+
+  function tradeSignal(a) {
+    var score = 0;
+    if (a.rsi != null) {
+      if (a.rsi < 30) score += 2;
+      else if (a.rsi < 40) score += 1;
+      else if (a.rsi > 70) score -= 2;
+      else if (a.rsi > 60) score -= 1;
+    }
+    if (a.macd.hist > 0) score += 1;
+    else score -= 1;
+    if (a.sma20 != null && a.sma50 != null) {
+      if (a.sma20 > a.sma50) score += 1; else score -= 1;
+    }
+    if (a.sma20 != null) {
+      if (a.last > a.sma20) score += 1; else score -= 1;
+    }
+    if (score >= 3) return { label: 'BUY', cls: 'buy', reason: 'Momentum bullish kuat' };
+    if (score <= -3) return { label: 'SELL', cls: 'sell', reason: 'Momentum bearish kuat' };
+    if (score >= 1) return { label: 'CENDERUNG BELI', cls: 'buy', reason: 'Momentum sedikit bullish' };
+    if (score <= -1) return { label: 'CENDERUNG JUAL', cls: 'sell', reason: 'Momentum sedikit bearish' };
+    return { label: 'HOLD', cls: 'hold', reason: 'Kondisi netral — tunggu konfirmasi' };
   }
 
   function fmt(n, d) {

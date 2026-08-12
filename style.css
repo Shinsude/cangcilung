@@ -174,6 +174,21 @@ body {
 .chart-wrap { width: 100%; height: 300px; margin: 4px 0 8px; border-radius: 10px; overflow: hidden; }
 .chart-text { margin-top: 6px; }
 
+.sig-card {
+  border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px;
+  margin: 2px 0 8px; background: var(--card);
+}
+.sig-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; }
+.sig-value { font-size: 18px; font-weight: 800; margin-top: 2px; }
+.sig-note { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.sig-disc { font-size: 10px; color: var(--text-dim); margin-top: 6px; border-top: 1px solid var(--border); padding-top: 6px; }
+.sig-buy { border-color: rgba(34,197,94,.35); }
+.sig-buy .sig-value { color: var(--ok); }
+.sig-sell { border-color: rgba(239,68,68,.35); }
+.sig-sell .sig-value { color: var(--err); }
+.sig-hold { border-color: rgba(255,193,7,.35); }
+.sig-hold .sig-value { color: #facc15; }
+
 .chat-input-area { padding-top: 12px; }
 .chat-input-wrap {
   display: flex; align-items: flex-end; gap: 10px;
