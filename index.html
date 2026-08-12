@@ -27,6 +27,10 @@
           <span class="nav-icon">⚙️</span>
           <span>Status</span>
         </button>
+        <button class="nav-item" data-tab="sinyal" title="Dashboard sinyal & akurasi tcip.asia">
+          <span class="nav-icon">📊</span>
+          <span>Sinyal</span>
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -73,6 +77,20 @@
           <span class="pane-sub">Status layanan &amp; sistem</span>
         </div>
         <div class="pane-body" id="status-body"></div>
+      </section>
+
+      <!-- ====== TAB SINYAL ====== -->
+      <section class="tab-pane" id="tab-sinyal">
+        <div class="chat-header">
+          <h2>Dashboard Sinyal</h2>
+          <div class="pane-head-right">
+            <span class="pane-sub" id="sinyal-sub">Pantauan 24/7 tcip.asia</span>
+            <button id="btn-sinyal-refresh" class="ghost-btn" title="Muat ulang data">⟳ Muat ulang</button>
+          </div>
+        </div>
+        <div class="pane-body" id="sinyal-body">
+          <div class="dash-loading">Memuat data...</div>
+        </div>
       </section>
     </main>
   </div>

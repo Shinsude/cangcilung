@@ -42,16 +42,25 @@ npx serve .
 
 Bot bisa menjawab "ada sinyal baru dari tcip.asia?" memakai data yang dipantau berkala otomatis — **tanpa perlu daftar layanan tambahan**:
 
-- **`scripts/tcip-monitor.mjs`** — mengambil sinyal dari `https://api.tcip.asia/public/dashboard`, lalu menyimpan ke `tcip-data/` (`tcip-latest.json`, `tcip-history.json`, `tcip-status.json`).
+- **`scripts/tcip-monitor.mjs`** — mengambil sinyal dari `https://api.tcip.asia/public/dashboard`, lalu menyimpan ke `tcip-data/`:
+  - `tcip-latest.json` — sinyal terakhir (atau `null`).
+  - `tcip-history.json` — riwayat sinyal (terbaru duluan, maks 60).
+  - `tcip-status.json` — status pantauan (online/offline).
+  - `tcip-snapshots.json` — sampling harga per sinyal (untuk verifikasi akurasi).
+  - `tcip-verifications.json` — hasil verifikasi: P&L sinyal pada horizon **1 jam / 4 jam / 24 jam** terhadap harga masuk, diklasifikasi **WIN / LOSS / DRAW**.
+  - `tcip-stats.json` — agregat: total, win rate, rata-rata P&L, rekap **per arah**, **per timeframe**, dan **per pasangan**.
 - **`.github/workflows/monitor-tcip.yml`** — GitHub Actions menjalankan pemantau tiap **10 menit** (jadwal UTC) dan meng-commit data jika ada perubahan. Repo publik → gratis & tanpa batas menit.
 - Bot membaca data langsung dari file JSON di repo ini (tanpa server tambahan):
   - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-latest.json` — sinyal terakhir (atau `null` jika belum ada).
   - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-status.json` — status pantauan (online/offline).
   - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-history.json` — riwayat sinyal (terbaru duluan, maks 60).
+  - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-stats.json` — statistik akurasi & rekap per pasangan.
+  - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-verifications.json` — hasil verifikasi P&L per sinyal.
   - (`api/tcip-latest.js` adalah endpoint Vercel opsional yang merangkai data di atas; di proyek Vercel yang mengaktifkan **Vercel Authentication/SSO**, endpoint itu hanya bisa diakses setelah login — pakai URL raw GitHub di atas agar bebas proteksi.)
-- Di chat, ketik mis. **"sinyal tcip.asia"** atau **"ada sinyal baru?"** untuk hasil terbaru.
+- **Tab 📊 Sinyal** di aplikasi = dashboard visual: kartu sinyal terakhir, grafik harga Binance dengan penanda sinyal, statistik akurasi, rekap per pasangan, tabel verifikasi, dan tabel riwayat. Auto-refresh tiap 2 menit.
+- Di chat, ketik mis. **"sinyal tcip.asia"**, **"akurasi sinyal tcip"**, atau **"rekap per pasangan"** untuk jawaban langsung.
 
-> Catatan: saat `api.tcip.asia` sedang offline (mis. HTTP 502), status pantauan tercatat OFFLINE dan bot akan memberitahu pengguna.
+> Catatan: saat `api.tcip.asia` sedang offline (mis. HTTP 502), status pantauan tercatat OFFLINE dan bot akan memberitahu pengguna. Sampling harga hanya berjalan saat API online (harga diambil dari `decision.current_price` / `market`), jadi sinyal yang aktif saat API lama down bisa berujung verifikasi "tanpa hasil".
 > GitHub Actions menonaktifkan workflow otomatis jika repo tidak ada aktivitas selama 60 hari — commit dari pemantau ini termasuk aktivitas, jadi aman selama ada data; jika terlanjur ter-disable, jalankan ulang dari tab Actions → **Run workflow**.
 
 ## Catatan

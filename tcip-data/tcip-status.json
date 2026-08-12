@@ -1,6 +1,6 @@
 {
   "ok": false,
   "status": "offline",
-  "at": 1786516646607,
-  "error": "HTTP 502"
+  "at": 0,
+  "error": "menunggu pemantau pertama"
 }

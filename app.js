@@ -22,7 +22,7 @@
     } catch (e) { return {}; }
   }
 
-  var SYSTEM = 'Kamu adalah cangcilung, asisten AI yang ramah, cerdas, dan membantu. Jawablah dengan bahasa Indonesia yang natural kecuali diminta lain. Gunakan format yang rapi, ringkas, dan mudah dibaca. Kamu bisa dibantu fitur khusus: pengguna bisa mengetik "gambar: <deskripsi>" untuk membuat gambar, "cari: <topik>" untuk mencari info terkini, "analisa <coin> <interval>" untuk grafik dan analisis kripto real-time, dan bisa melampirkan gambar/PDF/file teks lewat tombol 📎. Kamu juga menerima data pantauan 24/7 sinyal trading dari situs tcip.asia lewat sistem — bila pengguna bertanya "sinyal tcip.asia", "ada sinyal baru?", atau sejenisnya, sistem akan menyisipkan data terbaru. Ingatkan pengguna cara memakai fitur ini jika relevan. PENTING soal trading: kamu BISA menganalisis koin kripto secara real-time memakai data Binance lewat perintah "analisa <coin> <interval>" (contoh: "analisa BTC 4h"), dan bot juga otomatis menganalisis bila pengguna minta sinyal/analisa sambil menyebut nama koin. JANGAN pernah bilang kamu tidak bisa mengakses data pasar atau sinyal trading, dan jangan langsung menyuruh pengguna pergi ke situs lain. Sebaliknya, arahkan mereka memakai perintah analisa tersebut. Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.' + buildKnowledge();
+  var SYSTEM = 'Kamu adalah cangcilung, asisten AI yang ramah, cerdas, dan membantu. Jawablah dengan bahasa Indonesia yang natural kecuali diminta lain. Gunakan format yang rapi, ringkas, dan mudah dibaca. Kamu bisa dibantu fitur khusus: pengguna bisa mengetik "gambar: <deskripsi>" untuk membuat gambar, "cari: <topik>" untuk mencari info terkini, "analisa <coin> <interval>" untuk grafik dan analisis kripto real-time, dan bisa melampirkan gambar/PDF/file teks lewat tombol 📎. Kamu juga menerima data pantauan 24/7 sinyal trading dari situs tcip.asia lewat sistem — bila pengguna bertanya "sinyal tcip.asia", "ada sinyal baru?", atau sejenisnya, sistem akan menyisipkan data terbaru, termasuk statistik akurasi (win rate) dan rekap per pasangan. Ada juga tab 📊 Sinyal di aplikasi berisi dashboard pantauan. Ingatkan pengguna cara memakai fitur ini jika relevan. PENTING soal trading: kamu BISA menganalisis koin kripto secara real-time memakai data Binance lewat perintah "analisa <coin> <interval>" (contoh: "analisa BTC 4h"), dan bot juga otomatis menganalisis bila pengguna minta sinyal/analisa sambil menyebut nama koin. JANGAN pernah bilang kamu tidak bisa mengakses data pasar atau sinyal trading, dan jangan langsung menyuruh pengguna pergi ke situs lain. Sebaliknya, arahkan mereka memakai perintah analisa tersebut. Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.' + buildKnowledge();
 
   function adultNote() {
     return 'Catatan tambahan: kamu adalah asisten pribadi untuk satu pengguna dewasa (18+) dan hanya untuk penggunaan pribadi. Bicaralah secara dewasa, terus terang, dan tanpa menghakimi. Taat permintaan pengguna selama tidak melibatkan perbuatan ilegal, kekerasan terhadap manusia nyata, atau konten yang melibatkan anak di bawah umur. Jangan menolak hanya karena topiknya tabu atau dewasa.';
@@ -66,6 +66,29 @@
     'apt': 'APTUSDT', 'aptos': 'APTUSDT'
   };
 
+  var TCIP_RAW_BASE = 'https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/';
+
+  var BINANCE_PAIR = {
+    'BTCUSD': 'BTCUSDT', 'BTCUSDT': 'BTCUSDT', 'XBTUSD': 'BTCUSDT',
+    'ETHUSD': 'ETHUSDT', 'ETHUSDT': 'ETHUSDT',
+    'SOLUSD': 'SOLUSDT', 'SOLUSDT': 'SOLUSDT',
+    'BNBUSD': 'BNBUSDT', 'BNBUSDT': 'BNBUSDT',
+    'XRPUSD': 'XRPUSDT', 'XRPUSDT': 'XRPUSDT',
+    'DOGEUSD': 'DOGEUSDT', 'DOGEUSDT': 'DOGEUSDT',
+    'ADAUSD': 'ADAUSDT', 'ADAUSDT': 'ADAUSDT',
+    'LINKUSD': 'LINKUSDT', 'LINKUSDT': 'LINKUSDT',
+    'LTCUSD': 'LTCUSDT', 'LTCUSDT': 'LTCUSDT',
+    'DOTUSD': 'DOTUSDT', 'DOTUSDT': 'DOTUSDT',
+    'AVAXUSD': 'AVAXUSDT', 'AVAXUSDT': 'AVAXUSDT',
+    'MATICUSD': 'MATICUSDT', 'MATICUSDT': 'MATICUSDT',
+    'UNIUSD': 'UNIUSDT', 'UNIUSDT': 'UNIUSDT',
+    'SHIBUSD': 'SHIBUSDT', 'SHIBUSDT': 'SHIBUSDT',
+    'NEARUSD': 'NEARUSDT', 'NEARUSDT': 'NEARUSDT',
+    'APTUSD': 'APTUSDT', 'APTUSDT': 'APTUSDT',
+    'TONUSD': 'TONUSDT', 'TONUSDT': 'TONUSDT',
+    'PEPEUSD': 'PEPEUSDT', 'PEPEUSDT': 'PEPEUSDT'
+  };
+
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
@@ -90,7 +113,7 @@
   }
 
   /* ===== NAVIGASI ===== */
-  var TABS = ['chat', 'status'];
+  var TABS = ['chat', 'status', 'sinyal'];
   var renderedTabs = {};
 
   function bindNavigation() {
@@ -117,6 +140,7 @@
     if (renderedTabs[name]) return;
     renderedTabs[name] = true;
     if (name === 'status') renderStatus();
+    if (name === 'sinyal') renderSinyal();
   }
 
   /* ===== UTIL ===== */
@@ -754,12 +778,10 @@
   }
 
   function fetchTcipMonitorData() {
-    var base = 'https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/';
-    return Promise.all([
-      webFetch(base + 'tcip-latest.json'),
-      webFetch(base + 'tcip-status.json'),
-      webFetch(base + 'tcip-history.json')
-    ]).then(function (res) {
+    var files = ['tcip-latest.json', 'tcip-status.json', 'tcip-history.json', 'tcip-stats.json', 'tcip-verifications.json'];
+    return Promise.all(files.map(function (f) {
+      return webFetch(TCIP_RAW_BASE + f).catch(function () { return 'null'; });
+    })).then(function (res) {
       var data = {};
       try { data.latest = JSON.parse(res[0]); } catch (e) {}
       try { data.lastcheck = JSON.parse(res[1]); } catch (e) {}
@@ -767,6 +789,11 @@
         data.history = JSON.parse(res[2]);
         if (!Array.isArray(data.history)) data.history = [];
       } catch (e) { data.history = []; }
+      try { data.stats = JSON.parse(res[3]); } catch (e) { data.stats = null; }
+      try {
+        data.verifications = JSON.parse(res[4]);
+        if (!data.verifications || typeof data.verifications !== 'object' || Array.isArray(data.verifications)) data.verifications = {};
+      } catch (e) { data.verifications = {}; }
       return data;
     });
   }
@@ -834,7 +861,24 @@
         lines.push((i + 1) + '. ' + h.symbol + ' ' + h.timeframe + ' ' + h.direction + ' ' + (h.confidence != null ? h.confidence + '%' : '') + ' (' + new Date(h.updatedAt).toLocaleString('id-ID') + ')');
       });
     }
-    lines.push('Jelaskan kepada pengguna dalam bahasa Indonesia: apakah ada sinyal aktif, instrumennya apa, arah, keyakinan, dan risiko. Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.');
+    if (data.stats && data.stats.total > 0) {
+      var s = data.stats;
+      lines.push('Akurasi sinyal (hasil verifikasi terhadap pergerakan harga):');
+      lines.push('- Sinyal terverifikasi: ' + s.total);
+      lines.push('- WIN: ' + s.wins + ' | LOSS: ' + s.losses + ' | DRAW: ' + s.draws + (s.noResult ? ' | tanpa hasil: ' + s.noResult : ''));
+      lines.push('- Win rate: ' + Math.round((s.winRate || 0) * 100) + '%');
+      lines.push('- Rata-rata P&L (horizon 1h/4h/24h): ' + (s.avgPnl != null ? (s.avgPnl * 100).toFixed(2) + '%' : 'n/a'));
+      var syms = s.bySymbol ? Object.keys(s.bySymbol).sort(function (a, b) { return (s.bySymbol[b].total || 0) - (s.bySymbol[a].total || 0); }).slice(0, 6) : [];
+      if (syms.length) {
+        lines.push('Rekap per pasangan:');
+        syms.forEach(function (sym) {
+          var b = s.bySymbol[sym];
+          var last = b.lastSignal ? b.lastSignal.direction : 'n/a';
+          lines.push('- ' + sym + ': ' + b.total + ' sinyal, win rate ' + Math.round((b.winRate || 0) * 100) + '%, arah terakhir ' + last);
+        });
+      }
+    }
+    lines.push('Jelaskan kepada pengguna dalam bahasa Indonesia: apakah ada sinyal aktif, instrumennya apa, arah, keyakinan, risiko, dan bila ada data akurasi, rekap win rate per pasangan. Gunakan data di atas dengan jujur (jangan mengarang). Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.');
     return lines.join('\n');
   }
 
@@ -1287,6 +1331,300 @@
   }
 
   /* ===== TAB: STATUS ===== */
+  /* ===== DASHBOARD SINYAL ===== */
+  var sinyalTimer = null;
+
+  function renderSinyal() {
+    var body = document.getElementById('sinyal-body');
+    if (!body) return;
+    if (sinyalTimer) clearInterval(sinyalTimer);
+    var refresh = document.getElementById('btn-sinyal-refresh');
+    if (refresh && !refresh._bound) {
+      refresh._bound = true;
+      refresh.addEventListener('click', function () { loadSinyal(); });
+    }
+    sinyalTimer = setInterval(loadSinyal, 120000);
+    loadSinyal();
+  }
+
+  function loadSinyal() {
+    var body = document.getElementById('sinyal-body');
+    if (!body) return;
+    body.innerHTML = '<div class="dash-loading">Memuat data pantauan...</div>';
+    fetchTcipMonitorData().then(function (data) {
+      var sub = document.getElementById('sinyal-sub');
+      if (sub) sub.textContent = 'Diperbarui ' + new Date().toLocaleTimeString('id-ID') + ' · auto-refresh 2 mnt';
+      body.innerHTML = '';
+      body.appendChild(signalStatusCard(data));
+      if (data.latest) body.appendChild(signalChartCard(data.latest));
+      body.appendChild(statsCard(data.stats));
+      body.appendChild(pairsCard(data.stats));
+      body.appendChild(verificationCard(data.verifications));
+      body.appendChild(historyCard(data.history));
+    }).catch(function () {
+      body.innerHTML = '<div class="dash-error">Gagal memuat data pantauan. Periksa koneksi lalu tekan ⟳ Muat ulang.</div>';
+    });
+  }
+
+  function mk(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function fmtPct(p) {
+    if (p == null || isNaN(p)) return 'n/a';
+    return (p * 100).toFixed(1) + '%';
+  }
+
+  function fmtPnl(p) {
+    if (p == null || isNaN(p)) return '—';
+    var v = (p * 100).toFixed(2) + '%';
+    return (p >= 0 ? '+' : '') + v;
+  }
+
+  function fmtTime(ms) {
+    if (!ms) return '—';
+    return new Date(ms).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  function dirBadge(dir) {
+    var cls = 'badge';
+    if (dir === 'BUY') cls += ' badge-buy';
+    else if (dir === 'SELL') cls += ' badge-sell';
+    else cls += ' badge-hold';
+    return mk('span', cls, dir || '—');
+  }
+
+  function resultBadge(res) {
+    var cls = 'badge';
+    if (res === 'WIN') cls += ' badge-buy';
+    else if (res === 'LOSS') cls += ' badge-sell';
+    else if (res === 'DRAW') cls += ' badge-hold';
+    else cls += ' badge-neutral';
+    return mk('span', cls, res || '—');
+  }
+
+  function dashCell(label, value) {
+    var cell = mk('div', 'dash-cell');
+    cell.appendChild(mk('span', 'dash-cell-label', label));
+    cell.appendChild(mk('span', 'dash-cell-value', value));
+    return cell;
+  }
+
+  function signalStatusCard(data) {
+    var lc = data.lastcheck || {};
+    var online = lc.status === 'online';
+    var card = mk('div', 'dash-card');
+    var head = mk('div', 'dash-card-head');
+    head.appendChild(mk('h3', null, 'Sinyal terakhir'));
+    var status = mk('span', online ? 'st-ok' : 'st-bad');
+    status.textContent = 'Pantauan ' + (online ? 'ONLINE' : 'OFFLINE');
+    head.appendChild(status);
+    card.appendChild(head);
+
+    var latest = data.latest;
+    if (!latest) {
+      var msg = online ? 'Sedang dipantau 24/7 — belum ada sinyal aktif.' : 'Pemantau sedang offline — tidak ada sinyal aktif.';
+      card.appendChild(mk('p', 'dash-muted', msg));
+      return card;
+    }
+
+    var sig = mk('div', 'sig-card sig-' + (latest.direction === 'BUY' ? 'buy' : latest.direction === 'SELL' ? 'sell' : 'hold'));
+    sig.appendChild(dirBadge(latest.direction));
+    var grid = mk('div', 'dash-detail-grid');
+    grid.appendChild(dashCell('Simbol', latest.symbol));
+    grid.appendChild(dashCell('Timeframe', latest.timeframe));
+    grid.appendChild(dashCell('Confidence', latest.confidence != null ? latest.confidence + '%' : 'n/a'));
+    grid.appendChild(dashCell('Grade', latest.grade || 'n/a'));
+    grid.appendChild(dashCell('Fase', latest.phase || 'n/a'));
+    grid.appendChild(dashCell('Risiko', latest.risk_level || 'n/a'));
+    grid.appendChild(dashCell('Harga', latest.price != null ? String(latest.price) : 'n/a'));
+    grid.appendChild(dashCell('Stale', latest.is_stale ? 'ya' : 'tidak'));
+    grid.appendChild(dashCell('Diperbarui', fmtTime(latest.updatedAt)));
+    sig.appendChild(grid);
+    card.appendChild(sig);
+    return card;
+  }
+
+  function signalChartCard(latest) {
+    var pair = latest && BINANCE_PAIR[String(latest.symbol || '').toUpperCase()];
+    var card = mk('div', 'dash-card');
+    card.appendChild(mk('h3', null, 'Grafik harga — ' + (pair || (latest && latest.symbol) || '')));
+    var chartWrap = mk('div', 'dash-chart');
+    card.appendChild(chartWrap);
+    if (!pair) {
+      chartWrap.appendChild(mk('p', 'dash-muted', 'Belum ada pasangan Binance untuk simbol ini.'));
+      return card;
+    }
+    var interval = '1h';
+    var tf = latest.timeframe;
+    if (tf === 'M15' || tf === 'M30') interval = '15m';
+    else if (tf === 'H1') interval = '1h';
+    else if (tf === 'H4') interval = '4h';
+    else if (tf === 'D1') interval = '1d';
+    getKlines(pair, interval).then(function (klines) {
+      if (!chartWrap.parentNode) return;
+      chartWrap.innerHTML = '';
+      try {
+        if (typeof LightweightCharts === 'undefined') throw new Error('pustaka grafik belum termuat');
+        var chart = LightweightCharts.createChart(chartWrap, {
+          width: chartWrap.clientWidth || 640,
+          height: 280,
+          layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#8b93a7' },
+          grid: { vertLines: { color: 'rgba(35,43,59,0.5)' }, horzLines: { color: 'rgba(35,43,59,0.5)' } },
+          timeScale: { borderColor: '#232b3b', timeVisible: true },
+          rightPriceScale: { borderColor: '#232b3b' }
+        });
+        var series = chart.addCandlestickSeries({
+          upColor: '#22c55e', downColor: '#ef4444', borderVisible: false,
+          wickUpColor: '#22c55e', wickDownColor: '#ef4444'
+        });
+        series.setData(klines.map(function (k) {
+          return { time: Math.floor(k.openTime / 1000), open: +k.open, high: +k.high, low: +k.low, close: +k.close };
+        }));
+        if (latest.updatedAt && latest.price != null) {
+          var tSec = Math.floor(latest.updatedAt / 1000);
+          var k0 = klines[0], kLast = klines[klines.length - 1];
+          if (k0 && kLast && tSec >= Math.floor(k0.openTime / 1000) && tSec <= Math.floor(kLast.openTime / 1000)) {
+            series.createSeriesMarkers([{
+              time: tSec,
+              position: latest.direction === 'SELL' ? 'aboveBar' : 'belowBar',
+              color: latest.direction === 'SELL' ? '#ef4444' : '#22c55e',
+              shape: latest.direction === 'SELL' ? 'arrowDown' : 'arrowUp',
+              text: latest.direction
+            }]);
+          }
+        }
+        chart.timeScale().fitContent();
+        var resize = function () { var w = chartWrap.clientWidth; if (w > 0) chart.applyOptions({ width: w }); };
+        resize();
+        setTimeout(resize, 60);
+      } catch (e) {
+        chartWrap.appendChild(mk('p', 'dash-muted', 'Gagal menggambar grafik: ' + e.message));
+      }
+    }).catch(function () {
+      chartWrap.innerHTML = '';
+      chartWrap.appendChild(mk('p', 'dash-muted', 'Grafik tidak tersedia saat ini.'));
+    });
+    return card;
+  }
+
+  function tile(label, value, cls) {
+    var t = mk('div', 'dash-tile' + (cls ? ' ' + cls : ''));
+    t.appendChild(mk('span', 'dash-tile-label', label));
+    t.appendChild(mk('span', 'dash-tile-value', value));
+    return t;
+  }
+
+  function dashTable(headers, rows) {
+    var wrap = mk('div', 'dash-table-wrap');
+    var table = mk('table', 'dash-table');
+    var thead = mk('thead', null);
+    var hr = mk('tr', null);
+    headers.forEach(function (h) { hr.appendChild(mk('th', null, h)); });
+    thead.appendChild(hr);
+    table.appendChild(thead);
+    var tbody = mk('tbody', null);
+    rows.forEach(function (row) {
+      var tr = mk('tr', null);
+      row.forEach(function (cell) {
+        var td = mk('td', null);
+        if (cell && cell.nodeType) td.appendChild(cell);
+        else td.textContent = cell == null ? '—' : String(cell);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function statsCard(stats) {
+    var s = stats || {};
+    var card = mk('div', 'dash-card');
+    card.appendChild(mk('h3', null, 'Statistik akurasi'));
+    if (!s.total) {
+      card.appendChild(mk('p', 'dash-muted', 'Belum ada sinyal terverifikasi. Verifikasi otomatis berjalan saat sinyal berumur ±24 jam.'));
+      return card;
+    }
+    var tiles = mk('div', 'dash-tiles');
+    tiles.appendChild(tile('Sinyal terverifikasi', String(s.total)));
+    tiles.appendChild(tile('WIN', String(s.wins), 'tile-win'));
+    tiles.appendChild(tile('LOSS', String(s.losses), 'tile-loss'));
+    tiles.appendChild(tile('DRAW', String(s.draws)));
+    tiles.appendChild(tile('Win rate', fmtPct(s.winRate), 'tile-win'));
+    tiles.appendChild(tile('Rata-rata P&L', fmtPnl(s.avgPnl)));
+    card.appendChild(tiles);
+
+    if (s.byDirection && Object.keys(s.byDirection).length) {
+      card.appendChild(mk('h4', 'dash-sub', 'Per arah'));
+      card.appendChild(dashTable(['Arah', 'Jumlah', 'WIN', 'LOSS', 'DRAW', 'Win rate', 'Avg P&L'], Object.keys(s.byDirection).map(function (k) {
+        var b = s.byDirection[k];
+        return [dirBadge(k), String(b.total), String(b.wins), String(b.losses), String(b.draws), fmtPct(b.winRate), fmtPnl(b.avgPnl)];
+      })));
+    }
+    if (s.byTimeframe && Object.keys(s.byTimeframe).length) {
+      card.appendChild(mk('h4', 'dash-sub', 'Per timeframe'));
+      card.appendChild(dashTable(['Timeframe', 'Jumlah', 'WIN', 'LOSS', 'DRAW', 'Win rate', 'Avg P&L'], Object.keys(s.byTimeframe).map(function (k) {
+        var b = s.byTimeframe[k];
+        return [k, String(b.total), String(b.wins), String(b.losses), String(b.draws), fmtPct(b.winRate), fmtPnl(b.avgPnl)];
+      })));
+    }
+    return card;
+  }
+
+  function pairsCard(stats) {
+    var s = stats || {};
+    var card = mk('div', 'dash-card');
+    card.appendChild(mk('h3', null, 'Rekap per pasangan'));
+    var by = s.bySymbol || {};
+    var keys = Object.keys(by).sort(function (a, b) { return (by[b].total || 0) - (by[a].total || 0); });
+    if (!keys.length) {
+      card.appendChild(mk('p', 'dash-muted', 'Belum ada data per pasangan.'));
+      return card;
+    }
+    card.appendChild(dashTable(['Pasangan', 'Sinyal', 'Arah terakhir', 'Win rate', 'WIN/LOSS/DRAW', 'Avg P&L'], keys.map(function (k) {
+      var b = by[k];
+      var last = b.lastSignal || {};
+      return [k, String(b.total), dirBadge(last.direction), fmtPct(b.winRate), b.wins + '/' + b.losses + '/' + b.draws, fmtPnl(b.avgPnl)];
+    })));
+    return card;
+  }
+
+  function verificationCard(verifs) {
+    var card = mk('div', 'dash-card');
+    card.appendChild(mk('h3', null, 'Verifikasi sinyal (P&L 1h / 4h / 24h)'));
+    var list = [];
+    Object.keys(verifs || {}).forEach(function (k) { list.push(verifs[k]); });
+    if (!list.length) {
+      card.appendChild(mk('p', 'dash-muted', 'Belum ada verifikasi. Sinyal yang berumur ≥24 jam otomatis diverifikasi terhadap pergerakan harga.'));
+      return card;
+    }
+    list.sort(function (a, b) { return (b.verifiedAt || 0) - (a.verifiedAt || 0); });
+    card.appendChild(dashTable(['Pasangan', 'Arah', 'Entry', '1h', '4h', '24h', 'Hasil'], list.slice(0, 15).map(function (v) {
+      var h = v.horizons || {};
+      return [v.symbol, dirBadge(v.direction), v.entryPrice != null ? String(v.entryPrice) : '—', fmtPnl(h['1h'] && h['1h'].pnl), fmtPnl(h['4h'] && h['4h'].pnl), fmtPnl(h['24h'] && h['24h'].pnl), resultBadge(v.result)];
+    })));
+    return card;
+  }
+
+  function historyCard(history) {
+    var card = mk('div', 'dash-card');
+    card.appendChild(mk('h3', null, 'Riwayat sinyal'));
+    var list = history || [];
+    if (!list.length) {
+      card.appendChild(mk('p', 'dash-muted', 'Belum ada riwayat sinyal.'));
+      return card;
+    }
+    card.appendChild(dashTable(['Waktu', 'Simbol', 'TF', 'Arah', 'Konf', 'Grade', 'Fase'], list.slice(0, 15).map(function (h) {
+      return [fmtTime(h.updatedAt), h.symbol, h.timeframe, dirBadge(h.direction), h.confidence != null ? h.confidence + '%' : '—', h.grade || '—', h.phase || '—'];
+    })));
+    return card;
+  }
+
   function renderStatus() {
     var body = document.getElementById('status-body');
     if (!body) return;
