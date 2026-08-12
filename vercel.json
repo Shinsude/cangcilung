@@ -1,6 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "crons": [
+    { "path": "/api/tcip-monitor", "schedule": "0 0 * * *" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

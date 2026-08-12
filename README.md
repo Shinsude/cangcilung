@@ -38,6 +38,27 @@ npx serve .
 2. Di [vercel.com](https://vercel.com), klik **Add New → Project**.
 3. Import repo GitHub kamu → **Deploy**. Selesai.
 
+## Pantauan 24/7 sinyal tcip.asia
+
+Bot bisa menjawab "ada sinyal baru dari tcip.asia?" memakai data yang dipantau berkala:
+
+- `api/tcip-monitor` — mengambil sinyal dari `https://api.tcip.asia/public/dashboard` lalu menyimpannya ke **Upstash Redis** (key `tcip:latest`, `tcip:history`, `tcip:lastcheck`).
+- `api/tcip-latest` — endpoint publik yang dibaca bot untuk menjawab pertanyaan sinyal tcip.asia.
+- Di chat, ketik mis. **"sinyal tcip.asia"** atau **"ada sinyal baru?"** untuk hasil terbaru.
+
+### Setup satu kali (gratis)
+
+1. **Storage (Upstash Redis)** — daftar di [upstash.com](https://console.upstash.com) → Create database (Region dekat, mis. Jakarta/singapura). Salin `UPSTASH_REDIS_REST_URL` dan `UPSTASH_REDIS_REST_TOKEN`.
+2. Pasang env var di Vercel: `vercel env add UPSTASH_REDIS_REST_URL production`, lalu `UPSTASH_REDIS_REST_TOKEN`.
+3. **Scheduler** — Vercel Hobby hanya mengizinkan cron 1×/hari (sudah ada di `vercel.json` sebagai cadangan). Untuk pengecekan tiap beberapa menit, pakai scheduler gratis (mis. [QStash](https://console.upstash.com/qstash) atau [cron-job.org](https://cron-job.org)) yang memanggil:
+   ```
+   https://cangcilung.vercel.app/api/tcip-monitor
+   ```
+   tiap **5–15 menit** (GET; opsional tambah header `Authorization: Bearer <CRON_SECRET>`).
+4. *(Opsional)* Amankan endpoint: `vercel env add CRON_SECRET production`, lalu set header Authorization di scheduler.
+
+> Catatan: saat `api.tcip.asia` sedang offline (mis. HTTP 502), status pantauan tercatat OFFLINE dan bot akan memberitahu pengguna.
+
 ## Catatan
 
 - Percakapan pertama akan memunculkan pop-up masuk akun Puter — buat akun gratis sekali, selesai.

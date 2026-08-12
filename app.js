@@ -22,7 +22,7 @@
     } catch (e) { return {}; }
   }
 
-  var SYSTEM = 'Kamu adalah cangcilung, asisten AI yang ramah, cerdas, dan membantu. Jawablah dengan bahasa Indonesia yang natural kecuali diminta lain. Gunakan format yang rapi, ringkas, dan mudah dibaca. Kamu bisa dibantu fitur khusus: pengguna bisa mengetik "gambar: <deskripsi>" untuk membuat gambar, "cari: <topik>" untuk mencari info terkini, "analisa <coin> <interval>" untuk grafik dan analisis kripto real-time, dan bisa melampirkan gambar/PDF/file teks lewat tombol 📎. Ingatkan pengguna cara memakai fitur ini jika relevan. PENTING soal trading: kamu BISA menganalisis koin kripto secara real-time memakai data Binance lewat perintah "analisa <coin> <interval>" (contoh: "analisa BTC 4h"), dan bot juga otomatis menganalisis bila pengguna minta sinyal/analisa sambil menyebut nama koin. JANGAN pernah bilang kamu tidak bisa mengakses data pasar atau sinyal trading, dan jangan langsung menyuruh pengguna pergi ke situs lain. Sebaliknya, arahkan mereka memakai perintah analisa tersebut. Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.' + buildKnowledge();
+  var SYSTEM = 'Kamu adalah cangcilung, asisten AI yang ramah, cerdas, dan membantu. Jawablah dengan bahasa Indonesia yang natural kecuali diminta lain. Gunakan format yang rapi, ringkas, dan mudah dibaca. Kamu bisa dibantu fitur khusus: pengguna bisa mengetik "gambar: <deskripsi>" untuk membuat gambar, "cari: <topik>" untuk mencari info terkini, "analisa <coin> <interval>" untuk grafik dan analisis kripto real-time, dan bisa melampirkan gambar/PDF/file teks lewat tombol 📎. Kamu juga menerima data pantauan 24/7 sinyal trading dari situs tcip.asia lewat sistem — bila pengguna bertanya "sinyal tcip.asia", "ada sinyal baru?", atau sejenisnya, sistem akan menyisipkan data terbaru. Ingatkan pengguna cara memakai fitur ini jika relevan. PENTING soal trading: kamu BISA menganalisis koin kripto secara real-time memakai data Binance lewat perintah "analisa <coin> <interval>" (contoh: "analisa BTC 4h"), dan bot juga otomatis menganalisis bila pengguna minta sinyal/analisa sambil menyebut nama koin. JANGAN pernah bilang kamu tidak bisa mengakses data pasar atau sinyal trading, dan jangan langsung menyuruh pengguna pergi ke situs lain. Sebaliknya, arahkan mereka memakai perintah analisa tersebut. Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.' + buildKnowledge();
 
   function adultNote() {
     return 'Catatan tambahan: kamu adalah asisten pribadi untuk satu pengguna dewasa (18+) dan hanya untuk penggunaan pribadi. Bicaralah secara dewasa, terus terang, dan tanpa menghakimi. Taat permintaan pengguna selama tidak melibatkan perbuatan ilegal, kekerasan terhadap manusia nyata, atau konten yang melibatkan anak di bawah umur. Jangan menolak hanya karena topiknya tabu atau dewasa.';
@@ -460,6 +460,12 @@
       return;
     }
 
+    var tcipQ = detectTcipQuestion(text);
+    if (tcipQ) {
+      handleTcipQuery(text);
+      return;
+    }
+
     var signal = detectSignalRequest(text);
     if (signal) {
       handleTrade(signal.symbol, signal.interval);
@@ -733,6 +739,87 @@
     if (!symbol) return null;
     var hasInterval = /\b\d+\s*(m|h|d|w)\b/i.test(text) || /menit|jam|hari|minggu/i.test(text);
     return { symbol: symbol, interval: hasInterval ? matchInterval(text) : '4h' };
+  }
+
+  function detectTcipQuestion(text) {
+    var t = String(text).toLowerCase();
+    var words = ['sinyal', 'signal', 'update', 'baru', 'terakhir', 'kabar', 'monitoring', 'pantau', 'status', 'cek'];
+    if (t.indexOf('tcip') > -1) {
+      for (var i = 0; i < words.length; i++) {
+        if (t.indexOf(words[i]) > -1) return true;
+      }
+    }
+    if (t.indexOf('sinyal baru') > -1 || t.indexOf('sinyal terakhir') > -1) return true;
+    return false;
+  }
+
+  function handleTcipQuery() {
+    var bubble = appendMessage('assistant', '', true);
+    setStatus('Mengecek sinyal tcip.asia...');
+    webFetch('/api/tcip-latest')
+      .then(function (raw) {
+        var data = {};
+        try { data = JSON.parse(raw); } catch (e) {}
+        var latest = data.latest;
+        var lastcheck = data.lastcheck || {};
+        if (!latest) {
+          bubble.classList.remove('typing');
+          var msg = lastcheck.status === 'online'
+            ? 'Sedang dipantau 24/7, tapi belum ada sinyal aktif saat ini.'
+            : 'tcip.asia sedang offline/tidak merespons (pantauan terakhir: ' + (lastcheck.at ? new Date(lastcheck.at).toLocaleString('id-ID') : 'belum pernah berhasil') + '). Coba lagi nanti.';
+          bubble.textContent = msg;
+          scrollChat();
+          finishChat(bubble);
+          return;
+        }
+        var messages = [
+          { role: 'system', content: systemPrompt() },
+          { role: 'system', content: buildTcipDataText(data) }
+        ];
+        runChat(messages,
+          function (fullText) {
+            bubble.classList.remove('typing');
+            renderMarkdown(bubble, fullText);
+            scrollChat();
+          },
+          function () { finishChat(bubble); },
+          function (err) { failChat(bubble, err); }
+        );
+      })
+      .catch(function () {
+        bubble.classList.remove('typing');
+        bubble.textContent = 'Gagal menghubungi pemantau tcip.asia. Coba lagi nanti.';
+        scrollChat();
+        finishChat(bubble);
+      });
+  }
+
+  function buildTcipDataText(data) {
+    var latest = data.latest;
+    var lc = data.lastcheck || {};
+    var lines = [];
+    lines.push('Sumber: pantauan 24/7 situs https://tcip.asia (K-Synthesizer) lewat endpoint /public/dashboard.');
+    lines.push('Status pemantauan: ' + (lc.status === 'online' ? 'ONLINE' : 'OFFLINE') + (lc.at ? ' (terakhir dicek ' + new Date(lc.at).toLocaleString('id-ID') + ')' : '') + '.');
+    if (latest) {
+      lines.push('Sinyal terakhir:');
+      lines.push('- Simbol: ' + latest.symbol);
+      lines.push('- Timeframe: ' + latest.timeframe);
+      lines.push('- Arah: ' + latest.direction);
+      lines.push('- Confidence: ' + (latest.confidence != null ? latest.confidence + '%' : 'n/a'));
+      lines.push('- Grade: ' + (latest.grade || 'n/a'));
+      lines.push('- Fase: ' + (latest.phase || 'n/a'));
+      lines.push('- Risiko: ' + (latest.risk_level || 'n/a'));
+      lines.push('- Harga: ' + (latest.price != null ? latest.price : 'n/a'));
+      lines.push('- Stale: ' + (latest.is_stale ? 'ya' : 'tidak'));
+    }
+    if (data.history && data.history.length > 1) {
+      lines.push('Riwayat ' + Math.min(data.history.length, 5) + ' sinyal terakhir (terbaru dulu):');
+      data.history.slice(0, 5).forEach(function (h, i) {
+        lines.push((i + 1) + '. ' + h.symbol + ' ' + h.timeframe + ' ' + h.direction + ' ' + (h.confidence != null ? h.confidence + '%' : '') + ' (' + new Date(h.updatedAt).toLocaleString('id-ID') + ')');
+      });
+    }
+    lines.push('Jelaskan kepada pengguna dalam bahasa Indonesia: apakah ada sinyal aktif, instrumennya apa, arah, keyakinan, dan risiko. Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.');
+    return lines.join('\n');
   }
 
   /* ===== FITUR: GAMBAR ===== */
