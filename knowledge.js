@@ -24,6 +24,14 @@ window.CANGCILUNG_KNOWLEDGE = [
     ].join("\n")
   },
   {
+    name: "tcip.asia — Instrumen / Pair Trading",
+    info: [
+      "Daftar simbol trading tidak dikunci di kode, melainkan di-push live dari feed MT5 (MetaTrader 5) melalui api.tcip.asia, jadi bisa berubah-ubah mengikuti feed.",
+      "Dari aturan format harga di dashboard.js, kategori instrumen yang didukung: (1) FOREX — pasangan mata uang dengan default 5 desimal, termasuk pair JPY dengan 3 desimal (mis. EURUSD, GBPUSD, USDJPY, EURJPY, AUDJPY); (2) LOGAM — XAU (emas, mis. XAUUSD); (3) KRIPTO — BTC (mis. BTCUSD); (4) INDEKS — US30, NAS, USA, USTEC (indeks AS) dan USDINDEX/DXY.",
+      "Tanda '→' ditampilkan saat harga belum tersedia (price feed belum mengirim data)."
+    ].join("\n")
+  },
+  {
     name: "tcip.asia — Desain & Pengalaman",
     info: [
       "Desain disebut \"Liquid Glass 2.0\": kartu frosted glass transparan dengan blur, tepi specular, dan sorotan kilau.",
