@@ -176,6 +176,11 @@
             <option value="a1111">Stable Diffusion WebUI / A1111 (gambar lokal)</option>
           </select>
         </label>
+        <label class="set-row" id="row-image-only" hidden>
+          <span>Gambar saja — chat tetap lewat Puter</span>
+          <input type="checkbox" id="set-imageonly">
+        </label>
+        <p class="set-hint" id="hint-image-only" hidden>Mode ini mengarahkan perintah <b>gambar:</b> ke backend OpenAI-compatible (mis. stable-diffusion.cpp lokal), sementara chat tetap gratis lewat Puter. Cocok untuk backend gambar tanpa filter.</p>
         <label class="set-field">
           <span>Base URL</span>
           <input type="text" id="set-baseurl" placeholder="https://api.openai.com/v1" autocomplete="off">

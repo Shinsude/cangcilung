@@ -16,7 +16,8 @@
         baseUrl: String(c.baseUrl || '').replace(/\/+$/, ''),
         apiKey: String(c.apiKey || ''),
         model: String(c.model || ''),
-        adult: !!c.adult
+        adult: !!c.adult,
+        imageOnly: !!c.imageOnly
       };
     } catch (e) { return {}; }
   }
@@ -317,7 +318,7 @@
     var el = document.getElementById('footer-mode');
     if (!el) return;
     el.textContent = apiConfig.enabled
-      ? (apiConfig.kind === 'a1111' ? 'API Sendiri · A1111' : ('API Sendiri · ' + (apiConfig.model || MODEL)))
+      ? (apiConfig.kind === 'a1111' ? 'API Sendiri · A1111' : (apiConfig.imageOnly ? 'API Sendiri · Gambar saja' : ('API Sendiri · ' + (apiConfig.model || MODEL))))
       : 'Gratis · Tanpa API Key';
   }
 
@@ -337,12 +338,19 @@
     var inKey = document.getElementById('set-apikey');
     var inModel = document.getElementById('set-model');
     var cbAdult = document.getElementById('set-adult');
-    if (!btnSettings || !btnClose || !btnCancel || !btnSave || !btnTest || !statusEl || !cbCustom || !selKind || !inBase || !inKey || !inModel || !cbAdult) return;
+    var cbImageOnly = document.getElementById('set-imageonly');
+    var rowImageOnly = document.getElementById('row-image-only');
+    var hintImageOnly = document.getElementById('hint-image-only');
+    if (!btnSettings || !btnClose || !btnCancel || !btnSave || !btnTest || !statusEl || !cbCustom || !selKind || !inBase || !inKey || !inModel || !cbAdult || !cbImageOnly) return;
 
     function syncKind() {
-      inBase.placeholder = selKind.value === 'a1111' ? 'http://127.0.0.1:7860' : 'https://api.openai.com/v1';
-      inKey.placeholder = selKind.value === 'a1111' ? 'opsional (jika --api-auth)' : 'sk-...';
-      inModel.placeholder = selKind.value === 'a1111' ? 'nama checkpoint (opsional)' : 'gpt-4o-mini';
+      var isA1111 = selKind.value === 'a1111';
+      var isImageOnly = cbImageOnly.checked;
+      inBase.placeholder = isA1111 ? 'http://127.0.0.1:7860' : (isImageOnly ? 'http://127.0.0.1:8080' : 'https://api.openai.com/v1');
+      inKey.placeholder = isA1111 ? 'opsional (jika --api-auth)' : 'opsional';
+      inModel.placeholder = isA1111 ? 'nama checkpoint (opsional)' : (isImageOnly ? 'nama model (opsional)' : 'gpt-4o-mini');
+      if (rowImageOnly) rowImageOnly.hidden = isA1111;
+      if (hintImageOnly) hintImageOnly.hidden = !(!isA1111 && isImageOnly);
     }
 
     function show() {
@@ -352,6 +360,7 @@
       inKey.value = apiConfig.apiKey || '';
       inModel.value = apiConfig.model || '';
       cbAdult.checked = !!apiConfig.adult;
+      cbImageOnly.checked = !!apiConfig.imageOnly;
       syncKind();
       setStatusMsg('');
       modal.hidden = false;
@@ -366,6 +375,7 @@
     btnClose.addEventListener('click', hide);
     btnCancel.addEventListener('click', hide);
     selKind.addEventListener('change', syncKind);
+    cbImageOnly.addEventListener('change', syncKind);
     modal.addEventListener('click', function (e) { if (e.target === modal) hide(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) hide(); });
 
@@ -376,6 +386,7 @@
       apiConfig.apiKey = inKey.value.trim();
       apiConfig.model = inModel.value.trim();
       apiConfig.adult = cbAdult.checked;
+      apiConfig.imageOnly = cbImageOnly.checked && selKind.value !== 'a1111';
       try {
         localStorage.setItem(API_KEY_STORAGE, JSON.stringify(apiConfig));
       } catch (e) { /* penyimpanan penuh — abaikan */ }
@@ -394,7 +405,8 @@
         kind: selKind.value === 'a1111' ? 'a1111' : 'openai',
         baseUrl: inBase.value.trim().replace(/\/+$/, ''),
         apiKey: inKey.value.trim(),
-        model: inModel.value.trim() || MODEL
+        model: inModel.value.trim() || MODEL,
+        imageOnly: cbImageOnly.checked && selKind.value !== 'a1111'
       };
       if (cfg.kind === 'a1111') {
         setStatusMsg('Mengetes koneksi...');
@@ -410,6 +422,26 @@
               setStatusMsg('Koneksi OK. Model: ' + models.map(function (m) { return m.model_name; }).join(', '));
             } else {
               setStatusMsg('Koneksi OK (tanpa daftar model).');
+            }
+          })
+          .catch(function (err) { setStatusMsg('Gagal: ' + (err && err.message ? err.message : 'tidak diketahui'), true); });
+        return;
+      }
+      if (cfg.imageOnly) {
+        setStatusMsg('Mengetes koneksi...');
+        var h2 = {};
+        if (cfg.apiKey) h2['Authorization'] = 'Bearer ' + cfg.apiKey;
+        fetch(cfg.baseUrl + '/models', { headers: h2 })
+          .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+          })
+          .then(function (data) {
+            var list = data && data.data;
+            if (Array.isArray(list) && list.length) {
+              setStatusMsg('Koneksi OK. Model: ' + list.map(function (m) { return m.id || m.model || ''; }).filter(Boolean).join(', '));
+            } else {
+              setStatusMsg('Koneksi OK.');
             }
           })
           .catch(function (err) { setStatusMsg('Gagal: ' + (err && err.message ? err.message : 'tidak diketahui'), true); });
@@ -495,17 +527,17 @@
   function isCustomApi() {
     if (!apiConfig.enabled || !apiConfig.baseUrl) return false;
     if (apiConfig.kind === 'a1111') return true;
+    if (apiConfig.imageOnly) return true;
     return !!apiConfig.apiKey;
   }
 
   function customApiCall(path, body, cfg) {
     cfg = cfg || apiConfig;
+    var headers = { 'Content-Type': 'application/json' };
+    if (cfg.apiKey) headers['Authorization'] = 'Bearer ' + cfg.apiKey;
     return fetch(cfg.baseUrl + path, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + cfg.apiKey
-      },
+      headers: headers,
       body: JSON.stringify(body)
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (data) {
@@ -616,14 +648,14 @@
   }
 
   function aiVision(prompt, dataUrl) {
-    if (isCustomApi() && apiConfig.kind !== 'a1111') {
+    if (isCustomApi() && apiConfig.kind !== 'a1111' && !apiConfig.imageOnly) {
       return customVision(prompt, dataUrl);
     }
     return puter.ai.chat(prompt, dataUrl, { model: MODEL });
   }
 
   function runChat(messages, onToken, onDone, onError) {
-    if (isCustomApi() && apiConfig.kind !== 'a1111') {
+    if (isCustomApi() && apiConfig.kind !== 'a1111' && !apiConfig.imageOnly) {
       customChat(messages)
         .then(function (fullText) { onToken(fullText); onDone(); })
         .catch(onError);
