@@ -753,13 +753,29 @@
     return false;
   }
 
+  function fetchTcipMonitorData() {
+    var base = 'https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/';
+    return Promise.all([
+      webFetch(base + 'tcip-latest.json'),
+      webFetch(base + 'tcip-status.json'),
+      webFetch(base + 'tcip-history.json')
+    ]).then(function (res) {
+      var data = {};
+      try { data.latest = JSON.parse(res[0]); } catch (e) {}
+      try { data.lastcheck = JSON.parse(res[1]); } catch (e) {}
+      try {
+        data.history = JSON.parse(res[2]);
+        if (!Array.isArray(data.history)) data.history = [];
+      } catch (e) { data.history = []; }
+      return data;
+    });
+  }
+
   function handleTcipQuery() {
     var bubble = appendMessage('assistant', '', true);
     setStatus('Mengecek sinyal tcip.asia...');
-    webFetch('/api/tcip-latest')
-      .then(function (raw) {
-        var data = {};
-        try { data = JSON.parse(raw); } catch (e) {}
+    fetchTcipMonitorData()
+      .then(function (data) {
         var latest = data.latest;
         var lastcheck = data.lastcheck || {};
         if (!latest) {

@@ -44,7 +44,11 @@ Bot bisa menjawab "ada sinyal baru dari tcip.asia?" memakai data yang dipantau b
 
 - **`scripts/tcip-monitor.mjs`** — mengambil sinyal dari `https://api.tcip.asia/public/dashboard`, lalu menyimpan ke `tcip-data/` (`tcip-latest.json`, `tcip-history.json`, `tcip-status.json`).
 - **`.github/workflows/monitor-tcip.yml`** — GitHub Actions menjalankan pemantau tiap **10 menit** (jadwal UTC) dan meng-commit data jika ada perubahan. Repo publik → gratis & tanpa batas menit.
-- **`api/tcip-latest.js`** — endpoint publik di Vercel yang membaca data pantauan untuk bot; jika data basi (>45 menit) ia fallback mengambil langsung dari tcip.asia.
+- Bot membaca data langsung dari file JSON di repo ini (tanpa server tambahan):
+  - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-latest.json` — sinyal terakhir (atau `null` jika belum ada).
+  - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-status.json` — status pantauan (online/offline).
+  - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-history.json` — riwayat sinyal (terbaru duluan, maks 60).
+  - (`api/tcip-latest.js` adalah endpoint Vercel opsional yang merangkai data di atas; di proyek Vercel yang mengaktifkan **Vercel Authentication/SSO**, endpoint itu hanya bisa diakses setelah login — pakai URL raw GitHub di atas agar bebas proteksi.)
 - Di chat, ketik mis. **"sinyal tcip.asia"** atau **"ada sinyal baru?"** untuk hasil terbaru.
 
 > Catatan: saat `api.tcip.asia` sedang offline (mis. HTTP 502), status pantauan tercatat OFFLINE dan bot akan memberitahu pengguna.
