@@ -17,21 +17,8 @@ Asisten AI chatbot berbasis web seperti DOLA / tcip.asia.
 - **📎 Lampirkan file** — unggah gambar (dianalisis AI), PDF (teks diekstrak & dirangkum), atau file teks (.txt/.md/.csv/.json) langsung di chat.
 - Riwayat chat tersimpan otomatis di browser (localStorage).
 
-### Pasar (tab 📊)
-- Tabel harga real-time ~17 koin populer (sumber: CoinGecko) dengan perubahan 24 jam, bisa di-refresh manual.
-
-### Signal (tab 🚨)
-- Signal & analisis teknikal berbasis indikator (RSI, MACD, SMA20/50, pivot R1/S1) plus **tren Machine Learning** (regresi linier harga).
-- Data dihitung otomatis dari Binance, ditampilkan dengan grafik garis dan kartu hasil (STRONG BUY / BUY / HOLD / SELL / STRONG SELL) serta alasan sinyal.
-
-### P&L (tab 💰)
-- Pantau untung/rugi portofolio. Tambah posisi (simbol, harga beli, jumlah), harga terkini diambil dari CoinGecko, total P&L dihitung otomatis. Tersimpan di localStorage.
-
-### Kalender (tab 📅)
-- Event ekonomi 7 hari ke depan dengan bendera negara, jam, level dampak, dan nilai sebelumnya/forecast/aktual (sumber: TradingView, diambil lewat proxy Puter).
-
 ### Status (tab ⚙️)
-- System Analysis: status layanan AI (Puter), Binance, CoinGecko, TradingView, dan localStorage.
+- System Analysis: status layanan AI (Puter), Binance, dan localStorage.
 
 ### API sendiri (opsional)
 - Di **⚙️ Pengaturan** ada opsi "API sendiri": pakai endpoint OpenAI-compatible (chat + gambar) atau **Stable Diffusion WebUI (A1111)** untuk gambar lokal tanpa filter layanan.

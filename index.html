@@ -23,22 +23,6 @@
           <span class="nav-icon">💬</span>
           <span>Chat</span>
         </button>
-        <button class="nav-item" data-tab="market" title="Harga pasar kripto real-time">
-          <span class="nav-icon">📊</span>
-          <span>Pasar</span>
-        </button>
-        <button class="nav-item" data-tab="signal" title="Signal & analisis teknikal + tren ML">
-          <span class="nav-icon">🚨</span>
-          <span>Signal</span>
-        </button>
-        <button class="nav-item" data-tab="pnl" title="Pantau untung/rugi portofolio">
-          <span class="nav-icon">💰</span>
-          <span>P&amp;L</span>
-        </button>
-        <button class="nav-item" data-tab="calendar" title="Kalender ekonomi 7 hari ke depan">
-          <span class="nav-icon">📅</span>
-          <span>Kalender</span>
-        </button>
         <button class="nav-item" data-tab="status" title="Status layanan & sistem">
           <span class="nav-icon">⚙️</span>
           <span>Status</span>
@@ -80,69 +64,6 @@
           </div>
           <div class="chat-status" id="chat-status"></div>
         </div>
-      </section>
-
-      <!-- ====== TAB PASAR ====== -->
-      <section class="tab-pane" id="tab-market">
-        <div class="chat-header">
-          <h2>Pasar</h2>
-          <div class="header-actions">
-            <button id="btn-market-refresh" class="ghost-btn" title="Muat ulang harga">🔄 Muat ulang</button>
-          </div>
-        </div>
-        <div class="pane-body" id="market-body"></div>
-      </section>
-
-      <!-- ====== TAB SIGNAL ====== -->
-      <section class="tab-pane" id="tab-signal">
-        <div class="chat-header">
-          <h2>Signal &amp; Analisis</h2>
-          <span class="pane-sub">Indikator teknikal + tren Machine Learning</span>
-        </div>
-        <div class="pane-body" id="signal-body">
-          <div class="form-row">
-            <input id="signal-symbol" class="form-input" placeholder="Simbol, misal BTC / ETH / SOL" value="BTC">
-            <select id="signal-interval" class="form-input">
-              <option value="15m">15 menit</option>
-              <option value="1h">1 jam</option>
-              <option value="4h" selected>4 jam</option>
-              <option value="1d">1 hari</option>
-              <option value="1w">1 minggu</option>
-            </select>
-            <button id="btn-signal" class="primary-btn">Cek Signal</button>
-          </div>
-          <div id="signal-result"></div>
-        </div>
-      </section>
-
-      <!-- ====== TAB P&L ====== -->
-      <section class="tab-pane" id="tab-pnl">
-        <div class="chat-header">
-          <h2>Portofolio &amp; P&amp;L</h2>
-          <span class="pane-sub">Pantau untung/rugi posisi kamu</span>
-        </div>
-        <div class="pane-body" id="pnl-body">
-          <div class="form-row">
-            <input id="pnl-symbol" class="form-input" placeholder="Simbol, misal BTC" value="BTC">
-            <input id="pnl-entry" class="form-input" type="number" step="any" placeholder="Harga beli (USD)">
-            <input id="pnl-qty" class="form-input" type="number" step="any" placeholder="Jumlah (coin)">
-            <button id="btn-pnl-add" class="primary-btn">Tambah</button>
-          </div>
-          <div id="pnl-summary"></div>
-          <div id="pnl-list"></div>
-        </div>
-      </section>
-
-      <!-- ====== TAB KALENDER ====== -->
-      <section class="tab-pane" id="tab-calendar">
-        <div class="chat-header">
-          <h2>Kalender Ekonomi</h2>
-          <span class="pane-sub">Event ekonomi 7 hari ke depan</span>
-          <div class="header-actions">
-            <button id="btn-calendar-refresh" class="ghost-btn" title="Muat ulang kalender">🔄 Muat ulang</button>
-          </div>
-        </div>
-        <div class="pane-body" id="calendar-body"></div>
       </section>
 
       <!-- ====== TAB STATUS ====== -->

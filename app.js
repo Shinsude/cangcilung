@@ -66,38 +66,11 @@
     'apt': 'APTUSDT', 'aptos': 'APTUSDT'
   };
 
-  var COINS = [
-    { id: 'bitcoin', sym: 'BTC', name: 'Bitcoin', icon: '₿' },
-    { id: 'ethereum', sym: 'ETH', name: 'Ethereum', icon: 'Ξ' },
-    { id: 'binancecoin', sym: 'BNB', name: 'BNB', icon: '⬡' },
-    { id: 'solana', sym: 'SOL', name: 'Solana', icon: '◎' },
-    { id: 'ripple', sym: 'XRP', name: 'XRP', icon: '✕' },
-    { id: 'cardano', sym: 'ADA', name: 'Cardano', icon: '₳' },
-    { id: 'dogecoin', sym: 'DOGE', name: 'Dogecoin', icon: 'Ð' },
-    { id: 'polkadot', sym: 'DOT', name: 'Polkadot', icon: '◉' },
-    { id: 'litecoin', sym: 'LTC', name: 'Litecoin', icon: 'Ł' },
-    { id: 'avalanche-2', sym: 'AVAX', name: 'Avalanche', icon: '▲' },
-    { id: 'matic-network', sym: 'MATIC', name: 'Polygon', icon: '⬢' },
-    { id: 'chainlink', sym: 'LINK', name: 'Chainlink', icon: '⛓' },
-    { id: 'the-open-network', sym: 'TON', name: 'Toncoin', icon: '◈' },
-    { id: 'shiba-inu', sym: 'SHIB', name: 'Shiba Inu', icon: '🐕' },
-    { id: 'pepe', sym: 'PEPE', name: 'Pepe', icon: '🐸' },
-    { id: 'near', sym: 'NEAR', name: 'NEAR', icon: '⛩' },
-    { id: 'aptos', sym: 'APT', name: 'Aptos', icon: '🅰' }
-  ];
-
-  var SYMBOL_TO_ID = {};
-  COINS.forEach(function (c) { SYMBOL_TO_ID[c.sym] = c.id; });
-
   document.addEventListener('DOMContentLoaded', init);
 
   function init() {
     cacheElements();
     bindNavigation();
-    bindSignal();
-    bindPnl();
-    bindMarketRefresh();
-    bindCalendarRefresh();
     bindSettings();
     updateFooterMode();
     bindChat();
@@ -117,7 +90,7 @@
   }
 
   /* ===== NAVIGASI ===== */
-  var TABS = ['chat', 'market', 'signal', 'pnl', 'calendar', 'status'];
+  var TABS = ['chat', 'status'];
   var renderedTabs = {};
 
   function bindNavigation() {
@@ -143,9 +116,7 @@
   function lazyLoadTab(name) {
     if (renderedTabs[name]) return;
     renderedTabs[name] = true;
-    if (name === 'market') renderMarket();
-    else if (name === 'calendar') renderCalendar();
-    else if (name === 'status') renderStatus();
+    if (name === 'status') renderStatus();
   }
 
   /* ===== UTIL ===== */
@@ -213,27 +184,6 @@
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
-
-  function fmtPrice(n) {
-    n = Number(n);
-    if (isNaN(n)) return 'n/a';
-    if (n >= 1000) return n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (n >= 1) return n.toFixed(2);
-    if (n >= 0.01) return n.toFixed(4);
-    return n.toFixed(8);
-  }
-
-  function paneLoading(msg) {
-    return '<div class="pane-state"><span class="spinner"></span><span>' + escHtml(msg) + '</span></div>';
-  }
-
-  function paneEmpty(msg) {
-    return '<div class="pane-state"><span>📭</span><span>' + escHtml(msg) + '</span></div>';
-  }
-
-  function paneError(msg) {
-    return '<div class="pane-state error"><span>⚠️</span><span>' + escHtml(msg) + '</span></div>';
   }
 
   /* ===== PENYIMPANAN LOKAL ===== */
@@ -1162,417 +1112,6 @@
     ].join('\n');
   }
 
-  /* ===== TAB: PASAR ===== */
-  function bindMarketRefresh() {
-    var btn = document.getElementById('btn-market-refresh');
-    if (btn) btn.addEventListener('click', renderMarket);
-  }
-
-  function renderMarket() {
-    var body = document.getElementById('market-body');
-    if (!body) return;
-    body.innerHTML = paneLoading('Memuat harga pasar...');
-    var ids = COINS.map(function (c) { return c.id; }).join(',');
-    var url = 'https://api.coingecko.com/api/v3/simple/price?ids=' + ids + '&vs_currencies=usd&include_24hr_change=true';
-    webFetch(url)
-      .then(function (text) {
-        var data;
-        try { data = JSON.parse(text); } catch (e) { throw new Error('Respons pasar tidak valid.'); }
-        var rows = COINS.map(function (c) {
-          var d = data[c.id] || {};
-          return { coin: c, price: d.usd, chg: d.usd_24h_change };
-        }).filter(function (r) { return r.price != null; })
-          .sort(function (a, b) { return b.price - a.price; });
-        if (!rows.length) throw new Error('Tidak ada data pasar. Coba lagi nanti.');
-        var html = '<div class="mkt-table">' +
-          '<div class="mkt-row mkt-head"><div class="mkt-name">Koin</div><div class="mkt-price">Harga (USD)</div><div class="mkt-chg">24 jam</div></div>';
-        rows.forEach(function (r) {
-          var cls = r.chg >= 0 ? 'up' : 'down';
-          var sign = r.chg >= 0 ? '+' : '';
-          html += '<div class="mkt-row">' +
-            '<div class="mkt-name"><span class="mkt-icon">' + r.coin.icon + '</span>' +
-            '<span class="mkt-sym">' + r.coin.sym + '</span>' +
-            '<span class="mkt-full">' + escHtml(r.coin.name) + '</span></div>' +
-            '<div class="mkt-price">$' + fmtPrice(r.price) + '</div>' +
-            '<div class="mkt-chg ' + cls + '">' + sign + fmt(r.chg, 2) + '%</div>' +
-            '</div>';
-        });
-        html += '</div>';
-        html += '<div class="mkt-note">Sumber: CoinGecko · diperbarui ' + new Date().toLocaleTimeString('id-ID') + '</div>';
-        body.innerHTML = html;
-      })
-      .catch(function (err) {
-        body.innerHTML = paneError(friendlyError(err));
-      });
-  }
-
-  /* ===== TAB: SIGNAL ===== */
-  function bindSignal() {
-    var btn = document.getElementById('btn-signal');
-    if (!btn) return;
-    btn.addEventListener('click', function () { runSignal(); });
-    var input = document.getElementById('signal-symbol');
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); runSignal(); }
-    });
-  }
-
-  function resolveSymbol(raw) {
-    var t = String(raw || '').trim().toUpperCase();
-    if (!t) return null;
-    if (CRYPTO_SYMBOLS[t.toLowerCase()]) return CRYPTO_SYMBOLS[t.toLowerCase()];
-    if (SYMBOL_TO_ID[t]) return t + 'USDT';
-    var m = t.match(/^([A-Z]{1,6})$/);
-    if (m) return m[1] + 'USDT';
-    return null;
-  }
-
-  function runSignal() {
-    var body = document.getElementById('signal-result');
-    var raw = document.getElementById('signal-symbol').value;
-    var interval = document.getElementById('signal-interval').value;
-    var symbol = resolveSymbol(raw);
-    if (!symbol) {
-      body.innerHTML = paneError('Simbol tidak dikenal. Contoh: BTC, ETH, SOL.');
-      return;
-    }
-    body.innerHTML = paneLoading('Menghitung indikator & tren ' + symbol + ' (' + interval + ')...');
-    getKlines(symbol, interval)
-      .then(function (klines) {
-        var a = computeIndicators(klines);
-        var trend = linearTrend(klines);
-        var sig = makeSignal(a, trend);
-        var points = klines.map(function (k) {
-          return { time: Math.floor(k.openTime / 1000), close: +k.close };
-        });
-        body.innerHTML = signalCardHTML(symbol, interval, a, trend, sig);
-        renderLineChart('signal-chart', points);
-      })
-      .catch(function (err) {
-        body.innerHTML = paneError(friendlyError(err));
-      });
-  }
-
-  function linearTrend(klines) {
-    var n = klines.length;
-    if (n < 2) return null;
-    var sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-    for (var i = 0; i < n; i++) {
-      var y = +klines[i].close;
-      sumX += i; sumY += y; sumXY += i * y; sumX2 += i * i;
-    }
-    var denom = n * sumX2 - sumX * sumX;
-    if (!denom) return null;
-    var slope = (n * sumXY - sumX * sumY) / denom;
-    var intercept = (sumY - slope * sumX) / n;
-    var last = +klines[n - 1].close;
-    var projected = slope * n + intercept;
-    var direction = projected > last ? 'up' : (projected < last ? 'down' : 'sideways');
-    var bias = slope > 0 ? 'Bullish' : (slope < 0 ? 'Bearish' : 'Netral');
-    var strength = Math.abs(slope) / (last || 1) * n * 100;
-    return { slope: slope, direction: direction, bias: bias, strength: strength };
-  }
-
-  function makeSignal(a, trend) {
-    var score = 0;
-    var reasons = [];
-    if (a.rsi != null) {
-      if (a.rsi > 70) { score -= 2; reasons.push('RSI jenuh beli (overbought): ' + fmt(a.rsi, 0)); }
-      else if (a.rsi < 30) { score += 2; reasons.push('RSI jenuh jual (oversold): ' + fmt(a.rsi, 0)); }
-      else if (a.rsi >= 50) { score += 1; reasons.push('RSI netral-positif: ' + fmt(a.rsi, 0)); }
-      else { score -= 1; reasons.push('RSI netral-negatif: ' + fmt(a.rsi, 0)); }
-    }
-    if (a.macd) {
-      if (a.macd.macd >= a.macd.signal) { score += 1; reasons.push('MACD di atas garis signal (bullish)'); }
-      else { score -= 1; reasons.push('MACD di bawah garis signal (bearish)'); }
-      if (a.macd.hist >= 0) { score += 0.5; reasons.push('Histogram MACD positif'); }
-      else { score -= 0.5; reasons.push('Histogram MACD negatif'); }
-    }
-    if (a.sma20 != null && a.sma50 != null) {
-      if (a.last > a.sma20 && a.sma20 > a.sma50) { score += 1.5; reasons.push('Harga di atas SMA20 & SMA50 (uptrend)'); }
-      else if (a.last < a.sma20 && a.sma20 < a.sma50) { score -= 1.5; reasons.push('Harga di bawah SMA20 & SMA50 (downtrend)'); }
-      else if (a.last > a.sma20) { score += 0.5; reasons.push('Harga di atas SMA20'); }
-      else { score -= 0.5; reasons.push('Harga di bawah SMA20'); }
-    }
-    if (trend) {
-      if (trend.bias === 'Bullish') { score += 1; reasons.push('Tren linier naik'); }
-      else if (trend.bias === 'Bearish') { score -= 1; reasons.push('Tren linier turun'); }
-    }
-    var label, cls;
-    if (score >= 3) { label = 'STRONG BUY'; cls = 'buy'; }
-    else if (score >= 1) { label = 'BUY'; cls = 'buy'; }
-    else if (score <= -3) { label = 'STRONG SELL'; cls = 'sell'; }
-    else if (score <= -1) { label = 'SELL'; cls = 'sell'; }
-    else { label = 'HOLD / NETRAL'; cls = 'hold'; }
-    return { score: score, label: label, cls: cls, reasons: reasons };
-  }
-
-  function signalCardHTML(symbol, interval, a, trend, sig) {
-    var html = '<div class="signal-card">' +
-      '<div class="signal-top"><div><span class="signal-sym">' + escHtml(symbol) + '</span><span class="signal-int">' + escHtml(interval) + '</span></div>' +
-      '<span class="signal-badge ' + sig.cls + '">' + escHtml(sig.label) + '</span></div>' +
-      '<div class="signal-chart" id="signal-chart"></div>' +
-      '<div class="signal-grid">' +
-      signalCell('Harga', '$' + fmtPrice(a.last)) +
-      signalCell('Perubahan', fmt(a.changePct, 2) + '%') +
-      signalCell('RSI(14)', fmt(a.rsi, 2)) +
-      signalCell('MACD', fmt(a.macd.macd, 6)) +
-      signalCell('SMA20', '$' + fmt(a.sma20, 2)) +
-      signalCell('SMA50', '$' + fmt(a.sma50, 2)) +
-      signalCell('Pivot', '$' + fmt(a.pivot, 2)) +
-      signalCell('R1', '$' + fmt(a.r1, 2)) +
-      signalCell('S1', '$' + fmt(a.s1, 2)) +
-      '</div>';
-    if (trend) {
-      html += '<div class="signal-trend">Tren Machine Learning: <b>' + escHtml(trend.bias) + '</b> · proyeksi ' + (trend.direction === 'up' ? 'naik' : trend.direction === 'down' ? 'turun' : 'datar') +
-        ' · kekuatan ' + fmt(trend.strength, 2) + '%</div>';
-    }
-    if (sig.reasons.length) {
-      html += '<ul class="signal-reasons">';
-      sig.reasons.forEach(function (r) { html += '<li>' + escHtml(r) + '</li>'; });
-      html += '</ul>';
-    }
-    html += '<div class="signal-disc">⚠️ Hanya informasi, bukan saran investasi. Trading berisiko tinggi.</div></div>';
-    return html;
-  }
-
-  function signalCell(label, value) {
-    return '<div class="signal-cell"><span class="signal-label">' + label + '</span><span class="signal-value">' + value + '</span></div>';
-  }
-
-  function renderLineChart(elId, points) {
-    var el = document.getElementById(elId);
-    if (!el) return;
-    if (typeof LightweightCharts === 'undefined') {
-      el.textContent = '(Grafik tidak termuat)';
-      return;
-    }
-    try {
-      var chart = LightweightCharts.createChart(el, {
-        width: el.clientWidth || 600,
-        height: 240,
-        layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#8b93a7' },
-        grid: { vertLines: { color: 'rgba(35,43,59,0.5)' }, horzLines: { color: 'rgba(35,43,59,0.5)' } },
-        timeScale: { borderColor: '#232b3b', timeVisible: true },
-        rightPriceScale: { borderColor: '#232b3b' }
-      });
-      var series = chart.addLineSeries({ color: '#7c3aed', lineWidth: 2 });
-      series.setData(points);
-      chart.timeScale().fitContent();
-      function resize() {
-        var w = el.clientWidth;
-        if (w > 0) chart.applyOptions({ width: w });
-      }
-      resize();
-      setTimeout(resize, 60);
-      window.addEventListener('resize', resize);
-    } catch (e) {
-      el.textContent = '(Gagal menggambar grafik)';
-    }
-  }
-
-  /* ===== TAB: P&L ===== */
-  var PNL_KEY = 'cangcilung_pnl_v1';
-
-  function bindPnl() {
-    var btn = document.getElementById('btn-pnl-add');
-    if (!btn) return;
-    btn.addEventListener('click', addPnl);
-    var qty = document.getElementById('pnl-qty');
-    qty.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); addPnl(); }
-    });
-    document.addEventListener('click', function (e) {
-      var del = e.target.closest('.pnl-del');
-      if (!del) return;
-      var id = del.getAttribute('data-id');
-      var arr = loadPnl().filter(function (p) { return p.id !== id; });
-      savePnl(arr);
-      renderPnl();
-    });
-  }
-
-  function loadPnl() {
-    try {
-      var raw = localStorage.getItem(PNL_KEY);
-      var arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr : [];
-    } catch (e) { return []; }
-  }
-
-  function savePnl(arr) {
-    try { localStorage.setItem(PNL_KEY, JSON.stringify(arr)); } catch (e) {}
-  }
-
-  function addPnl() {
-    var sym = document.getElementById('pnl-symbol').value.trim().toUpperCase();
-    var entry = parseFloat(document.getElementById('pnl-entry').value);
-    var qty = parseFloat(document.getElementById('pnl-qty').value);
-    var summary = document.getElementById('pnl-summary');
-    if (!resolveSymbol(sym)) { summary.innerHTML = paneError('Simbol tidak dikenal. Contoh: BTC.'); return; }
-    if (!(entry > 0) || !(qty > 0)) { summary.innerHTML = paneError('Isi harga beli dan jumlah yang valid.'); return; }
-    var arr = loadPnl();
-    arr.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), symbol: sym, entry: entry, qty: qty, added: Date.now() });
-    savePnl(arr);
-    document.getElementById('pnl-entry').value = '';
-    document.getElementById('pnl-qty').value = '';
-    renderPnl();
-  }
-
-  function renderPnl() {
-    var summary = document.getElementById('pnl-summary');
-    var list = document.getElementById('pnl-list');
-    var arr = loadPnl();
-    if (!arr.length) {
-      summary.innerHTML = '';
-      list.innerHTML = paneEmpty('Belum ada posisi. Tambahkan koin yang kamu beli pada form di atas.');
-      return;
-    }
-    var ids = arr.map(function (p) { return SYMBOL_TO_ID[p.symbol] || p.symbol.toLowerCase(); }).join(',');
-    summary.innerHTML = paneLoading('Mengambil harga terkini...');
-    webFetch('https://api.coingecko.com/api/v3/simple/price?ids=' + ids + '&vs_currencies=usd')
-      .then(function (text) {
-        var data = {};
-        try { data = JSON.parse(text); } catch (e) {}
-        var rows = arr.map(function (p) {
-          var id = SYMBOL_TO_ID[p.symbol] || p.symbol.toLowerCase();
-          var cur = data[id] && data[id].usd;
-          var cost = p.entry * p.qty;
-          var value = cur != null ? cur * p.qty : null;
-          var pnl = value != null ? value - cost : null;
-          var pct = (cost > 0 && pnl != null) ? (pnl / cost * 100) : null;
-          return { pos: p, cur: cur, cost: cost, value: value, pnl: pnl, pct: pct };
-        });
-        var totalCost = rows.reduce(function (s, r) { return s + r.cost; }, 0);
-        var totalValue = rows.reduce(function (s, r) { return s + (r.value != null ? r.value : 0); }, 0);
-        var totalPnl = totalValue - totalCost;
-        var totalPct = totalCost > 0 ? (totalPnl / totalCost * 100) : 0;
-        summary.innerHTML = renderPnlSummary(totalPnl, totalPct, totalValue);
-        list.innerHTML = renderPnlList(rows);
-      })
-      .catch(function () {
-        var rows = arr.map(function (p) {
-          var cost = p.entry * p.qty;
-          return { pos: p, cur: null, cost: cost, value: null, pnl: null, pct: null };
-        });
-        summary.innerHTML = paneError('Gagal mengambil harga terkini. Tampil nilai berdasarkan harga beli.');
-        list.innerHTML = renderPnlList(rows);
-      });
-  }
-
-  function renderPnlSummary(totalPnl, totalPct, totalValue) {
-    var cls = totalPnl > 0 ? 'up' : (totalPnl < 0 ? 'down' : 'flat');
-    var sign = totalPnl > 0 ? '+' : '';
-    return '<div class="pnl-total ' + cls + '">' +
-      '<div class="pnl-total-label">Total P&amp;L</div>' +
-      '<div class="pnl-total-val">' + sign + '$' + fmtPrice(Math.abs(totalPnl)) + '</div>' +
-      '<div class="pnl-total-pct">' + sign + fmt(totalPct, 2) + '%</div>' +
-      '<div class="pnl-total-note">Nilai total: $' + fmtPrice(totalValue) + '</div>' +
-      '</div>';
-  }
-
-  function renderPnlList(rows) {
-    var html = '<div class="pnl-table">' +
-      '<div class="pnl-row pnl-head"><div class="pnl-sym">Koin</div><div class="pnl-num">Beli</div><div class="pnl-num">Jumlah</div><div class="pnl-num">Sekarang</div><div class="pnl-num">P&amp;L</div><div class="pnl-act"></div></div>';
-    rows.forEach(function (r) {
-      var pnlTxt = r.pnl == null ? 'n/a' : (r.pnl >= 0 ? '+' : '') + '$' + fmtPrice(Math.abs(r.pnl));
-      var pctTxt = r.pct == null ? '' : ' (' + (r.pct >= 0 ? '+' : '') + fmt(r.pct, 2) + '%)';
-      var cls = r.pnl == null ? 'flat' : (r.pnl > 0 ? 'up' : 'down');
-      html += '<div class="pnl-row">' +
-        '<div class="pnl-sym">' + escHtml(r.pos.symbol) + '</div>' +
-        '<div class="pnl-num">$' + fmtPrice(r.pos.entry) + '</div>' +
-        '<div class="pnl-num">' + r.pos.qty + '</div>' +
-        '<div class="pnl-num">' + (r.cur != null ? '$' + fmtPrice(r.cur) : 'n/a') + '</div>' +
-        '<div class="pnl-num ' + cls + '">' + pnlTxt + pctTxt + '</div>' +
-        '<div class="pnl-act"><button class="pnl-del" data-id="' + escHtml(r.pos.id) + '" title="Hapus posisi">✕</button></div>' +
-        '</div>';
-    });
-    html += '</div>';
-    return html;
-  }
-
-  /* ===== TAB: KALENDER ===== */
-  function bindCalendarRefresh() {
-    var btn = document.getElementById('btn-calendar-refresh');
-    if (btn) btn.addEventListener('click', renderCalendar);
-  }
-
-  function renderCalendar() {
-    var body = document.getElementById('calendar-body');
-    if (!body) return;
-    body.innerHTML = paneLoading('Memuat kalender ekonomi...');
-    var now = Date.now();
-    var payload = { filter: [], from: now - 86400000, to: now + 7 * 86400000, limit: 40, type: 'economic' };
-    var opts = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    };
-    webFetch('https://economic-calendar.tradingview.com/events', opts)
-      .then(function (text) { return parseCalendar(text); })
-      .then(renderCalendarList)
-      .catch(function () {
-        return webFetch('https://economic-calendar.tradingview.com/events')
-          .then(function (text) { return parseCalendar(text); })
-          .then(renderCalendarList);
-      })
-      .then(function (html) { body.innerHTML = html; })
-      .catch(function (err) {
-        body.innerHTML = paneError(friendlyError(err) + ' Coba tekan tombol Muat ulang.');
-      });
-  }
-
-  function parseCalendar(text) {
-    var data;
-    try { data = JSON.parse(text); } catch (e) { throw new Error('Respons kalender tidak valid.'); }
-    var evs = Array.isArray(data) ? data : (data && data.result);
-    if (!Array.isArray(evs) || !evs.length) throw new Error('Tidak ada event ekonomi di rentang waktu ini.');
-    return evs;
-  }
-
-  function renderCalendarList(evs) {
-    var sorted = evs.slice().sort(function (a, b) { return new Date(a.date) - new Date(b.date); });
-    var html = '<div class="cal-list">';
-    sorted.forEach(function (ev) {
-      var d = new Date(ev.date);
-      html += '<div class="cal-item">' +
-        '<div class="cal-date"><div class="cal-day">' + d.getDate() + '</div><div class="cal-month">' + d.toLocaleString('id-ID', { month: 'short' }) + '</div></div>' +
-        '<div class="cal-main"><div class="cal-title">' + flagEmoji(ev.country) + ' ' + escHtml(ev.title) + '</div>' +
-        '<div class="cal-meta"><span class="cal-time">' + d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + '</span>' +
-        impactBadge(ev.importance) +
-        calVal('Sebelumnya', ev.previous) +
-        calVal('Forecast', ev.forecast) +
-        calVal('Aktual', ev.actual) +
-        '</div></div></div>';
-    });
-    html += '</div>';
-    html += '<div class="mkt-note">Sumber: TradingView · diperbarui ' + new Date().toLocaleTimeString('id-ID') + '</div>';
-    return html;
-  }
-
-  function flagEmoji(code) {
-    var map = {
-      'us': '🇺🇸', 'id': '🇮🇩', 'eu': '🇪🇺', 'gb': '🇬🇧', 'uk': '🇬🇧', 'de': '🇩🇪',
-      'fr': '🇫🇷', 'cn': '🇨🇳', 'jp': '🇯🇵', 'au': '🇦🇺', 'ca': '🇨🇦', 'nz': '🇳🇿',
-      'ch': '🇨🇭', 'in': '🇮🇳', 'br': '🇧🇷', 'mx': '🇲🇽', 'kr': '🇰🇷', 'ru': '🇷🇺',
-      'za': '🇿🇦', 'tr': '🇹🇷', 'nl': '🇳🇱', 'it': '🇮🇹', 'es': '🇪🇸', 'pt': '🇵🇹'
-    };
-    return map[String(code || '').toLowerCase()] || '🌐';
-  }
-
-  function impactBadge(v) {
-    var n = parseInt(v, 10);
-    if (n >= 3) return '<span class="cal-impact high">Tinggi</span>';
-    if (n === 2) return '<span class="cal-impact med">Sedang</span>';
-    if (n === 1) return '<span class="cal-impact low">Rendah</span>';
-    return '<span class="cal-impact info">Info</span>';
-  }
-
-  function calVal(label, val) {
-    if (val == null || val === '') return '';
-    return '<span class="cal-val"><b>' + label + ':</b> ' + escHtml(val) + '</span>';
-  }
-
   /* ===== TAB: STATUS ===== */
   function renderStatus() {
     var body = document.getElementById('status-body');
@@ -1581,16 +1120,12 @@
       '<div class="status-row head"><span>Layanan</span><span>Status</span></div>' +
       '<div class="status-row" id="st-ai"><span>Layanan AI (Puter)</span><span class="st-wait">mengecek...</span></div>' +
       '<div class="status-row" id="st-binance"><span>Data pasar (Binance)</span><span class="st-wait">mengecek...</span></div>' +
-      '<div class="status-row" id="st-coingecko"><span>Harga koin (CoinGecko)</span><span class="st-wait">mengecek...</span></div>' +
-      '<div class="status-row" id="st-cal"><span>Kalender ekonomi (TradingView)</span><span class="st-wait">mengecek...</span></div>' +
       '<div class="status-row" id="st-local"><span>Penyimpanan lokal (localStorage)</span><span class="st-wait">mengecek...</span></div>' +
       '</div>';
     body.innerHTML = html;
     var checks = [
       { id: 'st-ai', run: function () { return Promise.resolve(typeof puter !== 'undefined' && puter.ai && !!puter.ai.chat); } },
       { id: 'st-binance', run: function () { return pingOk('https://data-api.binance.vision/api/v3/ping'); } },
-      { id: 'st-coingecko', run: function () { return pingOk('https://api.coingecko.com/api/v3/ping'); } },
-      { id: 'st-cal', run: function () { return pingOk('https://economic-calendar.tradingview.com/events'); } },
       { id: 'st-local', run: function () { return Promise.resolve(typeof localStorage !== 'undefined'); } }
     ];
     checks.forEach(function (c) {
