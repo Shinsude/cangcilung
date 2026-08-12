@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>cangcilung - Asisten AI</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%237c3aed'/></svg>">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">A</div>
+        <div>
+          <h1>cangcilung</h1>
+          <span>Asisten AI Gratis</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-tab="chat" title="Chat dengan cangcilung">
+          <span class="nav-icon">💬</span>
+          <span>Chat</span>
+        </button>
+        <button class="nav-item" data-tab="market" title="Harga pasar kripto real-time">
+          <span class="nav-icon">📊</span>
+          <span>Pasar</span>
+        </button>
+        <button class="nav-item" data-tab="signal" title="Signal & analisis teknikal + tren ML">
+          <span class="nav-icon">🚨</span>
+          <span>Signal</span>
+        </button>
+        <button class="nav-item" data-tab="pnl" title="Pantau untung/rugi portofolio">
+          <span class="nav-icon">💰</span>
+          <span>P&amp;L</span>
+        </button>
+        <button class="nav-item" data-tab="calendar" title="Kalender ekonomi 7 hari ke depan">
+          <span class="nav-icon">📅</span>
+          <span>Kalender</span>
+        </button>
+        <button class="nav-item" data-tab="status" title="Status layanan & sistem">
+          <span class="nav-icon">⚙️</span>
+          <span>Status</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="status-dot"></div>
+        <span id="footer-mode">Gratis · Tanpa API Key</span>
+        <button id="btn-settings" class="settings-btn" title="Pengaturan" aria-label="Pengaturan">⚙️</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- ====== TAB CHAT ====== -->
+      <section class="tab-pane active" id="tab-chat">
+        <div class="chat-header">
+          <h2>Chat dengan cangcilung</h2>
+        </div>
+        <div id="chat-messages" class="chat-messages">
+          <div class="welcome">
+            <div class="welcome-avatar">A</div>
+            <p>Halo! Saya <strong>cangcilung</strong>, asisten AI kamu.</p>
+            <p class="welcome-sub">Tanya apa saja, atau pakai perintah khusus: <strong>gambar:</strong>, <strong>cari:</strong>, dan <strong>analisa</strong>.</p>
+            <div class="prompt-grid">
+              <button class="prompt-btn" data-prompt="analisa BTC 4h">📈 Analisa BTC/USDT</button>
+              <button class="prompt-btn" data-prompt="gambar: logo kucing kartun lucu">🎨 Buatkan gambar</button>
+              <button class="prompt-btn" data-prompt="cari: harga emas hari ini">🔎 Cari info terkini</button>
+              <button class="prompt-btn" data-prompt="Apa itu tcip.asia?">🔍 Tanya soal tcip.asia</button>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input-area">
+          <div class="chat-input-wrap">
+            <button id="btn-attach" class="attach-btn" title="Lampirkan gambar, PDF, atau file teks" aria-label="Lampirkan file">📎</button>
+            <textarea id="chat-input" rows="1" placeholder="Tulis pesan ke cangcilung... (Enter untuk kirim)"></textarea>
+            <button id="btn-send" class="send-btn" title="Kirim pesan" aria-label="Kirim pesan">➤</button>
+            <input type="file" id="file-input" accept="image/*,.pdf,.txt,.md,.csv,.json,.log" hidden>
+          </div>
+          <div class="chat-status" id="chat-status"></div>
+        </div>
+      </section>
+
+      <!-- ====== TAB PASAR ====== -->
+      <section class="tab-pane" id="tab-market">
+        <div class="chat-header">
+          <h2>Pasar</h2>
+          <div class="header-actions">
+            <button id="btn-market-refresh" class="ghost-btn" title="Muat ulang harga">🔄 Muat ulang</button>
+          </div>
+        </div>
+        <div class="pane-body" id="market-body"></div>
+      </section>
+
+      <!-- ====== TAB SIGNAL ====== -->
+      <section class="tab-pane" id="tab-signal">
+        <div class="chat-header">
+          <h2>Signal &amp; Analisis</h2>
+          <span class="pane-sub">Indikator teknikal + tren Machine Learning</span>
+        </div>
+        <div class="pane-body" id="signal-body">
+          <div class="form-row">
+            <input id="signal-symbol" class="form-input" placeholder="Simbol, misal BTC / ETH / SOL" value="BTC">
+            <select id="signal-interval" class="form-input">
+              <option value="15m">15 menit</option>
+              <option value="1h">1 jam</option>
+              <option value="4h" selected>4 jam</option>
+              <option value="1d">1 hari</option>
+              <option value="1w">1 minggu</option>
+            </select>
+            <button id="btn-signal" class="primary-btn">Cek Signal</button>
+          </div>
+          <div id="signal-result"></div>
+        </div>
+      </section>
+
+      <!-- ====== TAB P&L ====== -->
+      <section class="tab-pane" id="tab-pnl">
+        <div class="chat-header">
+          <h2>Portofolio &amp; P&amp;L</h2>
+          <span class="pane-sub">Pantau untung/rugi posisi kamu</span>
+        </div>
+        <div class="pane-body" id="pnl-body">
+          <div class="form-row">
+            <input id="pnl-symbol" class="form-input" placeholder="Simbol, misal BTC" value="BTC">
+            <input id="pnl-entry" class="form-input" type="number" step="any" placeholder="Harga beli (USD)">
+            <input id="pnl-qty" class="form-input" type="number" step="any" placeholder="Jumlah (coin)">
+            <button id="btn-pnl-add" class="primary-btn">Tambah</button>
+          </div>
+          <div id="pnl-summary"></div>
+          <div id="pnl-list"></div>
+        </div>
+      </section>
+
+      <!-- ====== TAB KALENDER ====== -->
+      <section class="tab-pane" id="tab-calendar">
+        <div class="chat-header">
+          <h2>Kalender Ekonomi</h2>
+          <span class="pane-sub">Event ekonomi 7 hari ke depan</span>
+          <div class="header-actions">
+            <button id="btn-calendar-refresh" class="ghost-btn" title="Muat ulang kalender">🔄 Muat ulang</button>
+          </div>
+        </div>
+        <div class="pane-body" id="calendar-body"></div>
+      </section>
+
+      <!-- ====== TAB STATUS ====== -->
+      <section class="tab-pane" id="tab-status">
+        <div class="chat-header">
+          <h2>System Analysis</h2>
+          <span class="pane-sub">Status layanan &amp; sistem</span>
+        </div>
+        <div class="pane-body" id="status-body"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ====== MODAL PENGATURAN ====== -->
+  <div class="modal-overlay" id="settings-modal" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Pengaturan</h3>
+        <button id="btn-modal-close" class="modal-close" aria-label="Tutup">×</button>
+      </div>
+      <div class="modal-body">
+        <label class="set-row">
+          <span>Pakai API sendiri (kompatibel OpenAI)</span>
+          <input type="checkbox" id="set-custom">
+        </label>
+        <p class="set-hint">Aktifkan untuk memakai endpoint Anda sendiri: OpenAI-compatible (chat + gambar) atau Stable Diffusion WebUI A1111 (gambar lokal, tanpa filter layanan). Saat jenis A1111, chat tetap lewat Puter.</p>
+        <label class="set-field">
+          <span>Jenis API</span>
+          <select id="set-kind">
+            <option value="openai">OpenAI-compatible (chat + gambar)</option>
+            <option value="a1111">Stable Diffusion WebUI / A1111 (gambar lokal)</option>
+          </select>
+        </label>
+        <label class="set-field">
+          <span>Base URL</span>
+          <input type="text" id="set-baseurl" placeholder="https://api.openai.com/v1" autocomplete="off">
+        </label>
+        <label class="set-field">
+          <span>API Key</span>
+          <input type="password" id="set-apikey" placeholder="sk-..." autocomplete="off">
+        </label>
+        <label class="set-field">
+          <span>Model</span>
+          <input type="text" id="set-model" placeholder="gpt-4o-mini" autocomplete="off">
+        </label>
+        <label class="set-row">
+          <span>Mode dewasa (18+) — personal use</span>
+          <input type="checkbox" id="set-adult">
+        </label>
+        <p class="set-hint">Menambah instruksi sistem agar asisten bersikap dewasa, terus terang, dan tidak menghakimi topik sensitif. Berlaku untuk percakapan (efek paling kuat saat API sendiri aktif).</p>
+        <div class="set-status" id="set-status"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-set-test" class="ghost-btn">Tes Koneksi</button>
+        <span class="modal-spacer"></span>
+        <button id="btn-set-cancel" class="ghost-btn">Batal</button>
+        <button id="btn-set-save" class="primary-btn">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://js.puter.com/v2/"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script src="knowledge.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
