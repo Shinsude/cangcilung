@@ -11,10 +11,6 @@ Asisten AI chatbot berbasis web seperti DOLA / tcip.asia.
 
 ### Chat (tab 💬)
 - Chat umum dengan AI (bahasa Indonesia).
-- **`gambar: <deskripsi>`** — membuat gambar dengan AI. Prioritas otomatis: (1) server Stable Diffusion lokal (A1111) di `127.0.0.1:7860`/`7861`/`7870` jika terdeteksi — tanpa filter layanan, gratis, tanpa isi pengaturan; (2) Puter `txt2img` sebagai fallback.
-  - **Enhancer otomatis:** prompt diperkaya (masterpiece, best quality, highly detailed, dst.), negatif prompt bawaan, resolusi 832×832, dan **2 gambar per permintaan** (grid). Asisten selalu berperilaku dewasa (18+), jadi tag `mature, adult content` ditambahkan otomatis dan checkpoint dipilih dari server (preferensi model pony/uncensored).
-  - **UX:** klik gambar untuk zoom (lightbox), tombol **⬇️ Unduh** (PNG), tombol **🔄 Ulang** (seed acak baru), dan progress persen saat membuat.
-  - **Model otomatis:** aplikasi membaca daftar checkpoint dari server dan memilih model yang cocok (dewasa → pony/uncensored; umum → realistic/sdxl).
 - **`cari: <topik>`** — mencari info dari web (Wikipedia id & en + DuckDuckGo) lalu dirangkum AI.
 - **`ingat: <fakta>`** — menyimpan memori jangka panjang tentang pengguna (localStorage). Perintah **`ingatan`** untuk melihat semua memori, **`lupa: <kata>`** untuk menghapus. Memori otomatis disuntikkan ke prompt setiap percakapan, jadi cangcilung ingat preferensi kamu antar-sesi.
 - **📎 Lampirkan file** — unggah gambar (dianalisis AI), PDF (teks diekstrak & dirangkum), atau file teks (.txt/.md/.csv/.json) langsung di chat.
@@ -24,11 +20,7 @@ Asisten AI chatbot berbasis web seperti DOLA / tcip.asia.
 - System Analysis: status layanan AI (Puter) dan localStorage.
 
 ### API sendiri (opsional)
-- Di **⚙️ Pengaturan** ada opsi "API sendiri": pakai endpoint OpenAI-compatible (chat + gambar) atau **Stable Diffusion WebUI (A1111)** untuk gambar lokal tanpa filter layanan.
-- Untuk A1111: isi Base URL (mis. `http://127.0.0.1:7860`), API Key kosong jika tanpa `--api-auth`. Jalankan A1111 dengan `--api --cors-allow-origins <domain-situs>` agar browser boleh memanggilnya. Saat jenis A1111 dipilih, chat tetap lewat Puter.
-- **Mode otomatis (tanpa pengaturan):** saat *tidak* ada API sendiri, aplikasi otomatis mendeteksi A1111 yang sedang berjalan di PC pada port umum (`127.0.0.1:7860`, `7861`, `7870`). Kalau ketemu, semua perintah `gambar:` dipakai ke sana (tanpa filter, mendukung konten dewasa). Jalankan saja A1111 dengan flag `--api --cors-allow-origins "*"` lalu buka aplikasi — tidak perlu isi pengaturan apa pun. Kalau tidak ada server lokal, gambar otomatis memakai Puter.
-- **Uji tanpa A1111:** `node mock_sd.mjs` menjalankan server tiruan A1111 di port 7860 — auto-detect langsung menemukannya dan gambar dibuat lewat jalur SD. Mock meniru A1111 asli: daftar model, endpoint `/progress` (progress bar), batch 2 gambar, dan menulis prompt ke gambar (placeholder, bukan AI sungguhan).
-- **Galeri (tab 🖼️):** semua gambar yang dibuat tersimpan otomatis (localStorage, kapasitas dibatasi ~2,8 MB dengan buang yang terlama). Buka, zoom, dan unduh dari tab Galeri.
+- Di **⚙️ Pengaturan** ada opsi "API sendiri": pakai endpoint OpenAI-compatible milik Anda (chat).
 
 ## Cara menjalankan
 

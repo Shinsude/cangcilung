@@ -31,10 +31,6 @@
           <span class="nav-icon">📊</span>
           <span>Sinyal</span>
         </button>
-        <button class="nav-item" data-tab="galeri" title="Galeri gambar yang pernah dibuat">
-          <span class="nav-icon">🖼️</span>
-          <span>Galeri</span>
-        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -55,9 +51,8 @@
           <div class="welcome">
             <div class="welcome-avatar">A</div>
             <p>Halo! Saya <strong>cangcilung</strong>, asisten AI kamu.</p>
-            <p class="welcome-sub">Tanya apa saja, atau pakai perintah khusus: <strong>gambar:</strong> dan <strong>cari:</strong>.</p>
+            <p class="welcome-sub">Tanya apa saja, atau pakai perintah khusus: <strong>cari:</strong> dan <strong>ingat:</strong>.</p>
             <div class="prompt-grid">
-              <button class="prompt-btn" data-prompt="gambar: logo kucing kartun lucu">🎨 Buatkan gambar</button>
               <button class="prompt-btn" data-prompt="cari: harga emas hari ini">🔎 Cari info terkini</button>
               <button class="prompt-btn" data-prompt="Apa itu tcip.asia?">🔍 Tanya soal tcip.asia</button>
             </div>
@@ -97,15 +92,6 @@
         </div>
       </section>
 
-      <!-- ====== TAB GALERI ====== -->
-      <section class="tab-pane" id="tab-galeri">
-        <div class="chat-header">
-          <h2>Galeri Gambar</h2>
-          <span class="pane-sub">Semua gambar yang pernah dibuat</span>
-        </div>
-        <div class="pane-body" id="galeri-body">
-          <div class="dash-loading">Memuat galeri...</div>
-        </div>
       </section>
     </main>
   </div>
@@ -122,19 +108,7 @@
           <span>Pakai API sendiri (kompatibel OpenAI)</span>
           <input type="checkbox" id="set-custom">
         </label>
-        <p class="set-hint">Aktifkan untuk memakai endpoint Anda sendiri: OpenAI-compatible (chat + gambar) atau Stable Diffusion WebUI A1111 (gambar lokal, tanpa filter layanan). Saat jenis A1111, chat tetap lewat Puter.</p>
-        <label class="set-field">
-          <span>Jenis API</span>
-          <select id="set-kind">
-            <option value="openai">OpenAI-compatible (chat + gambar)</option>
-            <option value="a1111">Stable Diffusion WebUI / A1111 (gambar lokal)</option>
-          </select>
-        </label>
-        <label class="set-row" id="row-image-only" hidden>
-          <span>Gambar saja — chat tetap lewat Puter</span>
-          <input type="checkbox" id="set-imageonly">
-        </label>
-        <p class="set-hint" id="hint-image-only" hidden>Mode ini mengarahkan perintah <b>gambar:</b> ke backend OpenAI-compatible (mis. stable-diffusion.cpp lokal), sementara chat tetap gratis lewat Puter. Cocok untuk backend gambar tanpa filter.</p>
+        <p class="set-hint">Aktifkan untuk memakai endpoint OpenAI-compatible milik Anda sendiri (chat). Saat tidak aktif, semua fitur berjalan gratis lewat Puter.</p>
         <label class="set-field">
           <span>Base URL</span>
           <input type="text" id="set-baseurl" placeholder="https://api.openai.com/v1" autocomplete="off">

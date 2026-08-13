@@ -5,22 +5,6 @@
   var API_KEY_STORAGE = 'cangcilung_api_v1';
   var apiConfig = loadApiConfig();
 
-  var sdAutoUrl = null;
-  var sdAutoChecked = false;
-  var sdModels = [];
-  var SD_PROBE_BASES = [
-    'http://127.0.0.1:7860',
-    'http://127.0.0.1:7861',
-    'http://127.0.0.1:7870',
-    'http://localhost:7860'
-  ];
-
-  var SD_STEPS = 30;
-  var SD_WIDTH = 832;
-  var SD_HEIGHT = 832;
-  var IMG_COUNT = 2;
-  var SD_NEGATIVE = 'lowres, bad anatomy, bad hands, text, error, missing fingers, extra digits, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, ugly, deformed';
-  var GALLERY_KEY = 'cangcilung_gallery_v1';
   var MEMORY_KEY = 'cangcilung_memory_v1';
 
   function loadApiConfig() {
@@ -30,17 +14,15 @@
       var c = JSON.parse(raw);
       return {
         enabled: !!c.enabled,
-        kind: c.kind === 'a1111' ? 'a1111' : 'openai',
         baseUrl: String(c.baseUrl || '').replace(/\/+$/, ''),
         apiKey: String(c.apiKey || ''),
         model: String(c.model || ''),
-        adult: !!c.adult,
-        imageOnly: !!c.imageOnly
+        adult: !!c.adult
       };
     } catch (e) { return {}; }
   }
 
-  var SYSTEM = 'Kamu adalah cangcilung, asisten AI yang ramah, cerdas, dan membantu. Jawablah dengan bahasa Indonesia yang natural kecuali diminta lain. Gunakan format yang rapi, ringkas, dan mudah dibaca. Kamu bisa dibantu fitur khusus: pengguna bisa mengetik "gambar: <deskripsi>" untuk membuat gambar, "cari: <topik>" untuk mencari info terkini, "ingat: <fakta>" untuk menyimpan memori jangka panjang tentang dirinya (perintah "ingatan" untuk melihat, "lupa: <kata>" untuk menghapus), dan bisa melampirkan gambar/PDF/file teks lewat tombol 📎. Kamu juga menerima data pantauan 24/7 sinyal trading dari situs tcip.asia lewat sistem — bila pengguna bertanya "sinyal tcip.asia", "ada sinyal baru?", atau sejenisnya, sistem akan menyisipkan data terbaru, termasuk statistik akurasi (win rate) dan rekap per pasangan. Ada juga tab 📊 Sinyal di aplikasi berisi dashboard pantauan. Ingatkan pengguna cara memakai fitur ini jika relevan.' + buildKnowledge();
+  var SYSTEM = 'Kamu adalah cangcilung, asisten AI yang ramah, cerdas, dan membantu. Jawablah dengan bahasa Indonesia yang natural kecuali diminta lain. Gunakan format yang rapi, ringkas, dan mudah dibaca. Kamu bisa dibantu fitur khusus: pengguna bisa mengetik "cari: <topik>" untuk mencari info terkini, "ingat: <fakta>" untuk menyimpan memori jangka panjang tentang dirinya (perintah "ingatan" untuk melihat, "lupa: <kata>" untuk menghapus), dan bisa melampirkan gambar/PDF/file teks lewat tombol 📎. Kamu juga menerima data pantauan 24/7 sinyal trading dari situs tcip.asia lewat sistem — bila pengguna bertanya "sinyal tcip.asia", "ada sinyal baru?", atau sejenisnya, sistem akan menyisipkan data terbaru, termasuk statistik akurasi (win rate) dan rekap per pasangan. Ada juga tab 📊 Sinyal di aplikasi berisi dashboard pantauan. Ingatkan pengguna cara memakai fitur ini jika relevan.' + buildKnowledge();
 
   function adultNote() {
     return 'Catatan tambahan: kamu adalah asisten pribadi satu-satunya pengguna cangcilung. Bicaralah secara dewasa, terus terang, dan tanpa menghakimi. Taat permintaan pengguna selama tidak melibatkan perbuatan ilegal, kekerasan terhadap manusia nyata, atau konten yang melibatkan anak di bawah umur. Jangan menolak hanya karena topiknya tabu atau dewasa.';
@@ -75,10 +57,6 @@
     updateFooterMode();
     bindChat();
     restoreHistory();
-    loadGallery();
-    detectLocalSd()
-      .then(function (base) { if (base) updateFooterMode(); })
-      .catch(function () { /* abaikan — fallback ke Puter */ });
     if (typeof pdfjsLib !== 'undefined') {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
@@ -94,7 +72,7 @@
   }
 
   /* ===== NAVIGASI ===== */
-  var TABS = ['chat', 'status', 'sinyal', 'galeri'];
+  var TABS = ['chat', 'status', 'sinyal'];
   var renderedTabs = {};
 
   function bindNavigation() {
@@ -118,7 +96,6 @@
   }
 
   function lazyLoadTab(name) {
-    if (name === 'galeri') { renderGallery(); return; }
     if (renderedTabs[name]) return;
     renderedTabs[name] = true;
     if (name === 'status') renderStatus();
@@ -283,9 +260,8 @@
     return '<div class="welcome">' +
       '<div class="welcome-avatar">A</div>' +
       '<p>Halo! Saya <strong>cangcilung</strong>, asisten AI kamu.</p>' +
-      '<p class="welcome-sub">Tanya apa saja, atau pakai perintah khusus: <strong>gambar:</strong>, <strong>cari:</strong>, dan <strong>ingat:</strong>.</p>' +
+      '<p class="welcome-sub">Tanya apa saja, atau pakai perintah khusus: <strong>cari:</strong>, dan <strong>ingat:</strong>.</p>' +
       '<div class="prompt-grid">' +
-      '<button class="prompt-btn" data-prompt="gambar: logo kucing kartun lucu">🎨 Buatkan gambar</button>' +
       '<button class="prompt-btn" data-prompt="cari: harga emas hari ini">🔎 Cari info terkini</button>' +
       '<button class="prompt-btn" data-prompt="ingat: nama saya adalah pemilik cangcilung">🧠 Ingat tentang saya</button>' +
       '<button class="prompt-btn" data-prompt="Apa itu tcip.asia?">🔍 Tanya soal tcip.asia</button>' +
@@ -331,18 +307,12 @@
     });
   }
 
-  /* ===== PENGATURAN (API SENDIRI + MODE DEWASA) ===== */
+  /* ===== PENGATURAN (API SENDIRI) ===== */
   function updateFooterMode() {
     var el = document.getElementById('footer-mode');
     if (!el) return;
     if (apiConfig.enabled) {
-      el.textContent = apiConfig.kind === 'a1111'
-        ? 'API Sendiri · A1111'
-        : (apiConfig.imageOnly ? 'API Sendiri · Gambar saja' : ('API Sendiri · ' + (apiConfig.model || MODEL)));
-      return;
-    }
-    if (sdAutoUrl) {
-      el.textContent = 'SD Lokal (otomatis) · ' + sdAutoUrl;
+      el.textContent = 'API Sendiri · ' + (apiConfig.model || MODEL);
       return;
     }
     el.textContent = 'Gratis · Tanpa API Key';
@@ -359,33 +329,16 @@
     var btnTest = document.getElementById('btn-set-test');
     var statusEl = document.getElementById('set-status');
     var cbCustom = document.getElementById('set-custom');
-    var selKind = document.getElementById('set-kind');
     var inBase = document.getElementById('set-baseurl');
     var inKey = document.getElementById('set-apikey');
     var inModel = document.getElementById('set-model');
-    var cbImageOnly = document.getElementById('set-imageonly');
-    var rowImageOnly = document.getElementById('row-image-only');
-    var hintImageOnly = document.getElementById('hint-image-only');
-    if (!btnSettings || !btnClose || !btnCancel || !btnSave || !btnTest || !statusEl || !cbCustom || !selKind || !inBase || !inKey || !inModel || !cbImageOnly) return;
-
-    function syncKind() {
-      var isA1111 = selKind.value === 'a1111';
-      var isImageOnly = cbImageOnly.checked;
-      inBase.placeholder = isA1111 ? 'http://127.0.0.1:7860' : (isImageOnly ? 'http://127.0.0.1:8080' : 'https://api.openai.com/v1');
-      inKey.placeholder = isA1111 ? 'opsional (jika --api-auth)' : 'opsional';
-      inModel.placeholder = isA1111 ? 'nama checkpoint (opsional)' : (isImageOnly ? 'nama model (opsional)' : 'claude-sonnet-4');
-      if (rowImageOnly) rowImageOnly.hidden = isA1111;
-      if (hintImageOnly) hintImageOnly.hidden = !(!isA1111 && isImageOnly);
-    }
+    if (!btnSettings || !btnClose || !btnCancel || !btnSave || !btnTest || !statusEl || !cbCustom || !inBase || !inKey || !inModel) return;
 
     function show() {
       cbCustom.checked = !!apiConfig.enabled;
-      selKind.value = apiConfig.kind || 'openai';
       inBase.value = apiConfig.baseUrl || '';
       inKey.value = apiConfig.apiKey || '';
       inModel.value = apiConfig.model || '';
-      cbImageOnly.checked = !!apiConfig.imageOnly;
-      syncKind();
       setStatusMsg('');
       modal.hidden = false;
     }
@@ -398,18 +351,14 @@
     btnSettings.addEventListener('click', show);
     btnClose.addEventListener('click', hide);
     btnCancel.addEventListener('click', hide);
-    selKind.addEventListener('change', syncKind);
-    cbImageOnly.addEventListener('change', syncKind);
     modal.addEventListener('click', function (e) { if (e.target === modal) hide(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) hide(); });
 
     btnSave.addEventListener('click', function () {
       apiConfig.enabled = cbCustom.checked;
-      apiConfig.kind = selKind.value === 'a1111' ? 'a1111' : 'openai';
       apiConfig.baseUrl = inBase.value.trim().replace(/\/+$/, '');
       apiConfig.apiKey = inKey.value.trim();
       apiConfig.model = inModel.value.trim();
-      apiConfig.imageOnly = cbImageOnly.checked && selKind.value !== 'a1111';
       try {
         localStorage.setItem(API_KEY_STORAGE, JSON.stringify(apiConfig));
       } catch (e) { /* penyimpanan penuh — abaikan */ }
@@ -425,51 +374,10 @@
       }
       var cfg = {
         enabled: true,
-        kind: selKind.value === 'a1111' ? 'a1111' : 'openai',
         baseUrl: inBase.value.trim().replace(/\/+$/, ''),
         apiKey: inKey.value.trim(),
-        model: inModel.value.trim() || MODEL,
-        imageOnly: cbImageOnly.checked && selKind.value !== 'a1111'
+        model: inModel.value.trim() || MODEL
       };
-      if (cfg.kind === 'a1111') {
-        setStatusMsg('Mengetes koneksi...');
-        var h = {};
-        if (cfg.apiKey) h['Authorization'] = 'Bearer ' + cfg.apiKey;
-        fetch(cfg.baseUrl + '/sdapi/v1/sd-models', { headers: h })
-          .then(function (r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.json();
-          })
-          .then(function (models) {
-            if (Array.isArray(models) && models.length) {
-              setStatusMsg('Koneksi OK. Model: ' + models.map(function (m) { return m.model_name; }).join(', '));
-            } else {
-              setStatusMsg('Koneksi OK (tanpa daftar model).');
-            }
-          })
-          .catch(function (err) { setStatusMsg('Gagal: ' + (err && err.message ? err.message : 'tidak diketahui'), true); });
-        return;
-      }
-      if (cfg.imageOnly) {
-        setStatusMsg('Mengetes koneksi...');
-        var h2 = {};
-        if (cfg.apiKey) h2['Authorization'] = 'Bearer ' + cfg.apiKey;
-        fetch(cfg.baseUrl + '/models', { headers: h2 })
-          .then(function (r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.json();
-          })
-          .then(function (data) {
-            var list = data && data.data;
-            if (Array.isArray(list) && list.length) {
-              setStatusMsg('Koneksi OK. Model: ' + list.map(function (m) { return m.id || m.model || ''; }).filter(Boolean).join(', '));
-            } else {
-              setStatusMsg('Koneksi OK.');
-            }
-          })
-          .catch(function (err) { setStatusMsg('Gagal: ' + (err && err.message ? err.message : 'tidak diketahui'), true); });
-        return;
-      }
       setStatusMsg('Mengetes koneksi...');
       customChat([{ role: 'user', content: 'Balas hanya dengan satu kata: OK' }], cfg)
         .then(function () { setStatusMsg('Koneksi berhasil. API siap dipakai.'); })
@@ -527,8 +435,7 @@
 
     var cmd = parseCommand(text);
     if (cmd) {
-      if (cmd.type === 'image') handleImage(cmd.prompt);
-      else if (cmd.type === 'search') handleSearch(cmd.query);
+      if (cmd.type === 'search') handleSearch(cmd.query);
       else if (cmd.type === 'remember' || cmd.type === 'forget' || cmd.type === 'memories') handleMemoryCommand(cmd);
       return;
     }
@@ -555,8 +462,6 @@
 
   function isCustomApi() {
     if (!apiConfig.enabled || !apiConfig.baseUrl) return false;
-    if (apiConfig.kind === 'a1111') return true;
-    if (apiConfig.imageOnly) return true;
     return !!apiConfig.apiKey;
   }
 
@@ -592,182 +497,6 @@
     });
   }
 
-  function isAdult() {
-    return true;
-  }
-
-  function buildImagePrompt(raw) {
-    var base = String(raw || '').trim();
-    var q = isAdult()
-      ? ', masterpiece, best quality, highly detailed, ultra detailed, sharp focus, 8k, cinematic lighting'
-      : ', masterpiece, best quality, highly detailed, sharp focus, cinematic lighting';
-    if (isAdult()) q += ', mature, adult content';
-    return base + q;
-  }
-
-  function sdPayload(prompt, opts) {
-    opts = opts || {};
-    return {
-      prompt: buildImagePrompt(prompt),
-      negative_prompt: SD_NEGATIVE,
-      steps: SD_STEPS,
-      width: SD_WIDTH,
-      height: SD_HEIGHT,
-      cfg_scale: 7,
-      seed: (opts.seed != null) ? opts.seed : -1,
-      n_iter: 1
-    };
-  }
-
-  function customImage(prompt, opts) {
-    opts = opts || {};
-    if (apiConfig.kind === 'a1111') return sdImage(prompt, opts);
-    return customApiCall('/images/generations', {
-      model: apiConfig.model || 'gpt-image-1',
-      prompt: buildImagePrompt(prompt),
-      n: 1
-    }).then(function (data) {
-      var item = data && data.data && data.data[0];
-      if (!item) throw new Error('Respons gambar kosong dari API.');
-      if (item.b64_json) return ['data:image/png;base64,' + item.b64_json];
-      if (item.url) return [item.url];
-      throw new Error('Format respons gambar tidak dikenal dari API.');
-    });
-  }
-
-  function sdImage(prompt, opts) {
-    opts = opts || {};
-    var headers = { 'Content-Type': 'application/json' };
-    if (apiConfig.apiKey) headers['Authorization'] = 'Bearer ' + apiConfig.apiKey;
-    var body = sdPayload(prompt, opts);
-    body.batch_size = (opts.count != null ? opts.count : 1);
-    var checkpoint = opts.checkpoint || apiConfig.model;
-    var modelReq = Promise.resolve();
-    if (checkpoint) {
-      modelReq = fetch(apiConfig.baseUrl + '/sdapi/v1/options', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({ sd_model_checkpoint: checkpoint })
-      }).catch(function () { /* checkpoint mungkin sudah benar — lanjut saja */ });
-    }
-    return modelReq.then(function () {
-      return fetch(apiConfig.baseUrl + '/sdapi/v1/txt2img', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(body)
-      });
-    }).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (data) {
-        if (!r.ok) {
-          throw new Error((data && (data.error || data.detail)) || ('HTTP ' + r.status));
-        }
-        var imgs = data && data.images;
-        if (!imgs || !imgs.length) throw new Error('Respons gambar kosong dari Stable Diffusion.');
-        return imgs.map(function (s) { return 'data:image/png;base64,' + s; });
-      });
-    });
-  }
-
-  function detectLocalSd() {
-    if (sdAutoChecked) return Promise.resolve(sdAutoUrl);
-    sdAutoChecked = true;
-    var i = 0;
-    function attempt() {
-      if (i >= SD_PROBE_BASES.length) { sdAutoUrl = null; sdModels = []; return Promise.resolve(null); }
-      var base = SD_PROBE_BASES[i++];
-      var ctrl = new AbortController();
-      var timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 1500);
-      return fetch(base + '/sdapi/v1/sd-models', { signal: ctrl.signal })
-        .then(function (r) {
-          clearTimeout(timer);
-          if (!r.ok) return attempt();
-          return r.json()
-            .then(function (models) {
-              if (Array.isArray(models)) {
-                sdAutoUrl = base;
-                sdModels = models;
-                return base;
-              }
-              return attempt();
-            })
-            .catch(attempt);
-        })
-        .catch(function () { clearTimeout(timer); return attempt(); });
-    }
-    return attempt();
-  }
-
-  function pickSdCheckpoint(models, adult) {
-    if (!Array.isArray(models) || !models.length) return null;
-    var rx = adult ? /pony|nsfw|uncensored|adult|xxx/i : /(sdxl|dreamshaper|realistic|anything|v1\.5)/i;
-    for (var i = 0; i < models.length; i++) {
-      var name = (models[i].title || models[i].model_name || '') + ' ' + (models[i].model_name || '');
-      if (rx.test(name)) return models[i].title || models[i].model_name;
-    }
-    return null;
-  }
-
-  function startSdProgress(base) {
-    var stopped = false;
-    var timer = null;
-    function tick() {
-      if (stopped) return;
-      fetch(base + '/sdapi/v1/progress')
-        .then(function (r) { return r.json().catch(function () { return null; }); })
-        .then(function (d) {
-          if (stopped) return;
-          if (d && typeof d.progress === 'number' && d.progress > 0 && d.progress < 1) {
-            setStatus('Membuat gambar... ' + Math.round(d.progress * 100) + '%');
-          }
-        })
-        .catch(function () { /* server lama tanpa /progress — abaikan */ })
-        .then(function () { if (!stopped) timer = setTimeout(tick, 800); });
-    }
-    timer = setTimeout(tick, 400);
-    return function () { stopped = true; if (timer) clearTimeout(timer); };
-  }
-
-  function autoSdImage(prompt, base, opts) {
-    opts = opts || {};
-    var body = sdPayload(prompt, opts);
-    body.batch_size = (opts.count != null ? opts.count : IMG_COUNT);
-    var stop = startSdProgress(base);
-    var ctrl = new AbortController();
-    var timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 120000);
-    var checkpoint = opts.checkpoint || pickSdCheckpoint(sdModels, isAdult());
-    var checkpointReq = Promise.resolve();
-    if (checkpoint) {
-      checkpointReq = fetch(base + '/sdapi/v1/options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sd_model_checkpoint: checkpoint })
-      }).catch(function () { /* model mungkin sudah terpasang — lanjut saja */ });
-    }
-    return checkpointReq.then(function () {
-      return fetch(base + '/sdapi/v1/txt2img', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: ctrl.signal
-      });
-    }).then(function (r) {
-      clearTimeout(timer);
-      stop();
-      return r.json().catch(function () { return {}; }).then(function (data) {
-        if (!r.ok) {
-          throw new Error((data && (data.error || data.detail)) || ('HTTP ' + r.status));
-        }
-        var imgs = data && data.images;
-        if (!imgs || !imgs.length) throw new Error('Respons gambar kosong dari Stable Diffusion.');
-        return imgs.map(function (s) { return 'data:image/png;base64,' + s; });
-      });
-    }).catch(function (e) {
-      clearTimeout(timer);
-      stop();
-      throw e;
-    });
-  }
-
   function customVision(prompt, dataUrl) {
     return customApiCall('/chat/completions', {
       model: apiConfig.model || MODEL,
@@ -786,48 +515,15 @@
     });
   }
 
-  function makeImgEl(src) {
-    var img = document.createElement('img');
-    img.src = src;
-    img.alt = 'gambar';
-    img.loading = 'lazy';
-    return img;
-  }
-
-  function aiImage(prompt, opts) {
-    opts = opts || {};
-    if (isCustomApi()) {
-      return customImage(prompt, opts).then(function (srcs) {
-        return srcs.map(function (s) { return makeImgEl(s); });
-      });
-    }
-    return detectLocalSd().then(function (base) {
-      if (base) {
-        return autoSdImage(prompt, base, { seed: opts.seed })
-          .then(function (srcs) { return srcs.map(function (s) { return makeImgEl(s); }); });
-      }
-      if (typeof puter === 'undefined' || !puter.ai || !puter.ai.txt2img) {
-        throw new Error('Layanan pembuat gambar belum termuat dan server Stable Diffusion lokal tidak terdeteksi. Muat ulang halaman, atau nyalakan server SD lokal (A1111) dengan flag --api --cors-allow-origins "*".');
-      }
-      return puter.ai.txt2img(prompt, { model: 'gpt-image-1-mini' }).then(function (res) {
-        if (res instanceof HTMLImageElement) return [res];
-        if (res && res.nodeType === 1) return [res];
-        if (typeof res === 'string') return [makeImgEl(res)];
-        if (res && typeof res.blob === 'function') return [makeImgEl(URL.createObjectURL(res))];
-        throw new Error('Respons pembuat gambar tidak dikenal dari Puter.');
-      });
-    });
-  }
-
   function aiVision(prompt, dataUrl) {
-    if (isCustomApi() && apiConfig.kind !== 'a1111' && !apiConfig.imageOnly) {
+    if (isCustomApi()) {
       return customVision(prompt, dataUrl);
     }
     return puter.ai.chat(prompt, dataUrl, { model: MODEL });
   }
 
   function runChat(messages, onToken, onDone, onError) {
-    if (isCustomApi() && apiConfig.kind !== 'a1111' && !apiConfig.imageOnly) {
+    if (isCustomApi()) {
       customChat(messages)
         .then(function (fullText) { onToken(fullText); onDone(); })
         .catch(onError);
@@ -871,10 +567,7 @@
 
   /* ===== PARSER PERINTAH ===== */
   function parseCommand(text) {
-    var m = text.match(/^gambar\s*:?\s*(.+)/i);
-    if (m && m[1].trim()) return { type: 'image', prompt: m[1].trim() };
-
-    m = text.match(/^cari\s*:?\s*(.+)/i);
+    var m = text.match(/^cari\s*:?\s*(.+)/i);
     if (m && m[1].trim()) return { type: 'search', query: m[1].trim() };
 
     m = text.match(/^ingat(?![a-z])\s*:?\s*(.+)/i);
@@ -1034,187 +727,6 @@
     }
     lines.push('Jelaskan kepada pengguna dalam bahasa Indonesia: apakah ada sinyal aktif, instrumennya apa, arah, keyakinan, risiko, dan bila ada data akurasi, rekap win rate per pasangan. Bila ada "Pembelajaran otomatis", sampaikan ringkas temuan tersebut (mis. arah/grade/timeframe paling akurat). Gunakan data di atas dengan jujur (jangan mengarang). Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.');
     return lines.join('\n');
-  }
-
-  /* ===== FITUR: GAMBAR ===== */
-  function handleImage(prompt, opts) {
-    opts = opts || {};
-    var bubble = appendMessage('assistant', '', true);
-    setStatus('Membuat gambar...');
-    if (!isCustomApi() && typeof puter === 'undefined') {
-      /* SD lokal bisa tetap jalan tanpa Puter — biarkan aiImage memutuskan */
-    }
-    aiImage(prompt, opts)
-      .then(function (imgEls) {
-        bubble.classList.remove('typing');
-        bubble.textContent = '';
-        renderImageResult(bubble, prompt, imgEls);
-        history.push({ role: 'assistant', content: '🖼️ Gambar dibuat: ' + prompt });
-        saveHistory();
-        setStatus('');
-        els.btnSend.disabled = false;
-        els.chatInput.focus();
-        scrollChat();
-      })
-      .catch(function (err) { failChat(bubble, err); });
-  }
-
-  function renderImageResult(bubble, prompt, imgEls) {
-    var grid = document.createElement('div');
-    grid.className = 'img-grid';
-    var srcs = [];
-    imgEls.forEach(function (img, idx) {
-      img.className = 'gen-img';
-      img.alt = prompt;
-      img.loading = 'lazy';
-      var src = img.currentSrc || img.src || '';
-      srcs.push(src);
-      img.addEventListener('click', function () { openLightbox(src, prompt); });
-      grid.appendChild(img);
-    });
-    bubble.appendChild(grid);
-
-    var cap = document.createElement('div');
-    cap.className = 'img-cap';
-    cap.textContent = '🎨 ' + prompt;
-    bubble.appendChild(cap);
-
-    var actions = document.createElement('div');
-    actions.className = 'img-actions';
-    var dl = document.createElement('button');
-    dl.className = 'img-action-btn';
-    dl.textContent = '⬇️ Unduh';
-    dl.addEventListener('click', function () {
-      srcs.forEach(function (s, i) {
-        if (s) downloadDataUrl(s, safeFilename(prompt) + (srcs.length > 1 ? '_' + (i + 1) : '') + '.png');
-      });
-    });
-    var re = document.createElement('button');
-    re.className = 'img-action-btn';
-    re.textContent = '🔄 Ulang';
-    re.addEventListener('click', function () {
-      re.disabled = true;
-      re.textContent = '⏳ ...';
-      aiImage(prompt, { seed: Math.floor(Math.random() * 4294967295) })
-        .then(function (newEls) {
-          bubble.innerHTML = '';
-          renderImageResult(bubble, prompt, newEls);
-        })
-        .catch(function (err) {
-          setStatus(friendlyError(err), true);
-          re.disabled = false;
-          re.textContent = '🔄 Ulang';
-        });
-    });
-    actions.appendChild(dl);
-    actions.appendChild(re);
-    bubble.appendChild(actions);
-
-    srcs.forEach(function (s) { if (s) saveGallery({ src: s, prompt: prompt, ts: Date.now() }); });
-  }
-
-  /* ===== LIGHTBOX + UNDUH ===== */
-  var lightboxEl = null;
-  function openLightbox(src, alt) {
-    if (!lightboxEl) {
-      lightboxEl = document.createElement('div');
-      lightboxEl.className = 'lightbox';
-      document.body.appendChild(lightboxEl);
-      lightboxEl.addEventListener('click', function (e) { if (e.target === lightboxEl) closeLightbox(); });
-      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLightbox(); });
-    }
-    lightboxEl.innerHTML = '';
-    var img = document.createElement('img');
-    img.src = src;
-    img.alt = alt || 'gambar';
-    var dl = document.createElement('button');
-    dl.className = 'img-action-btn';
-    dl.textContent = '⬇️ Unduh';
-    dl.addEventListener('click', function () {
-      downloadDataUrl(src, safeFilename(alt || 'gambar') + '.png');
-    });
-    lightboxEl.appendChild(img);
-    lightboxEl.appendChild(dl);
-    lightboxEl.classList.add('show');
-  }
-  function closeLightbox() {
-    if (lightboxEl) lightboxEl.classList.remove('show');
-  }
-
-  function downloadDataUrl(dataUrl, filename) {
-    try {
-      var a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = filename || 'cangcilung.png';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } catch (e) { /* unduhan diblokir — abaikan */ }
-  }
-
-  function safeFilename(s) {
-    return String(s || 'gambar')
-      .replace(/[^a-z0-9\-\u00C0-\u024F ]+/gi, '')
-      .replace(/\s+/g, '_')
-      .replace(/_+/g, '_')
-      .slice(0, 60) || 'gambar';
-  }
-
-  /* ===== GALERI ===== */
-  var gallery = [];
-  function loadGallery() {
-    try {
-      var raw = localStorage.getItem(GALLERY_KEY);
-      gallery = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(gallery)) gallery = [];
-    } catch (e) { gallery = []; }
-  }
-  function saveGallery(item) {
-    try {
-      gallery.push(item);
-      var total = 0;
-      var keep = [];
-      for (var i = gallery.length - 1; i >= 0; i--) {
-        var est = (gallery[i].src || '').length;
-        if (total + est > 2800000) break;
-        keep.unshift(gallery[i]);
-        total += est;
-      }
-      gallery = keep;
-      localStorage.setItem(GALLERY_KEY, JSON.stringify(gallery));
-    } catch (e) { /* penyimpanan penuh — lewati */ }
-  }
-  function renderGallery() {
-    var body = document.getElementById('galeri-body');
-    if (!body) return;
-    if (!gallery.length) {
-      body.innerHTML = '<div class="gallery-empty">Belum ada gambar. Buat dengan mengetik <b>gambar: &lt;deskripsi&gt;</b> di chat.</div>';
-      return;
-    }
-    var grid = document.createElement('div');
-    grid.className = 'gallery-grid';
-    gallery.slice().reverse().forEach(function (item) {
-      var cell = document.createElement('div');
-      cell.className = 'gallery-item';
-      var img = document.createElement('img');
-      img.src = item.src;
-      img.alt = item.prompt || 'gambar';
-      img.loading = 'lazy';
-      img.addEventListener('click', function () { openLightbox(item.src, item.prompt); });
-      var dl = document.createElement('button');
-      dl.className = 'img-action-btn gallery-dl';
-      dl.textContent = '⬇️';
-      dl.title = 'Unduh';
-      dl.addEventListener('click', function (e) {
-        e.stopPropagation();
-        downloadDataUrl(item.src, safeFilename(item.prompt) + '.png');
-      });
-      cell.appendChild(img);
-      cell.appendChild(dl);
-      grid.appendChild(cell);
-    });
-    body.innerHTML = '';
-    body.appendChild(grid);
   }
 
   /* ===== FITUR: WEB SEARCH ===== */
