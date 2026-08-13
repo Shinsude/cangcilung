@@ -138,6 +138,12 @@
   function friendlyError(err) {
     var msg = (err && (err.message || err.code)) || '';
     var low = String(msg).toLowerCase();
+    if (low.indexOf('timeout') > -1) {
+      return 'Waktu permintaan habis (timeout). Coba lagi nanti.';
+    }
+    if (low.indexOf('failed to fetch') > -1 || low.indexOf('networkerror') > -1 || low.indexOf('network error') > -1 || low.indexOf('load failed') > -1 || low.indexOf('cors') > -1 || low.indexOf('fetch') > -1 || low.indexOf('aborted') > -1) {
+      return 'Koneksi jaringan gagal. Periksa internet/CORS lalu coba lagi.';
+    }
     if (low.indexOf('quota') > -1 || low.indexOf('limit') > -1 || low.indexOf('insufficient') > -1 || low.indexOf('exceeded') > -1 || low.indexOf('balance') > -1 || low.indexOf('funding') > -1 || low.indexOf('upgrade') > -1) {
       return isCustomApi()
         ? ('Kuota API habis atau melebihi batas: ' + msg)
@@ -213,7 +219,7 @@
       if (!Array.isArray(arr)) return [];
       return arr.filter(function (m) {
         return m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.length > 0;
-      });
+      }).slice(-100);
     } catch (e) {
       return [];
     }
@@ -567,10 +573,9 @@
   }
 
   function customChat(messages, cfg) {
-    return customApiCall('/chat/completions', {
-      model: (cfg && cfg.model) || MODEL,
-      messages: messages
-    }, cfg).then(function (data) {
+    var body = { messages: messages };
+    if (cfg && cfg.model) body.model = cfg.model;
+    return customApiCall('/chat/completions', body, cfg).then(function (data) {
       var text = data && data.choices && data.choices[0] && data.choices[0].message
         ? data.choices[0].message.content : '';
       if (!text) throw new Error('Respons kosong dari API.');
@@ -579,8 +584,7 @@
   }
 
   function customVision(prompt, dataUrl, cfg) {
-    return customApiCall('/chat/completions', {
-      model: (cfg && cfg.model) || MODEL,
+    var body = {
       messages: [{
         role: 'user',
         content: [
@@ -588,7 +592,9 @@
           { type: 'image_url', image_url: { url: dataUrl } }
         ]
       }]
-    }, cfg).then(function (data) {
+    };
+    if (cfg && cfg.model) body.model = cfg.model;
+    return customApiCall('/chat/completions', body, cfg).then(function (data) {
       var text = data && data.choices && data.choices[0] && data.choices[0].message
         ? data.choices[0].message.content : '';
       if (!text) throw new Error('Respons kosong dari API.');
@@ -626,12 +632,6 @@
   }
 
   function visionWithFallback(prompt, dataUrl) {
-    if (!isCustomApi()) {
-      if (typeof puter !== 'undefined' && puter.ai && puter.ai.chat) {
-        return puter.ai.chat(prompt, dataUrl, { model: MODEL });
-      }
-      return Promise.reject({ message: 'Semua API gagal dan layanan Puter tidak tersedia.' });
-    }
     return tryProviders(function (cfg) {
       return customVision(prompt, dataUrl, cfg).then(function (text) {
         lastAnswerSource = cfg.name || cfg.model || cfg.baseUrl;
