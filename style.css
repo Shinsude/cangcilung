@@ -215,6 +215,7 @@ body {
 }
 .attach-btn:hover { color: var(--text); background: rgba(255,255,255,.06); }
 .attach-btn:active { transform: scale(.95); }
+.attach-btn:disabled { opacity: .45; cursor: not-allowed; }
 
 .chat-status { min-height: 18px; font-size: 12px; color: var(--text-dim); padding: 6px 4px 0; }
 .chat-status.error { color: var(--err); }

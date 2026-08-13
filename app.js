@@ -179,22 +179,28 @@
   }
 
   function webFetch(url, options) {
-    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    var timer = controller ? setTimeout(function () { controller.abort(); }, 30000) : null;
-    var opts = options || {};
-    if (controller) opts.signal = controller.signal;
-    var p = (typeof puter !== 'undefined' && puter.net && puter.net.fetch)
-      ? puter.net.fetch(url, opts).then(function (r) { return r.text(); })
-      : fetch(url, opts).then(function (r) { return r.text(); });
-    return p.then(function (text) {
-      if (timer) clearTimeout(timer);
-      return text;
-    }, function (err) {
-      if (timer) clearTimeout(timer);
-      if (controller && controller.signal.aborted) {
-        throw new Error('Timeout: server tidak merespons dalam 30 detik.');
-      }
-      throw err;
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var opts = options || {};
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        reject(new Error('Timeout: server tidak merespons dalam 30 detik.'));
+      }, 30000);
+      var p = (typeof puter !== 'undefined' && puter.net && puter.net.fetch)
+        ? puter.net.fetch(url, opts).then(function (r) { return r.text(); })
+        : fetch(url, opts).then(function (r) { return r.text(); });
+      p.then(function (text) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(text);
+      }, function (err) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        reject(err);
+      });
     });
   }
 
@@ -470,6 +476,11 @@
     return bubble;
   }
 
+  function setBusy(busy) {
+    els.btnSend.disabled = busy;
+    if (els.btnAttach) els.btnAttach.disabled = busy;
+  }
+
   function finishChat(bubble, source) {
     history.push({ role: 'assistant', content: bubble.textContent });
     saveHistory();
@@ -480,7 +491,7 @@
       bubble.appendChild(tag);
     }
     setStatus('');
-    els.btnSend.disabled = false;
+    setBusy(false);
     els.chatInput.focus();
   }
 
@@ -489,7 +500,7 @@
     history.pop();
     saveHistory();
     setStatus('', true);
-    els.btnSend.disabled = false;
+    setBusy(false);
     els.chatInput.focus();
   }
 
@@ -499,7 +510,7 @@
 
     els.chatInput.value = '';
     autoGrow(els.chatInput);
-    els.btnSend.disabled = true;
+    setBusy(true);
 
     history.push({ role: 'user', content: text });
     appendMessage('user', text);
@@ -765,7 +776,7 @@
     history.push({ role: 'assistant', content: text });
     saveHistory();
     setStatus('');
-    els.btnSend.disabled = false;
+    setBusy(false);
     els.chatInput.focus();
   }
 
@@ -1022,6 +1033,7 @@
 
   function analyzeImage(file) {
     var bubble = appendMessage('assistant', '', true);
+    setBusy(true);
     setStatus('Menganalisis gambar...');
     if (!isCustomApi() && (typeof puter === 'undefined' || !puter.ai || !puter.ai.chat)) {
       failChat(bubble, { message: 'Layanan AI belum termuat. Muat ulang halaman.' });
@@ -1060,7 +1072,7 @@
           history.push({ role: 'assistant', content: '📷 Analisis gambar "' + file.name + '":\n' + text });
           saveHistory();
           setStatus('');
-          els.btnSend.disabled = false;
+          setBusy(false);
           els.chatInput.focus();
           scrollChat();
         })
@@ -1072,6 +1084,7 @@
 
   function analyzeText(file) {
     var bubble = appendMessage('assistant', '', true);
+    setBusy(true);
     setStatus('Membaca dokumen...');
     var reader = new FileReader();
     reader.onload = function () {
@@ -1100,6 +1113,7 @@
 
   function analyzePdf(file) {
     var bubble = appendMessage('assistant', '', true);
+    setBusy(true);
     setStatus('Membaca PDF...');
     if (typeof pdfjsLib === 'undefined') {
       failChat(bubble, { message: 'Pustaka PDF belum termuat. Muat ulang halaman.' });
