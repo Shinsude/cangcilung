@@ -809,7 +809,13 @@
       if (typeof puter === 'undefined' || !puter.ai || !puter.ai.txt2img) {
         throw new Error('Layanan pembuat gambar belum termuat dan server Stable Diffusion lokal tidak terdeteksi. Muat ulang halaman, atau nyalakan server SD lokal (A1111) dengan flag --api --cors-allow-origins "*".');
       }
-      return Promise.resolve([puter.ai.txt2img(prompt)]);
+      return puter.ai.txt2img(prompt).then(function (res) {
+        if (res instanceof HTMLImageElement) return [res];
+        if (res && res.nodeType === 1) return [res];
+        if (typeof res === 'string') return [makeImgEl(res)];
+        if (res && typeof res.blob === 'function') return [makeImgEl(URL.createObjectURL(res))];
+        throw new Error('Respons pembuat gambar tidak dikenal dari Puter.');
+      });
     });
   }
 
