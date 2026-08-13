@@ -15,7 +15,7 @@
 </head>
 <body>
   <h1>Debug txt2img Puter</h1>
-  <button onclick="run()">Jalankan tes</button>
+  <button onclick="run()">Jalankan tes semua provider</button>
   <div id="status">Belum dijalankan</div>
   <div id="result"></div>
 
@@ -25,25 +25,39 @@
       var s = document.getElementById('status');
       s.innerHTML = s.innerHTML + '<br>' + msg;
     }
+    var PROMPT = 'Mickey Mouse kartun klasik tersenyum';
+    var TESTS = [
+      { name: 'gemini', opts: { model: 'gemini-3.1-flash-image-preview' } },
+      { name: 'xai/grok', opts: { provider: 'xai', model: 'grok-imagine-image' } },
+      { name: 'openai-gpt-image-2', opts: { model: 'gpt-image-2' } },
+      { name: 'openai-gpt-image-1-mini', opts: { model: 'gpt-image-1-mini' } },
+      { name: 'together-flux', opts: { provider: 'together', model: 'black-forest-labs/flux-schnell' } }
+    ];
     function run() {
       var r = document.getElementById('result');
       r.innerHTML = '';
+      document.getElementById('status').innerHTML = 'Memulai tes...';
       log('puter.ai.txt2img tersedia: ' + !!(puter && puter.ai && puter.ai.txt2img));
-      log('Mencoba generate gambar...');
-      puter.ai.txt2img('Mickey Mouse kartun klasik tersenyum')
-        .then(function (image) {
-          log('Berhasil. Tipe hasil: ' + (image ? image.constructor.name : 'null'));
-          log('Apakah HTMLImageElement: ' + (image instanceof HTMLImageElement));
-          log('src: ' + (image && image.src ? (image.src.length > 80 ? image.src.slice(0, 80) + '...' : image.src) : '(kosong)'));
-          r.innerHTML = '<div class="ok">Berhasil!</div>';
-          if (image && image.nodeType) r.appendChild(image);
-        })
-        .catch(function (err) {
-          log('GAGAL:');
-          log('<span class="err">' + JSON.stringify(err) + '</span>');
-          log('<span class="err">name: ' + err.name + ' | message: ' + err.message + '</span>');
-          r.innerHTML = '<div class="err">Error: ' + err.message + '<br>' + JSON.stringify(err) + '</div>';
+      var chain = Promise.resolve();
+      TESTS.forEach(function (t) {
+        chain = chain.then(function () {
+          log('--- Mencoba: ' + t.name + ' ---');
+          return puter.ai.txt2img(PROMPT, t.opts)
+            .then(function (image) {
+              log('OK ' + t.name + ': tipe=' + (image ? image.constructor.name : 'null')
+                + ' | isIMG=' + (image instanceof HTMLImageElement)
+                + ' | src=' + (image && image.src ? image.src.slice(0, 40) + '...' : '(kosong)'));
+              var wrap = document.createElement('div');
+              wrap.innerHTML = '<h3 class="ok">Berhasil via: ' + t.name + '</h3>';
+              if (image && image.nodeType) wrap.appendChild(image);
+              r.appendChild(wrap);
+            })
+            .catch(function (err) {
+              log('GAGAL ' + t.name + ': ' + (err && err.error ? err.error : err.message));
+            });
         });
+      });
+      chain.then(function () { log('--- Selesai ---'); });
     }
   </script>
 </body>
