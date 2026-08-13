@@ -15,6 +15,7 @@
 </head>
 <body>
   <h1>Debug txt2img Puter</h1>
+  <button onclick="signin()">Login Puter (wajib untuk generate)</button>
   <button onclick="run()">Jalankan tes semua provider</button>
   <div id="status">Belum dijalankan</div>
   <div id="result"></div>
@@ -24,6 +25,18 @@
     function log(msg) {
       var s = document.getElementById('status');
       s.innerHTML = s.innerHTML + '<br>' + msg;
+    }
+    function signin() {
+      if (puter && puter.auth && puter.auth.signIn) {
+        log('Membuka popup login Puter...');
+        puter.auth.signIn().then(function (u) {
+          log('Login berhasil: ' + (u && (u.username || u.email || 'ok')));
+        }).catch(function (e) {
+          log('Login dibatalkan/gagal: ' + (e && e.message));
+        });
+      } else {
+        log('puter.auth tidak tersedia.');
+      }
     }
     var PROMPT = 'Mickey Mouse kartun klasik tersenyum';
     var TESTS = [
