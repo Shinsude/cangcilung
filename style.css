@@ -124,8 +124,17 @@ body {
 .prompt-btn:hover { border-color: var(--accent); background: rgba(124,58,237,.12); }
 .prompt-btn:active { transform: scale(.97); }
 
-.msg { display: flex; gap: 10px; max-width: 100%; }
+.msg { display: flex; gap: 10px; max-width: 100%; align-items: flex-start; position: relative; }
 .msg.user { flex-direction: row-reverse; }
+
+.msg-copy {
+  position: absolute; right: 0; top: 0; opacity: 0; pointer-events: none;
+  background: var(--card); border: 1px solid var(--border); color: var(--text-dim);
+  width: 26px; height: 26px; border-radius: 8px; font-size: 13px; cursor: pointer;
+  transition: opacity .15s, color .15s; line-height: 1;
+}
+.msg:hover .msg-copy { opacity: 1; pointer-events: auto; }
+.msg-copy:hover { color: var(--text); border-color: var(--accent); }
 
 .msg-avatar {
   width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
@@ -207,6 +216,7 @@ body {
 .send-btn:hover { opacity: .9; }
 .send-btn:active { transform: scale(.95); }
 .send-btn:disabled { opacity: .5; cursor: not-allowed; }
+.send-btn.stop-btn { background: var(--err); font-size: 18px; }
 
 .attach-btn {
   width: 40px; height: 40px; border: none; border-radius: 12px; flex-shrink: 0;
@@ -226,6 +236,7 @@ body {
   transition: color .15s, border-color .15s; font-family: inherit;
 }
 .ghost-btn:hover { color: var(--text); border-color: var(--accent); }
+.ghost-btn:disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
 
 /* ===== PANE (TAB NON-CHAT) ===== */
 .pane-body { flex: 1; overflow-y: auto; min-height: 0; padding: 6px 2px 12px; }

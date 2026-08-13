@@ -7,6 +7,29 @@
 
   var MEMORY_KEY = 'cangcilung_memory_v1';
   var lastAnswerSource = '';
+  var genAbort = null;
+  var genBubble = null;
+  var busy = false;
+
+  function isStopped() {
+    return !!(genAbort && genAbort.signal.aborted);
+  }
+
+  function beginGeneration(bubble) {
+    genBubble = bubble;
+    genAbort = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  }
+
+  function endGeneration() {
+    genAbort = null;
+    genBubble = null;
+  }
+
+  function stopGeneration() {
+    if (!genAbort || genAbort.signal.aborted) return;
+    genAbort.abort();
+    setStatus('Menghentikan...');
+  }
 
   function loadApiConfig() {
     try {
@@ -108,7 +131,12 @@
       var pane = document.getElementById('tab-' + t);
       if (pane) pane.classList.toggle('active', t === name);
     });
-    lazyLoadTab(name);
+    if (name !== 'sinyal' && sinyalTimer) {
+      clearInterval(sinyalTimer);
+      sinyalTimer = null;
+    }
+    if (name === 'sinyal') renderSinyal();
+    else if (name === 'status') renderStatus();
   }
 
   function lazyLoadTab(name) {
@@ -311,7 +339,10 @@
   }
 
   function bindChat() {
-    els.btnSend.addEventListener('click', sendChat);
+    els.btnSend.addEventListener('click', function () {
+      if (busy) { stopGeneration(); return; }
+      sendChat();
+    });
     els.chatInput.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -471,17 +502,53 @@
 
     div.appendChild(avatar);
     div.appendChild(bubble);
+    if (role === 'assistant') {
+      var copyBtn = document.createElement('button');
+      copyBtn.className = 'msg-copy';
+      copyBtn.textContent = '⧉';
+      copyBtn.title = 'Salin jawaban';
+      copyBtn.addEventListener('click', function () {
+        var content = bubble.textContent.replace(/\s*via .+$/, '').trim();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(content).then(function () {
+            copyBtn.textContent = '✓';
+            setTimeout(function () { copyBtn.textContent = '⧉'; }, 1500);
+          }).catch(function () { legacyCopy(content); });
+        } else {
+          legacyCopy(content);
+        }
+      });
+      div.appendChild(copyBtn);
+    }
     els.chatMessages.appendChild(div);
     scrollChat();
     return bubble;
   }
 
-  function setBusy(busy) {
-    els.btnSend.disabled = busy;
-    if (els.btnAttach) els.btnAttach.disabled = busy;
+  function legacyCopy(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch (e) { /* gagal — abaikan */ }
+  }
+
+  function setBusy(state) {
+    busy = state;
+    els.btnSend.classList.toggle('stop-btn', state);
+    els.btnSend.textContent = state ? '■' : '➤';
+    if (els.btnAttach) els.btnAttach.disabled = state;
+    var btnClear = document.getElementById('btn-clear-chat');
+    if (btnClear) btnClear.disabled = state;
   }
 
   function finishChat(bubble, source) {
+    endGeneration();
     history.push({ role: 'assistant', content: bubble.textContent });
     saveHistory();
     if (source) {
@@ -496,17 +563,25 @@
   }
 
   function failChat(bubble, err) {
-    bubble.textContent = friendlyError(err);
-    history.pop();
+    if (isStopped()) {
+      bubble.textContent = '⏹ Dibatalkan.';
+    } else {
+      bubble.textContent = friendlyError(err);
+    }
+    if (history.length && history[history.length - 1].role === 'user') {
+      history.pop();
+    }
     saveHistory();
-    setStatus('', true);
+    setStatus('', isStopped() ? false : true);
     setBusy(false);
+    endGeneration();
     els.chatInput.focus();
   }
 
   function sendChat() {
+    if (busy) return;
     var text = els.chatInput.value.trim();
-    if (!text || els.btnSend.disabled) return;
+    if (!text) return;
 
     els.chatInput.value = '';
     autoGrow(els.chatInput);
@@ -529,9 +604,16 @@
       return;
     }
 
+    var autoQ = detectTimeSensitive(text);
+    if (autoQ) {
+      handleSearch(autoQ);
+      return;
+    }
+
     var bubble = appendMessage('assistant', '', true);
     setStatus('Menghasilkan jawaban...');
     lastAnswerSource = '';
+    beginGeneration(bubble);
     var messages = [{ role: 'system', content: systemPrompt() }].concat(history.slice(-24));
     runChat(messages,
       function (fullText) {
@@ -552,13 +634,22 @@
     return (apiConfig.enabled && apiConfig.providers) ? apiConfig.providers : [];
   }
 
-  function customApiCall(path, body, cfg) {
+  function customApiCall(path, body, cfg, externalSignal) {
     cfg = cfg || apiConfig;
     var headers = { 'Content-Type': 'application/json' };
     if (cfg.apiKey) headers['Authorization'] = 'Bearer ' + cfg.apiKey;
     var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
     var timer = controller ? setTimeout(function () { controller.abort(); }, 90000) : null;
     var signal = controller ? controller.signal : undefined;
+    if (externalSignal && controller) {
+      if (externalSignal.aborted) {
+        if (timer) clearTimeout(timer);
+        return Promise.reject({ message: 'Dihentikan.' });
+      }
+      externalSignal.addEventListener('abort', function () {
+        if (!controller.signal.aborted) controller.abort();
+      });
+    }
     return fetch(cfg.baseUrl + path, {
       method: 'POST',
       headers: headers,
@@ -576,6 +667,9 @@
       });
     }, function (err) {
       if (timer) clearTimeout(timer);
+      if (externalSignal && externalSignal.aborted) {
+        throw { message: 'Dihentikan.' };
+      }
       if (controller && controller.signal.aborted) {
         throw new Error('Timeout: provider tidak merespons dalam 90 detik.');
       }
@@ -586,7 +680,8 @@
   function customChat(messages, cfg) {
     var body = { messages: messages };
     if (cfg && cfg.model) body.model = cfg.model;
-    return customApiCall('/chat/completions', body, cfg).then(function (data) {
+    return customApiCall('/chat/completions', body, cfg, genAbort).then(function (data) {
+      if (isStopped()) throw { message: 'Dihentikan.' };
       var text = data && data.choices && data.choices[0] && data.choices[0].message
         ? data.choices[0].message.content : '';
       if (!text) throw new Error('Respons kosong dari API.');
@@ -605,7 +700,8 @@
       }]
     };
     if (cfg && cfg.model) body.model = cfg.model;
-    return customApiCall('/chat/completions', body, cfg).then(function (data) {
+    return customApiCall('/chat/completions', body, cfg, genAbort).then(function (data) {
+      if (isStopped()) throw { message: 'Dihentikan.' };
       var text = data && data.choices && data.choices[0] && data.choices[0].message
         ? data.choices[0].message.content : '';
       if (!text) throw new Error('Respons kosong dari API.');
@@ -634,6 +730,7 @@
       return attemptFn(cfg).then(
         function (result) { return { cfg: cfg, result: result }; },
         function (err) {
+          if (isStopped()) return Promise.reject({ stopped: true });
           errors.push((cfg.name || cfg.model || cfg.baseUrl) + ': ' + friendlyError(err));
           return next();
         }
@@ -651,6 +748,7 @@
     }).then(
       function (out) { return out.result; },
       function (err) {
+        if (isStopped()) return Promise.reject({ stopped: true });
         if (typeof puter !== 'undefined' && puter.ai && puter.ai.chat) {
           lastAnswerSource = 'Puter (fallback)';
           setStatus('Semua API gagal — fallback ke Puter...', true);
@@ -684,17 +782,20 @@
           (async function () {
             try {
               for await (let part of resp) {
+                if (isStopped()) break;
                 if (part && part.text) {
                   full += part.text;
                   onToken(full);
                 }
               }
+              if (isStopped()) { onError({ stopped: true }); return; }
               onDone();
             } catch (e) {
               onError(e);
             }
           })();
         } else {
+          if (isStopped()) { onError({ stopped: true }); return; }
           var text = typeof resp === 'string'
             ? resp
             : (resp && resp.message ? resp.message.content : '');
@@ -716,8 +817,12 @@
         return fullText;
       });
     }).then(
-      function (out) { onToken(out.result); onDone(); },
+      function (out) {
+        if (isStopped()) { onError({ stopped: true }); return; }
+        onToken(out.result); onDone();
+      },
       function (err) {
+        if (isStopped()) { onError({ stopped: true }); return; }
         if (typeof puter !== 'undefined' && puter.ai && puter.ai.chat) {
           lastAnswerSource = 'Puter (fallback)';
           setStatus('Semua API gagal — fallback ke Puter...', true);
@@ -772,6 +877,7 @@
   }
 
   function endMemoryReply(text) {
+    endGeneration();
     appendMessage('assistant', text);
     history.push({ role: 'assistant', content: text });
     saveHistory();
@@ -790,6 +896,17 @@
     }
     if (t.indexOf('sinyal baru') > -1 || t.indexOf('sinyal terakhir') > -1) return true;
     return false;
+  }
+
+  function detectTimeSensitive(text) {
+    var t = String(text).toLowerCase();
+    var signals = ['hari ini', 'terkini', 'terbaru', 'berita', 'cuaca', 'skor', 'live', 'today', 'latest'];
+    for (var i = 0; i < signals.length; i++) {
+      if (t.indexOf(signals[i]) > -1 && t.length <= 200) {
+        return String(text);
+      }
+    }
+    return null;
   }
 
   function fetchTcipMonitorData() {
@@ -817,8 +934,10 @@
   function handleTcipQuery() {
     var bubble = appendMessage('assistant', '', true);
     setStatus('Mengecek sinyal tcip.asia...');
+    beginGeneration(bubble);
     fetchTcipMonitorData()
       .then(function (data) {
+        if (isStopped()) { failChat(bubble, { stopped: true }); return; }
         var latest = data.latest;
         var lastcheck = data.lastcheck || {};
         if (!latest) {
@@ -907,8 +1026,10 @@
   function handleSearch(query) {
     var bubble = appendMessage('assistant', '', true);
     setStatus('Mencari: ' + query + '...');
+    beginGeneration(bubble);
     searchWeb(query)
       .then(function (results) {
+        if (isStopped()) { failChat(bubble, { stopped: true }); return; }
         bubble.classList.remove('typing');
         var context = formatSearchResults(results);
         var messages = [
@@ -1035,6 +1156,7 @@
     var bubble = appendMessage('assistant', '', true);
     setBusy(true);
     setStatus('Menganalisis gambar...');
+    beginGeneration(bubble);
     if (!isCustomApi() && (typeof puter === 'undefined' || !puter.ai || !puter.ai.chat)) {
       failChat(bubble, { message: 'Layanan AI belum termuat. Muat ulang halaman.' });
       return;
@@ -1046,6 +1168,7 @@
       saveHistory();
       aiVision('Analisis gambar ini secara detail dalam bahasa Indonesia. Sebutkan objek, suasana, teks yang terlihat, dan kesimpulan.', dataUrl)
         .then(function (resp) {
+          if (isStopped()) throw { message: 'Dihentikan.' };
           var text = typeof resp === 'string'
             ? resp
             : (resp && resp.message ? resp.message.content : '');
@@ -1071,6 +1194,7 @@
           }
           history.push({ role: 'assistant', content: '📷 Analisis gambar "' + file.name + '":\n' + text });
           saveHistory();
+          endGeneration();
           setStatus('');
           setBusy(false);
           els.chatInput.focus();
@@ -1086,6 +1210,7 @@
     var bubble = appendMessage('assistant', '', true);
     setBusy(true);
     setStatus('Membaca dokumen...');
+    beginGeneration(bubble);
     var reader = new FileReader();
     reader.onload = function () {
       var content = String(reader.result || '').slice(0, 30000);
@@ -1115,6 +1240,7 @@
     var bubble = appendMessage('assistant', '', true);
     setBusy(true);
     setStatus('Membaca PDF...');
+    beginGeneration(bubble);
     if (typeof pdfjsLib === 'undefined') {
       failChat(bubble, { message: 'Pustaka PDF belum termuat. Muat ulang halaman.' });
       return;
