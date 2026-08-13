@@ -480,55 +480,6 @@ body {
 }
 .set-field textarea:focus { border-color: var(--accent); }
 
-/* ===== BASIS PENGETAHUAN (RAG) ===== */
-.kb-add {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 14px;
-  display: flex; flex-direction: column; gap: 8px;
-}
-.kb-title-input {
-  background: var(--bg-soft);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-  font-size: 14px;
-  padding: 10px 12px;
-  font-family: inherit;
-  outline: none;
-}
-.kb-title-input:focus { border-color: var(--accent); }
-.kb-add textarea {
-  background: var(--bg-soft);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-  font-size: 13px;
-  font-family: inherit;
-  padding: 10px 12px;
-  resize: vertical;
-  outline: none;
-}
-.kb-add textarea:focus { border-color: var(--accent); }
-.kb-actions { display: flex; align-items: center; gap: 8px; }
-.kb-file-label { cursor: pointer; display: inline-block; }
-.kb-list { display: flex; flex-direction: column; gap: 8px; }
-.kb-item {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 14px;
-}
-.kb-info { min-width: 0; }
-.kb-title { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kb-meta { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
-.kb-del { flex-shrink: 0; padding: 6px 10px; font-size: 12px; }
-.kb-empty { color: var(--text-dim); padding: 40px 10px; text-align: center; font-size: 13.5px; }
-
 .set-status {
   min-height: 20px;
   font-size: 12.5px; color: var(--ok); line-height: 1.5;

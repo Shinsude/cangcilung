@@ -31,10 +31,6 @@
           <span class="nav-icon">📊</span>
           <span>Sinyal</span>
         </button>
-        <button class="nav-item" data-tab="basis" title="Basis pengetahuan pribadi (RAG)">
-          <span class="nav-icon">🧠</span>
-          <span>Basis</span>
-        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -95,27 +91,6 @@
           <div class="dash-loading">Memuat data...</div>
         </div>
       </section>
-
-      </section>
-      <!-- ====== TAB BASIS ====== -->
-      <section class="tab-pane" id="tab-basis">
-        <div class="chat-header">
-          <h2>Basis Pengetahuan</h2>
-          <span class="pane-sub" id="kb-stat">Dokumen pribadi untuk jawaban akurat (RAG)</span>
-        </div>
-        <div class="pane-body">
-          <div class="kb-add">
-            <input type="text" id="kb-title" class="kb-title-input" placeholder="Judul dokumen (mis. Buku resep, catatan kuliah, pedoman kerja)">
-            <textarea id="kb-content" rows="5" placeholder="Tempel isi dokumen di sini, atau unggah file .txt/.md/.csv/.json/.pdf di bawah..."></textarea>
-            <div class="kb-actions">
-              <label class="ghost-btn kb-file-label" for="kb-file">📄 Unggah file</label>
-              <input type="file" id="kb-file" accept=".txt,.md,.csv,.json,.log,.pdf" hidden>
-              <button id="kb-add" class="primary-btn">+ Tambahkan</button>
-            </div>
-          </div>
-          <div id="kb-list" class="kb-list"></div>
-        </div>
-      </section>
     </main>
   </div>
 
@@ -136,11 +111,6 @@
           <span>Daftar provider (Nama|BaseURL|APIKey|Model)</span>
           <textarea id="set-providers" rows="5" placeholder="contoh:&#10;OpenAI|https://api.openai.com/v1|sk-xxx|gpt-4o&#10;OpenRouter|https://openrouter.ai/api/v1|sk-or-xxx|anthropic/claude-sonnet-4&#10;Groq|https://api.groq.com/openai/v1|gsk-xxx|llama-3.3-70b-versatile"></textarea>
         </label>
-        <label class="set-row">
-          <span>Gunakan basis pengetahuan (RAG)</span>
-          <input type="checkbox" id="set-rag" checked>
-        </label>
-        <p class="set-hint">Saat aktif, dokumen di tab 🧠 Basis disuntikkan sebagai konteks jawaban otomatis.</p>
         <p class="set-hint">Asisten berperilaku dewasa, terus terang, dan tanpa menghakimi (selalu aktif).</p>
         <div class="set-status" id="set-status"></div>
       </div>

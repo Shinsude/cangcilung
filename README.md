@@ -24,11 +24,6 @@ Asisten AI chatbot berbasis web seperti DOLA / tcip.asia.
 - Kalau provider pertama gagal (error/mati/limit), otomatis coba provider berikutnya; jika semua gagal, fallback ke Puter (gratis).
 - Contoh: OpenAI, OpenRouter, Groq, DeepSeek, atau endpoint OpenAI-compatible mana pun. Semua diuji sekaligus lewat tombol **Tes Koneksi**.
 
-### Basis pengetahuan (tab 🧠) — RAG
-- Tambahkan dokumen (tempel teks atau unggah file `.txt/.md/.csv/.json/.pdf`) — disimpan di localStorage, otomatis dipotong (chunking) bila panjang.
-- Saat toggle RAG aktif (⚙️ Pengaturan), potongan dokumen yang relevan dengan pertanyaan disuntikkan otomatis ke konteks jawaban.
-- Ini membuat jawaban cangcilung akurat terhadap **data pribadi kamu** tanpa perlu model dilatih ulang.
-
 ## Cara menjalankan
 
 **Lokal:** buka `index.html` di browser, atau jalankan server statis:
