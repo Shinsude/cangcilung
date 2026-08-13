@@ -138,7 +138,7 @@
   function friendlyError(err) {
     var msg = (err && (err.message || err.code)) || '';
     var low = String(msg).toLowerCase();
-    if (low.indexOf('quota') > -1 || low.indexOf('limit') > -1 || low.indexOf('insufficient') > -1 || low.indexOf('exceeded') > -1) {
+    if (low.indexOf('quota') > -1 || low.indexOf('limit') > -1 || low.indexOf('insufficient') > -1 || low.indexOf('exceeded') > -1 || low.indexOf('balance') > -1 || low.indexOf('funding') > -1 || low.indexOf('upgrade') > -1) {
       return isCustomApi()
         ? ('Kuota API habis atau melebihi batas: ' + msg)
         : 'Kuota AI gratis sedang habis, coba lagi nanti.';
