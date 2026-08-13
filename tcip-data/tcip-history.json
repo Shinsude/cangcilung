@@ -3,6 +3,18 @@
     "symbol": "XAUUSD",
     "timeframe": "M15",
     "direction": "SELL",
+    "confidence": 0,
+    "grade": "NEUTRAL",
+    "phase": "FORMING",
+    "risk_level": "MODERATE",
+    "is_stale": false,
+    "price": 4383.208,
+    "updatedAt": 1786632447980
+  },
+  {
+    "symbol": "XAUUSD",
+    "timeframe": "M15",
+    "direction": "SELL",
     "confidence": 46,
     "grade": "NEUTRAL",
     "phase": "FORMING",
