@@ -1,6 +1,7 @@
 {
-  "ok": true,
-  "status": "online",
-  "at": 1786578982147,
-  "error": null
+  "ok": false,
+  "status": "offline",
+  "at": 1786588527811,
+  "error": "HTTP 502",
+  "changed": false
 }
