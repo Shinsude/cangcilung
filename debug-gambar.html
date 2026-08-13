@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Debug Gambar Puter</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #111; color: #eee; }
+  #status { margin-bottom: 10px; }
+  #result { margin-top: 20px; }
+  img { max-width: 400px; border: 1px solid #444; margin-top: 10px; }
+  .err { color: #f66; white-space: pre-wrap; }
+  .ok { color: #6f6; }
+</style>
+</head>
+<body>
+  <h1>Debug txt2img Puter</h1>
+  <button onclick="run()">Jalankan tes</button>
+  <div id="status">Belum dijalankan</div>
+  <div id="result"></div>
+
+  <script src="https://js.puter.com/v2/"></script>
+  <script>
+    function log(msg) {
+      var s = document.getElementById('status');
+      s.innerHTML = s.innerHTML + '<br>' + msg;
+    }
+    function run() {
+      var r = document.getElementById('result');
+      r.innerHTML = '';
+      log('puter.ai.txt2img tersedia: ' + !!(puter && puter.ai && puter.ai.txt2img));
+      log('Mencoba generate gambar...');
+      puter.ai.txt2img('Mickey Mouse kartun klasik tersenyum')
+        .then(function (image) {
+          log('Berhasil. Tipe hasil: ' + (image ? image.constructor.name : 'null'));
+          log('Apakah HTMLImageElement: ' + (image instanceof HTMLImageElement));
+          log('src: ' + (image && image.src ? (image.src.length > 80 ? image.src.slice(0, 80) + '...' : image.src) : '(kosong)'));
+          r.innerHTML = '<div class="ok">Berhasil!</div>';
+          if (image && image.nodeType) r.appendChild(image);
+        })
+        .catch(function (err) {
+          log('GAGAL:');
+          log('<span class="err">' + JSON.stringify(err) + '</span>');
+          log('<span class="err">name: ' + err.name + ' | message: ' + err.message + '</span>');
+          r.innerHTML = '<div class="err">Error: ' + err.message + '<br>' + JSON.stringify(err) + '</div>';
+        });
+    }
+  </script>
+</body>
+</html>
