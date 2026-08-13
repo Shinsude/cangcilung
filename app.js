@@ -809,7 +809,7 @@
       if (typeof puter === 'undefined' || !puter.ai || !puter.ai.txt2img) {
         throw new Error('Layanan pembuat gambar belum termuat dan server Stable Diffusion lokal tidak terdeteksi. Muat ulang halaman, atau nyalakan server SD lokal (A1111) dengan flag --api --cors-allow-origins "*".');
       }
-      return puter.ai.txt2img(prompt).then(function (res) {
+      return puter.ai.txt2img(prompt, { model: 'gpt-image-1-mini' }).then(function (res) {
         if (res instanceof HTMLImageElement) return [res];
         if (res && res.nodeType === 1) return [res];
         if (typeof res === 'string') return [makeImgEl(res)];
