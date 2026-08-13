@@ -281,7 +281,7 @@
 
   function restoreHistory() {
     history = loadHistory();
-    if (history.length) renderHistory();
+    renderHistory();
   }
 
   /* ===== CHAT ===== */
@@ -600,6 +600,7 @@
     if (isCustomApi()) {
       return visionWithFallback(prompt, dataUrl);
     }
+    lastAnswerSource = 'Puter';
     return puter.ai.chat(prompt, dataUrl, { model: MODEL });
   }
 
@@ -632,11 +633,15 @@
       return Promise.reject({ message: 'Semua API gagal dan layanan Puter tidak tersedia.' });
     }
     return tryProviders(function (cfg) {
-      return customVision(prompt, dataUrl, cfg);
+      return customVision(prompt, dataUrl, cfg).then(function (text) {
+        lastAnswerSource = cfg.name || cfg.model || cfg.baseUrl;
+        return text;
+      });
     }).then(
       function (out) { return out.result; },
       function (err) {
         if (typeof puter !== 'undefined' && puter.ai && puter.ai.chat) {
+          lastAnswerSource = 'Puter (fallback)';
           setStatus('Semua API gagal — fallback ke Puter...', true);
           return puter.ai.chat(prompt, dataUrl, { model: MODEL });
         }
@@ -659,7 +664,7 @@
       return;
     }
 
-    lastAnswerSource = 'Puter';
+    if (!lastAnswerSource) lastAnswerSource = 'Puter';
     puter.ai.chat(messages, { model: MODEL, stream: true })
       .then(function (resp) {
         var isAsyncIterable = resp && typeof resp[Symbol.asyncIterator] === 'function';
@@ -1046,6 +1051,12 @@
           txt.className = 'img-analysis';
           txt.textContent = text;
           bubble.appendChild(txt);
+          if (lastAnswerSource) {
+            var tag = document.createElement('div');
+            tag.className = 'msg-source';
+            tag.textContent = 'via ' + lastAnswerSource;
+            bubble.appendChild(tag);
+          }
           history.push({ role: 'assistant', content: '📷 Analisis gambar "' + file.name + '":\n' + text });
           saveHistory();
           setStatus('');
