@@ -1,0 +1,20 @@
+{
+  "generatedAt": 1786594746732,
+  "verifiedTotal": 0,
+  "trackedTotal": 0,
+  "best": {
+    "direction": null,
+    "grade": null,
+    "timeframe": null,
+    "symbol": null
+  },
+  "rankings": {
+    "byDirection": [],
+    "byGrade": [],
+    "byTimeframe": [],
+    "bySymbol": []
+  },
+  "insights": [
+    "Belum ada sinyal terverifikasi. Data pembelajaran mulai terkumpul seiring pemantauan berjalan."
+  ]
+}

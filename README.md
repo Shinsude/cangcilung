@@ -55,6 +55,7 @@ Bot bisa menjawab "ada sinyal baru dari tcip.asia?" memakai data yang dipantau b
   - `tcip-snapshots.json` — sampling harga per sinyal (untuk verifikasi akurasi).
   - `tcip-verifications.json` — hasil verifikasi: P&L sinyal pada horizon **1 jam / 4 jam / 24 jam** terhadap harga masuk, diklasifikasi **WIN / LOSS / DRAW**.
   - `tcip-stats.json` — agregat: total, win rate, rata-rata P&L, rekap **per arah**, **per timeframe**, dan **per pasangan**.
+  - `tcip-learnings.json` — **pembelajaran otomatis**: analisis pola sinyal paling akurat (arah, grade, timeframe, simbol terbaik) + insight otomatis dalam bahasa Indonesia. Tampil di tab Sinyal dan ikut dalam jawaban chat.
 - **`.github/workflows/monitor-tcip.yml`** — GitHub Actions menjalankan pemantau tiap **10 menit** (jadwal UTC) dan meng-commit data jika ada perubahan. Repo publik → gratis & tanpa batas menit.
 - Bot membaca data langsung dari file JSON di repo ini (tanpa server tambahan):
   - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-latest.json` — sinyal terakhir (atau `null` jika belum ada).

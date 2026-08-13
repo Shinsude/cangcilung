@@ -921,7 +921,7 @@
   }
 
   function fetchTcipMonitorData() {
-    var files = ['tcip-latest.json', 'tcip-status.json', 'tcip-history.json', 'tcip-stats.json', 'tcip-verifications.json'];
+    var files = ['tcip-latest.json', 'tcip-status.json', 'tcip-history.json', 'tcip-stats.json', 'tcip-verifications.json', 'tcip-learnings.json'];
     return Promise.all(files.map(function (f) {
       return webFetch(TCIP_RAW_BASE + f).catch(function () { return 'null'; });
     })).then(function (res) {
@@ -937,6 +937,7 @@
         data.verifications = JSON.parse(res[4]);
         if (!data.verifications || typeof data.verifications !== 'object' || Array.isArray(data.verifications)) data.verifications = {};
       } catch (e) { data.verifications = {}; }
+      try { data.learnings = JSON.parse(res[5]); } catch (e) { data.learnings = null; }
       return data;
     });
   }
@@ -1021,7 +1022,11 @@
         });
       }
     }
-    lines.push('Jelaskan kepada pengguna dalam bahasa Indonesia: apakah ada sinyal aktif, instrumennya apa, arah, keyakinan, risiko, dan bila ada data akurasi, rekap win rate per pasangan. Gunakan data di atas dengan jujur (jangan mengarang). Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.');
+    if (data.learnings && data.learnings.insights && data.learnings.insights.length) {
+      lines.push('Pembelajaran otomatis dari data terverifikasi:');
+      data.learnings.insights.forEach(function (i) { lines.push('- ' + i); });
+    }
+    lines.push('Jelaskan kepada pengguna dalam bahasa Indonesia: apakah ada sinyal aktif, instrumennya apa, arah, keyakinan, risiko, dan bila ada data akurasi, rekap win rate per pasangan. Bila ada "Pembelajaran otomatis", sampaikan ringkas temuan tersebut (mis. arah/grade/timeframe paling akurat). Gunakan data di atas dengan jujur (jangan mengarang). Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.');
     return lines.join('\n');
   }
 
@@ -1477,6 +1482,7 @@
       if (sub) sub.textContent = 'Diperbarui ' + new Date().toLocaleTimeString('id-ID') + ' · auto-refresh 2 mnt';
       body.innerHTML = '';
       body.appendChild(signalStatusCard(data));
+      body.appendChild(learningsCard(data.learnings));
       body.appendChild(statsCard(data.stats));
       body.appendChild(pairsCard(data.stats));
       body.appendChild(verificationCard(data.verifications));
@@ -1565,6 +1571,36 @@
     grid.appendChild(dashCell('Diperbarui', fmtTime(latest.updatedAt)));
     sig.appendChild(grid);
     card.appendChild(sig);
+    return card;
+  }
+
+  function learningsCard(l) {
+    var card = mk('div', 'dash-card');
+    var head = mk('div', 'dash-card-head');
+    head.appendChild(mk('h3', null, 'Pembelajaran otomatis'));
+    head.appendChild(mk('span', 'st-ok', l && l.insights && l.insights.length ? 'Belajar dari data' : 'Mengumpulkan data'));
+    card.appendChild(head);
+
+    if (!l || !l.insights || !l.insights.length) {
+      card.appendChild(mk('p', 'dash-muted', 'Belum ada pembelajaran. Data mulai dianalisis setelah sinyal terverifikasi (sinyal berumur ±24 jam).'));
+      return card;
+    }
+
+    var ul = mk('ul', 'learnings-list');
+    l.insights.forEach(function (i) {
+      var li = mk('li', null, i);
+      ul.appendChild(li);
+    });
+    card.appendChild(ul);
+
+    if (l.best) {
+      var grid = mk('div', 'dash-detail-grid');
+      if (l.best.direction) grid.appendChild(dashCell('Arah terbaik', l.best.direction.name + ' · WR ' + fmtPct(l.best.direction.winRate)));
+      if (l.best.grade) grid.appendChild(dashCell('Grade terbaik', l.best.grade.name + ' · WR ' + fmtPct(l.best.grade.winRate)));
+      if (l.best.timeframe) grid.appendChild(dashCell('Timeframe terbaik', l.best.timeframe.name + ' · WR ' + fmtPct(l.best.timeframe.winRate)));
+      if (l.best.symbol) grid.appendChild(dashCell('Simbol terbaik', l.best.symbol.name + ' · WR ' + fmtPct(l.best.symbol.winRate)));
+      card.appendChild(grid);
+    }
     return card;
   }
 

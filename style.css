@@ -291,6 +291,8 @@ body {
 .dash-card h3 { font-size: 15px; font-weight: 600; }
 .dash-card h4.dash-sub { font-size: 13px; font-weight: 600; color: var(--text-dim); margin: 14px 0 8px; }
 .dash-muted { color: var(--text-dim); font-size: 13px; line-height: 1.6; }
+.learnings-list { margin: 0 0 4px; padding-left: 18px; }
+.learnings-list li { font-size: 13px; line-height: 1.7; color: var(--text); margin-bottom: 6px; }
 
 .dash-detail-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

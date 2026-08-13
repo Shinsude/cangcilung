@@ -124,6 +124,7 @@ function verifySnapshot(snap) {
   const avgPnl = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
   return {
     key: snap.key, symbol: snap.symbol, timeframe: snap.timeframe, direction: snap.direction,
+    grade: snap.grade || null, confidence: snap.confidence != null ? snap.confidence : null, phase: snap.phase || null,
     entryPrice: snap.entryPrice, entryAt: snap.entryAt, primaryHorizon: primary,
     horizons, result, avgPnl: avgPnl != null ? Number(avgPnl.toFixed(6)) : null,
     sampleCount: samples.length,
@@ -188,6 +189,81 @@ function buildStats(verifications, history) {
   };
 }
 
+function buildLearnings(verifications, stats) {
+  const entries = Object.keys(verifications).map((k) => verifications[k]);
+  const scored = entries.filter((v) => v.result === 'WIN' || v.result === 'LOSS' || v.result === 'DRAW');
+  const scoredTotal = scored.length;
+
+  function agg(field) {
+    const map = {};
+    for (const v of scored) {
+      const key = String(v[field] == null || v[field] === '' ? '(kosong)' : v[field]).toUpperCase();
+      const b = map[key] || (map[key] = { total: 0, wins: 0, losses: 0, draws: 0, pnlSum: 0, pnlN: 0 });
+      b.total++;
+      if (v.result === 'WIN') b.wins++;
+      else if (v.result === 'LOSS') b.losses++;
+      else if (v.result === 'DRAW') b.draws++;
+      if (v.avgPnl != null) { b.pnlSum += v.avgPnl; b.pnlN++; }
+    }
+    const rows = Object.keys(map).map((key) => {
+      const b = map[key];
+      const scoredHere = b.wins + b.losses + b.draws;
+      b.winRate = scoredHere ? Number((b.wins / scoredHere).toFixed(3)) : 0;
+      b.avgPnl = b.pnlN ? Number((b.pnlSum / b.pnlN).toFixed(5)) : null;
+      delete b.pnlSum; delete b.pnlN;
+      b.name = key;
+      return b;
+    });
+    rows.sort((a, b2) => (b2.winRate - a.winRate) || (b2.total - a.total));
+    return rows;
+  }
+
+  function bestOf(rows, minSamples) {
+    const eligible = rows.filter((r) => r.total >= minSamples && (r.wins + r.losses + r.draws) > 0);
+    return eligible.length ? eligible[0] : null;
+  }
+
+  const byDirection = agg('direction');
+  const byGrade = agg('grade');
+  const byTimeframe = agg('timeframe');
+  const bySymbol = agg('symbol');
+
+  const best = {
+    direction: bestOf(byDirection, 3),
+    grade: bestOf(byGrade, 2),
+    timeframe: bestOf(byTimeframe, 2),
+    symbol: bestOf(bySymbol, 2)
+  };
+
+  const insights = [];
+  if (scoredTotal > 0) {
+    insights.push('Dari ' + scoredTotal + ' sinyal terverifikasi, win rate keseluruhan ' + Math.round((stats.winRate || 0) * 100) + '%.');
+    if (best.direction) insights.push('Arah paling akurat: ' + best.direction.name + ' (win rate ' + Math.round(best.direction.winRate * 100) + '% dari ' + best.direction.total + ' sinyal).');
+    if (best.grade) insights.push('Grade paling akurat: ' + best.grade.name + ' (win rate ' + Math.round(best.grade.winRate * 100) + '% dari ' + best.grade.total + ' sinyal).');
+    if (best.timeframe) insights.push('Timeframe paling akurat: ' + best.timeframe.name + ' (win rate ' + Math.round(best.timeframe.winRate * 100) + '% dari ' + best.timeframe.total + ' sinyal).');
+    if (best.symbol) insights.push('Simbol paling akurat: ' + best.symbol.name + ' (win rate ' + Math.round(best.symbol.winRate * 100) + '% dari ' + best.symbol.total + ' sinyal).');
+    const worst = bySymbol.length && bySymbol[bySymbol.length - 1];
+    if (worst && worst.total >= 3) insights.push('Perhatian: ' + worst.name + ' menunjukkan win rate ' + Math.round(worst.winRate * 100) + '% (' + worst.total + ' sinyal) — patut dipantau.');
+
+    const highConf = scored.filter((v) => v.confidence != null && v.confidence >= 70);
+    if (highConf.length >= 3) {
+      const hcWins = highConf.filter((v) => v.result === 'WIN').length;
+      insights.push('Sinyal dengan confidence >= 70%: ' + highConf.length + ' sinyal, win rate ' + Math.round((hcWins / highConf.length) * 100) + '%.');
+    }
+  } else {
+    insights.push('Belum ada sinyal terverifikasi. Data pembelajaran mulai terkumpul seiring pemantauan berjalan.');
+  }
+
+  return {
+    generatedAt: Date.now(),
+    verifiedTotal: scoredTotal,
+    trackedTotal: entries.length,
+    best,
+    rankings: { byDirection, byGrade, byTimeframe, bySymbol },
+    insights
+  };
+}
+
 const out = { ok: false, status: 'offline', at: Date.now(), error: null, changed: false };
 let sig = null;
 let priceMap = {};
@@ -238,6 +314,7 @@ if (sig && out.changed && sig.price != null) {
     snapshots[key] = {
       key: key,
       symbol: sig.symbol, timeframe: sig.timeframe, direction: sig.direction,
+      grade: sig.grade || null, confidence: sig.confidence != null ? sig.confidence : null, phase: sig.phase || null,
       entryPrice: sig.price, entryAt: sig.updatedAt,
       primaryHorizon: PRIMARY_HORIZON[sig.timeframe] || '4h',
       samples: {}
@@ -277,6 +354,9 @@ writeJson('tcip-verifications.json', verifications);
 const historyFinal = readJson('tcip-history.json') || [];
 const stats = buildStats(verifications, historyFinal);
 writeJson('tcip-stats.json', stats);
+
+const learnings = buildLearnings(verifications, stats);
+writeJson('tcip-learnings.json', learnings);
 
 out.verifiedCount = Object.keys(verifications).length;
 out.trackingCount = Object.keys(snapshots).length;
