@@ -38,8 +38,7 @@ function sameSignal(a, b) {
 }
 
 function extractSignal(d) {
-  if (!d || !d.symbol) return null;
-  const price = d.current_price;
+  if (!d || !d.symbol) return null;  const price = d.current_price;
   return {
     symbol: String(d.symbol || '').toUpperCase(),
     timeframe: String(d.timeframe || 'M15').toUpperCase(),
@@ -56,7 +55,7 @@ function extractSignal(d) {
 
 function extractPriceMap(data, sig) {
   const map = {};
-  const market = data && data.market;
+  const market = data && (data.market_prices || data.market);
   if (Array.isArray(market)) {
     for (const m of market) {
       if (!m || typeof m !== 'object') continue;
@@ -72,7 +71,7 @@ function extractPriceMap(data, sig) {
       const v = market[sym];
       let p = v;
       if (v && typeof v === 'object') {
-        p = v.mid != null ? v.mid : (v.bid != null ? v.bid : (v.price != null ? v.price : v.current_price));
+        p = v.mid != null ? v.mid : (v.bid != null ? v.bid : (v.ask != null ? v.ask : (v.price != null ? v.price : v.current_price)));
       }
       if (p != null && Number(p) > 0) map[String(sym).toUpperCase()] = Number(p);
     }
@@ -200,7 +199,8 @@ try {
   clearTimeout(timer);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const data = await res.json();
-  sig = extractSignal(data && data.decision);
+  const insight = data && (data.insight_data || data.decision);
+  sig = extractSignal(insight);
   priceMap = extractPriceMap(data, sig);
   const statusOk = { ok: true, status: 'online', at: Date.now(), error: null };
   writeJson('tcip-status.json', statusOk);

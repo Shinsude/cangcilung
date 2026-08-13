@@ -1,9 +1,27 @@
 (function () {
   'use strict';
 
-  var MODEL = 'gpt-4o-mini';
+  var MODEL = 'claude-sonnet-4';
   var API_KEY_STORAGE = 'cangcilung_api_v1';
   var apiConfig = loadApiConfig();
+
+  var sdAutoUrl = null;
+  var sdAutoChecked = false;
+  var sdModels = [];
+  var SD_PROBE_BASES = [
+    'http://127.0.0.1:7860',
+    'http://127.0.0.1:7861',
+    'http://127.0.0.1:7870',
+    'http://localhost:7860'
+  ];
+
+  var SD_STEPS = 30;
+  var SD_WIDTH = 832;
+  var SD_HEIGHT = 832;
+  var IMG_COUNT = 2;
+  var SD_NEGATIVE = 'lowres, bad anatomy, bad hands, text, error, missing fingers, extra digits, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, ugly, deformed';
+  var GALLERY_KEY = 'cangcilung_gallery_v1';
+  var MEMORY_KEY = 'cangcilung_memory_v1';
 
   function loadApiConfig() {
     try {
@@ -22,14 +40,15 @@
     } catch (e) { return {}; }
   }
 
-  var SYSTEM = 'Kamu adalah cangcilung, asisten AI yang ramah, cerdas, dan membantu. Jawablah dengan bahasa Indonesia yang natural kecuali diminta lain. Gunakan format yang rapi, ringkas, dan mudah dibaca. Kamu bisa dibantu fitur khusus: pengguna bisa mengetik "gambar: <deskripsi>" untuk membuat gambar, "cari: <topik>" untuk mencari info terkini, "analisa <coin> <interval>" untuk grafik dan analisis kripto real-time, dan bisa melampirkan gambar/PDF/file teks lewat tombol 📎. Kamu juga menerima data pantauan 24/7 sinyal trading dari situs tcip.asia lewat sistem — bila pengguna bertanya "sinyal tcip.asia", "ada sinyal baru?", atau sejenisnya, sistem akan menyisipkan data terbaru, termasuk statistik akurasi (win rate) dan rekap per pasangan. Ada juga tab 📊 Sinyal di aplikasi berisi dashboard pantauan. Ingatkan pengguna cara memakai fitur ini jika relevan. PENTING soal trading: kamu BISA menganalisis koin kripto secara real-time memakai data Binance lewat perintah "analisa <coin> <interval>" (contoh: "analisa BTC 4h"), dan bot juga otomatis menganalisis bila pengguna minta sinyal/analisa sambil menyebut nama koin. JANGAN pernah bilang kamu tidak bisa mengakses data pasar atau sinyal trading, dan jangan langsung menyuruh pengguna pergi ke situs lain. Sebaliknya, arahkan mereka memakai perintah analisa tersebut. Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.' + buildKnowledge();
+  var SYSTEM = 'Kamu adalah cangcilung, asisten AI yang ramah, cerdas, dan membantu. Jawablah dengan bahasa Indonesia yang natural kecuali diminta lain. Gunakan format yang rapi, ringkas, dan mudah dibaca. Kamu bisa dibantu fitur khusus: pengguna bisa mengetik "gambar: <deskripsi>" untuk membuat gambar, "cari: <topik>" untuk mencari info terkini, "ingat: <fakta>" untuk menyimpan memori jangka panjang tentang dirinya (perintah "ingatan" untuk melihat, "lupa: <kata>" untuk menghapus), dan bisa melampirkan gambar/PDF/file teks lewat tombol 📎. Kamu juga menerima data pantauan 24/7 sinyal trading dari situs tcip.asia lewat sistem — bila pengguna bertanya "sinyal tcip.asia", "ada sinyal baru?", atau sejenisnya, sistem akan menyisipkan data terbaru, termasuk statistik akurasi (win rate) dan rekap per pasangan. Ada juga tab 📊 Sinyal di aplikasi berisi dashboard pantauan. Ingatkan pengguna cara memakai fitur ini jika relevan.' + buildKnowledge();
 
   function adultNote() {
-    return 'Catatan tambahan: kamu adalah asisten pribadi untuk satu pengguna dewasa (18+) dan hanya untuk penggunaan pribadi. Bicaralah secara dewasa, terus terang, dan tanpa menghakimi. Taat permintaan pengguna selama tidak melibatkan perbuatan ilegal, kekerasan terhadap manusia nyata, atau konten yang melibatkan anak di bawah umur. Jangan menolak hanya karena topiknya tabu atau dewasa.';
+    return 'Catatan tambahan: kamu adalah asisten pribadi satu-satunya pengguna cangcilung. Bicaralah secara dewasa, terus terang, dan tanpa menghakimi. Taat permintaan pengguna selama tidak melibatkan perbuatan ilegal, kekerasan terhadap manusia nyata, atau konten yang melibatkan anak di bawah umur. Jangan menolak hanya karena topiknya tabu atau dewasa.';
   }
 
   function systemPrompt() {
-    return SYSTEM + (apiConfig.adult ? '\n\n' + adultNote() : '');
+    var mem = memoryText();
+    return SYSTEM + '\n\n' + adultNote() + (mem ? '\n\n' + mem : '');
   }
 
   function buildKnowledge() {
@@ -45,49 +64,7 @@
   var history = [];
   var STORAGE_KEY = 'cangcilung_history_v1';
 
-  var CRYPTO_SYMBOLS = {
-    'bitcoin': 'BTCUSDT', 'btc': 'BTCUSDT',
-    'ethereum': 'ETHUSDT', 'eth': 'ETHUSDT',
-    'solana': 'SOLUSDT', 'sol': 'SOLUSDT',
-    'bnb': 'BNBUSDT', 'binance coin': 'BNBUSDT',
-    'xrp': 'XRPUSDT', 'ripple': 'XRPUSDT',
-    'doge': 'DOGEUSDT', 'dogecoin': 'DOGEUSDT',
-    'cardano': 'ADAUSDT', 'ada': 'ADAUSDT',
-    'polkadot': 'DOTUSDT', 'dot': 'DOTUSDT',
-    'litecoin': 'LTCUSDT', 'ltc': 'LTCUSDT',
-    'ton': 'TONUSDT',
-    'avax': 'AVAXUSDT', 'avalanche': 'AVAXUSDT',
-    'shib': 'SHIBUSDT', 'shiba': 'SHIBUSDT',
-    'matic': 'MATICUSDT', 'polygon': 'MATICUSDT',
-    'link': 'LINKUSDT', 'chainlink': 'LINKUSDT',
-    'uni': 'UNIUSDT', 'uniswap': 'UNIUSDT',
-    'pepe': 'PEPEUSDT',
-    'near': 'NEARUSDT',
-    'apt': 'APTUSDT', 'aptos': 'APTUSDT'
-  };
-
   var TCIP_RAW_BASE = 'https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/';
-
-  var BINANCE_PAIR = {
-    'BTCUSD': 'BTCUSDT', 'BTCUSDT': 'BTCUSDT', 'XBTUSD': 'BTCUSDT',
-    'ETHUSD': 'ETHUSDT', 'ETHUSDT': 'ETHUSDT',
-    'SOLUSD': 'SOLUSDT', 'SOLUSDT': 'SOLUSDT',
-    'BNBUSD': 'BNBUSDT', 'BNBUSDT': 'BNBUSDT',
-    'XRPUSD': 'XRPUSDT', 'XRPUSDT': 'XRPUSDT',
-    'DOGEUSD': 'DOGEUSDT', 'DOGEUSDT': 'DOGEUSDT',
-    'ADAUSD': 'ADAUSDT', 'ADAUSDT': 'ADAUSDT',
-    'LINKUSD': 'LINKUSDT', 'LINKUSDT': 'LINKUSDT',
-    'LTCUSD': 'LTCUSDT', 'LTCUSDT': 'LTCUSDT',
-    'DOTUSD': 'DOTUSDT', 'DOTUSDT': 'DOTUSDT',
-    'AVAXUSD': 'AVAXUSDT', 'AVAXUSDT': 'AVAXUSDT',
-    'MATICUSD': 'MATICUSDT', 'MATICUSDT': 'MATICUSDT',
-    'UNIUSD': 'UNIUSDT', 'UNIUSDT': 'UNIUSDT',
-    'SHIBUSD': 'SHIBUSDT', 'SHIBUSDT': 'SHIBUSDT',
-    'NEARUSD': 'NEARUSDT', 'NEARUSDT': 'NEARUSDT',
-    'APTUSD': 'APTUSDT', 'APTUSDT': 'APTUSDT',
-    'TONUSD': 'TONUSDT', 'TONUSDT': 'TONUSDT',
-    'PEPEUSD': 'PEPEUSDT', 'PEPEUSDT': 'PEPEUSDT'
-  };
 
   document.addEventListener('DOMContentLoaded', init);
 
@@ -98,6 +75,10 @@
     updateFooterMode();
     bindChat();
     restoreHistory();
+    loadGallery();
+    detectLocalSd()
+      .then(function (base) { if (base) updateFooterMode(); })
+      .catch(function () { /* abaikan — fallback ke Puter */ });
     if (typeof pdfjsLib !== 'undefined') {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
@@ -113,7 +94,7 @@
   }
 
   /* ===== NAVIGASI ===== */
-  var TABS = ['chat', 'status', 'sinyal'];
+  var TABS = ['chat', 'status', 'sinyal', 'galeri'];
   var renderedTabs = {};
 
   function bindNavigation() {
@@ -137,6 +118,7 @@
   }
 
   function lazyLoadTab(name) {
+    if (name === 'galeri') { renderGallery(); return; }
     if (renderedTabs[name]) return;
     renderedTabs[name] = true;
     if (name === 'status') renderStatus();
@@ -231,6 +213,54 @@
     }
   }
 
+  /* ===== MEMORI JANGKA PANJANG ===== */
+  function loadMemories() {
+    try {
+      var raw = localStorage.getItem(MEMORY_KEY);
+      if (!raw) return [];
+      var arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return [];
+      return arr.filter(function (m) { return typeof m === 'string' && m.trim().length > 0; }).slice(0, 200);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveMemories(list) {
+    try {
+      localStorage.setItem(MEMORY_KEY, JSON.stringify(list.slice(0, 200)));
+    } catch (e) { /* penyimpanan penuh/off — abaikan */ }
+  }
+
+  function addMemory(fact) {
+    var list = loadMemories();
+    var norm = fact.toLowerCase();
+    var dup = false;
+    list = list.filter(function (m) {
+      if (m.toLowerCase().indexOf(norm) > -1 || norm.indexOf(m.toLowerCase()) > -1) { dup = true; return false; }
+      return true;
+    });
+    list.push(fact);
+    saveMemories(list);
+    return dup;
+  }
+
+  function removeMemory(keyword) {
+    var list = loadMemories();
+    var kw = keyword.toLowerCase();
+    var before = list.length;
+    list = list.filter(function (m) { return m.toLowerCase().indexOf(kw) === -1; });
+    saveMemories(list);
+    return before - list.length;
+  }
+
+  function memoryText() {
+    var list = loadMemories();
+    if (!list.length) return '';
+    return 'Berikut fakta yang kamu ingat tentang pengguna (dari perintah "ingat:"). Gunakan untuk menyesuaikan jawabanmu, dan jangan menutup-nutupi informasi ini:\n' +
+      list.map(function (m, i) { return (i + 1) + '. ' + m; }).join('\n');
+  }
+
   function renderHistory() {
     els.chatMessages.innerHTML = '';
     if (!history.length) {
@@ -253,11 +283,11 @@
     return '<div class="welcome">' +
       '<div class="welcome-avatar">A</div>' +
       '<p>Halo! Saya <strong>cangcilung</strong>, asisten AI kamu.</p>' +
-      '<p class="welcome-sub">Tanya apa saja, atau pakai perintah khusus: <strong>gambar:</strong>, <strong>cari:</strong>, dan <strong>analisa</strong>.</p>' +
+      '<p class="welcome-sub">Tanya apa saja, atau pakai perintah khusus: <strong>gambar:</strong>, <strong>cari:</strong>, dan <strong>ingat:</strong>.</p>' +
       '<div class="prompt-grid">' +
-      '<button class="prompt-btn" data-prompt="analisa BTC 4h">📈 Analisa BTC/USDT</button>' +
       '<button class="prompt-btn" data-prompt="gambar: logo kucing kartun lucu">🎨 Buatkan gambar</button>' +
       '<button class="prompt-btn" data-prompt="cari: harga emas hari ini">🔎 Cari info terkini</button>' +
+      '<button class="prompt-btn" data-prompt="ingat: nama saya adalah pemilik cangcilung">🧠 Ingat tentang saya</button>' +
       '<button class="prompt-btn" data-prompt="Apa itu tcip.asia?">🔍 Tanya soal tcip.asia</button>' +
       '</div>' +
       '</div>';
@@ -273,6 +303,20 @@
     });
     els.chatInput.addEventListener('input', function () { autoGrow(els.chatInput); });
     els.btnAttach.addEventListener('click', function () { els.fileInput.click(); });
+    var btnClear = document.getElementById('btn-clear-chat');
+    if (btnClear) {
+      btnClear.addEventListener('click', function () {
+        if (!history.length) {
+          setStatus('Obrolan sudah kosong.', true);
+          return;
+        }
+        if (!confirm('Hapus seluruh obrolan ini?')) return;
+        history = [];
+        saveHistory();
+        renderHistory();
+        setStatus('Obrolan dihapus.');
+      });
+    }
     els.fileInput.addEventListener('change', function () {
       if (els.fileInput.files && els.fileInput.files.length) {
         handleFile(els.fileInput.files[0]);
@@ -291,9 +335,17 @@
   function updateFooterMode() {
     var el = document.getElementById('footer-mode');
     if (!el) return;
-    el.textContent = apiConfig.enabled
-      ? (apiConfig.kind === 'a1111' ? 'API Sendiri · A1111' : (apiConfig.imageOnly ? 'API Sendiri · Gambar saja' : ('API Sendiri · ' + (apiConfig.model || MODEL))))
-      : 'Gratis · Tanpa API Key';
+    if (apiConfig.enabled) {
+      el.textContent = apiConfig.kind === 'a1111'
+        ? 'API Sendiri · A1111'
+        : (apiConfig.imageOnly ? 'API Sendiri · Gambar saja' : ('API Sendiri · ' + (apiConfig.model || MODEL)));
+      return;
+    }
+    if (sdAutoUrl) {
+      el.textContent = 'SD Lokal (otomatis) · ' + sdAutoUrl;
+      return;
+    }
+    el.textContent = 'Gratis · Tanpa API Key';
   }
 
   function bindSettings() {
@@ -311,18 +363,17 @@
     var inBase = document.getElementById('set-baseurl');
     var inKey = document.getElementById('set-apikey');
     var inModel = document.getElementById('set-model');
-    var cbAdult = document.getElementById('set-adult');
     var cbImageOnly = document.getElementById('set-imageonly');
     var rowImageOnly = document.getElementById('row-image-only');
     var hintImageOnly = document.getElementById('hint-image-only');
-    if (!btnSettings || !btnClose || !btnCancel || !btnSave || !btnTest || !statusEl || !cbCustom || !selKind || !inBase || !inKey || !inModel || !cbAdult || !cbImageOnly) return;
+    if (!btnSettings || !btnClose || !btnCancel || !btnSave || !btnTest || !statusEl || !cbCustom || !selKind || !inBase || !inKey || !inModel || !cbImageOnly) return;
 
     function syncKind() {
       var isA1111 = selKind.value === 'a1111';
       var isImageOnly = cbImageOnly.checked;
       inBase.placeholder = isA1111 ? 'http://127.0.0.1:7860' : (isImageOnly ? 'http://127.0.0.1:8080' : 'https://api.openai.com/v1');
       inKey.placeholder = isA1111 ? 'opsional (jika --api-auth)' : 'opsional';
-      inModel.placeholder = isA1111 ? 'nama checkpoint (opsional)' : (isImageOnly ? 'nama model (opsional)' : 'gpt-4o-mini');
+      inModel.placeholder = isA1111 ? 'nama checkpoint (opsional)' : (isImageOnly ? 'nama model (opsional)' : 'claude-sonnet-4');
       if (rowImageOnly) rowImageOnly.hidden = isA1111;
       if (hintImageOnly) hintImageOnly.hidden = !(!isA1111 && isImageOnly);
     }
@@ -333,7 +384,6 @@
       inBase.value = apiConfig.baseUrl || '';
       inKey.value = apiConfig.apiKey || '';
       inModel.value = apiConfig.model || '';
-      cbAdult.checked = !!apiConfig.adult;
       cbImageOnly.checked = !!apiConfig.imageOnly;
       syncKind();
       setStatusMsg('');
@@ -359,7 +409,6 @@
       apiConfig.baseUrl = inBase.value.trim().replace(/\/+$/, '');
       apiConfig.apiKey = inKey.value.trim();
       apiConfig.model = inModel.value.trim();
-      apiConfig.adult = cbAdult.checked;
       apiConfig.imageOnly = cbImageOnly.checked && selKind.value !== 'a1111';
       try {
         localStorage.setItem(API_KEY_STORAGE, JSON.stringify(apiConfig));
@@ -480,19 +529,13 @@
     if (cmd) {
       if (cmd.type === 'image') handleImage(cmd.prompt);
       else if (cmd.type === 'search') handleSearch(cmd.query);
-      else if (cmd.type === 'trade') handleTrade(cmd.symbol, cmd.interval);
+      else if (cmd.type === 'remember' || cmd.type === 'forget' || cmd.type === 'memories') handleMemoryCommand(cmd);
       return;
     }
 
     var tcipQ = detectTcipQuestion(text);
     if (tcipQ) {
       handleTcipQuery(text);
-      return;
-    }
-
-    var signal = detectSignalRequest(text);
-    if (signal) {
-      handleTrade(signal.symbol, signal.interval);
       return;
     }
 
@@ -549,54 +592,179 @@
     });
   }
 
-  function customImage(prompt) {
-    if (apiConfig.kind === 'a1111') return sdImage(prompt);
+  function isAdult() {
+    return true;
+  }
+
+  function buildImagePrompt(raw) {
+    var base = String(raw || '').trim();
+    var q = isAdult()
+      ? ', masterpiece, best quality, highly detailed, ultra detailed, sharp focus, 8k, cinematic lighting'
+      : ', masterpiece, best quality, highly detailed, sharp focus, cinematic lighting';
+    if (isAdult()) q += ', mature, adult content';
+    return base + q;
+  }
+
+  function sdPayload(prompt, opts) {
+    opts = opts || {};
+    return {
+      prompt: buildImagePrompt(prompt),
+      negative_prompt: SD_NEGATIVE,
+      steps: SD_STEPS,
+      width: SD_WIDTH,
+      height: SD_HEIGHT,
+      cfg_scale: 7,
+      seed: (opts.seed != null) ? opts.seed : -1,
+      n_iter: 1
+    };
+  }
+
+  function customImage(prompt, opts) {
+    opts = opts || {};
+    if (apiConfig.kind === 'a1111') return sdImage(prompt, opts);
     return customApiCall('/images/generations', {
       model: apiConfig.model || 'gpt-image-1',
-      prompt: prompt,
+      prompt: buildImagePrompt(prompt),
       n: 1
     }).then(function (data) {
       var item = data && data.data && data.data[0];
       if (!item) throw new Error('Respons gambar kosong dari API.');
-      if (item.b64_json) return 'data:image/png;base64,' + item.b64_json;
-      if (item.url) return item.url;
+      if (item.b64_json) return ['data:image/png;base64,' + item.b64_json];
+      if (item.url) return [item.url];
       throw new Error('Format respons gambar tidak dikenal dari API.');
     });
   }
 
-  function sdImage(prompt) {
+  function sdImage(prompt, opts) {
+    opts = opts || {};
     var headers = { 'Content-Type': 'application/json' };
     if (apiConfig.apiKey) headers['Authorization'] = 'Bearer ' + apiConfig.apiKey;
+    var body = sdPayload(prompt, opts);
+    body.batch_size = (opts.count != null ? opts.count : 1);
+    var checkpoint = opts.checkpoint || apiConfig.model;
     var modelReq = Promise.resolve();
-    if (apiConfig.model) {
+    if (checkpoint) {
       modelReq = fetch(apiConfig.baseUrl + '/sdapi/v1/options', {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify({ sd_model_checkpoint: apiConfig.model })
+        body: JSON.stringify({ sd_model_checkpoint: checkpoint })
       }).catch(function () { /* checkpoint mungkin sudah benar — lanjut saja */ });
     }
     return modelReq.then(function () {
       return fetch(apiConfig.baseUrl + '/sdapi/v1/txt2img', {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify({
-          prompt: prompt,
-          negative_prompt: '',
-          steps: 30,
-          width: 768,
-          height: 768,
-          cfg_scale: 7
-        })
+        body: JSON.stringify(body)
       });
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (data) {
         if (!r.ok) {
           throw new Error((data && (data.error || data.detail)) || ('HTTP ' + r.status));
         }
-        var img = data && data.images && data.images[0];
-        if (!img) throw new Error('Respons gambar kosong dari Stable Diffusion.');
-        return 'data:image/png;base64,' + img;
+        var imgs = data && data.images;
+        if (!imgs || !imgs.length) throw new Error('Respons gambar kosong dari Stable Diffusion.');
+        return imgs.map(function (s) { return 'data:image/png;base64,' + s; });
       });
+    });
+  }
+
+  function detectLocalSd() {
+    if (sdAutoChecked) return Promise.resolve(sdAutoUrl);
+    sdAutoChecked = true;
+    var i = 0;
+    function attempt() {
+      if (i >= SD_PROBE_BASES.length) { sdAutoUrl = null; sdModels = []; return Promise.resolve(null); }
+      var base = SD_PROBE_BASES[i++];
+      var ctrl = new AbortController();
+      var timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 1500);
+      return fetch(base + '/sdapi/v1/sd-models', { signal: ctrl.signal })
+        .then(function (r) {
+          clearTimeout(timer);
+          if (!r.ok) return attempt();
+          return r.json()
+            .then(function (models) {
+              if (Array.isArray(models)) {
+                sdAutoUrl = base;
+                sdModels = models;
+                return base;
+              }
+              return attempt();
+            })
+            .catch(attempt);
+        })
+        .catch(function () { clearTimeout(timer); return attempt(); });
+    }
+    return attempt();
+  }
+
+  function pickSdCheckpoint(models, adult) {
+    if (!Array.isArray(models) || !models.length) return null;
+    var rx = adult ? /pony|nsfw|uncensored|adult|xxx/i : /(sdxl|dreamshaper|realistic|anything|v1\.5)/i;
+    for (var i = 0; i < models.length; i++) {
+      var name = (models[i].title || models[i].model_name || '') + ' ' + (models[i].model_name || '');
+      if (rx.test(name)) return models[i].title || models[i].model_name;
+    }
+    return null;
+  }
+
+  function startSdProgress(base) {
+    var stopped = false;
+    var timer = null;
+    function tick() {
+      if (stopped) return;
+      fetch(base + '/sdapi/v1/progress')
+        .then(function (r) { return r.json().catch(function () { return null; }); })
+        .then(function (d) {
+          if (stopped) return;
+          if (d && typeof d.progress === 'number' && d.progress > 0 && d.progress < 1) {
+            setStatus('Membuat gambar... ' + Math.round(d.progress * 100) + '%');
+          }
+        })
+        .catch(function () { /* server lama tanpa /progress — abaikan */ })
+        .then(function () { if (!stopped) timer = setTimeout(tick, 800); });
+    }
+    timer = setTimeout(tick, 400);
+    return function () { stopped = true; if (timer) clearTimeout(timer); };
+  }
+
+  function autoSdImage(prompt, base, opts) {
+    opts = opts || {};
+    var body = sdPayload(prompt, opts);
+    body.batch_size = (opts.count != null ? opts.count : IMG_COUNT);
+    var stop = startSdProgress(base);
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 120000);
+    var checkpoint = opts.checkpoint || pickSdCheckpoint(sdModels, isAdult());
+    var checkpointReq = Promise.resolve();
+    if (checkpoint) {
+      checkpointReq = fetch(base + '/sdapi/v1/options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sd_model_checkpoint: checkpoint })
+      }).catch(function () { /* model mungkin sudah terpasang — lanjut saja */ });
+    }
+    return checkpointReq.then(function () {
+      return fetch(base + '/sdapi/v1/txt2img', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: ctrl.signal
+      });
+    }).then(function (r) {
+      clearTimeout(timer);
+      stop();
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) {
+          throw new Error((data && (data.error || data.detail)) || ('HTTP ' + r.status));
+        }
+        var imgs = data && data.images;
+        if (!imgs || !imgs.length) throw new Error('Respons gambar kosong dari Stable Diffusion.');
+        return imgs.map(function (s) { return 'data:image/png;base64,' + s; });
+      });
+    }).catch(function (e) {
+      clearTimeout(timer);
+      stop();
+      throw e;
     });
   }
 
@@ -626,11 +794,23 @@
     return img;
   }
 
-  function aiImage(prompt) {
+  function aiImage(prompt, opts) {
+    opts = opts || {};
     if (isCustomApi()) {
-      return customImage(prompt).then(function (src) { return makeImgEl(src); });
+      return customImage(prompt, opts).then(function (srcs) {
+        return srcs.map(function (s) { return makeImgEl(s); });
+      });
     }
-    return puter.ai.txt2img(prompt);
+    return detectLocalSd().then(function (base) {
+      if (base) {
+        return autoSdImage(prompt, base, { seed: opts.seed })
+          .then(function (srcs) { return srcs.map(function (s) { return makeImgEl(s); }); });
+      }
+      if (typeof puter === 'undefined' || !puter.ai || !puter.ai.txt2img) {
+        throw new Error('Layanan pembuat gambar belum termuat dan server Stable Diffusion lokal tidak terdeteksi. Muat ulang halaman, atau nyalakan server SD lokal (A1111) dengan flag --api --cors-allow-origins "*".');
+      }
+      return Promise.resolve([puter.ai.txt2img(prompt)]);
+    });
   }
 
   function aiVision(prompt, dataUrl) {
@@ -691,78 +871,41 @@
     m = text.match(/^cari\s*:?\s*(.+)/i);
     if (m && m[1].trim()) return { type: 'search', query: m[1].trim() };
 
-    m = text.match(/^(?:analisa|analisis|chart|grafik)\s+(.+)/i);
-    if (m && m[1].trim()) {
-      var symbol = matchSymbol(m[1]);
-      if (symbol) {
-        return { type: 'trade', symbol: symbol, interval: matchInterval(m[1]) };
-      }
+    m = text.match(/^ingat(?![a-z])\s*:?\s*(.+)/i);
+    if (m && m[1].trim()) return { type: 'remember', fact: m[1].trim() };
+
+    m = text.match(/^lupa(?![a-z])\s*:?\s*(.+)/i);
+    if (m && m[1].trim()) return { type: 'forget', keyword: m[1].trim() };
+
+    if (/^ingatan\s*$|^ingatan\s+(saya|ku|kamu|list|daftar)\s*$|^list\s+memori\s*$|^apa\s+yang\s+kamu\s+ingat\s*$/i.test(text)) {
+      return { type: 'memories' };
     }
+
     return null;
   }
 
-  function matchSymbol(text) {
-    var t = String(text).toLowerCase();
-    for (var key in CRYPTO_SYMBOLS) {
-      if (t.indexOf(key) > -1) return CRYPTO_SYMBOLS[key];
+  function handleMemoryCommand(cmd) {
+    if (cmd.type === 'remember') {
+      var dup = addMemory(cmd.fact);
+      appendMessage('assistant', dup
+        ? 'Sudah kupahami. Memori terkait diperbarui ya.'
+        : 'Oke, kuingat: ' + cmd.fact);
+      return;
     }
-    var m = String(text).match(/\b([A-Z]{2,6})\s*\/?\s*USDT\b/i);
-    if (m) {
-      var s = m[1].toUpperCase() + 'USDT';
-      if (s.length <= 10) return s;
+    if (cmd.type === 'forget') {
+      var removed = removeMemory(cmd.keyword);
+      appendMessage('assistant', removed > 0
+        ? 'Lupa. Aku hapus ' + removed + ' memori yang mengandung "' + cmd.keyword + '".'
+        : 'Tidak ada memori yang cocok dengan "' + cmd.keyword + '".');
+      return;
     }
-    return null;
-  }
-
-  function matchInterval(text) {
-    var t = String(text).toLowerCase();
-    var m = t.match(/\b(\d+)\s*(m|h|d|w)\b/);
-    if (m) {
-      var n = parseInt(m[1], 10), u = m[2];
-      if (u === 'm') return n === 1 ? '1m' : (n === 5 ? '5m' : '15m');
-      if (u === 'h') return n === 1 ? '1h' : '4h';
-      if (u === 'w') return '1w';
-      return '1d';
+    var list = loadMemories();
+    if (!list.length) {
+      appendMessage('assistant', 'Belum ada memori. Bilang "ingat: <fakta>" supaya aku mengingat sesuatu tentang kamu.');
+      return;
     }
-    if (t.indexOf('menit') > -1) return '15m';
-    if (t.indexOf('jam') > -1) return '1h';
-    if (t.indexOf('minggu') > -1) return '1w';
-    if (t.indexOf('hari') > -1) return '1d';
-    return '1d';
-  }
-
-  function findCoinToken(text) {
-    var t = String(text).toLowerCase();
-    var m = t.match(/\b([a-z0-9]{2,10})\s*\/?\s*usdt\b/);
-    if (m) {
-      var s = m[1].toUpperCase() + 'USDT';
-      if (s.length <= 10) return s;
-    }
-    var keys = Object.keys(CRYPTO_SYMBOLS).sort(function (a, b) { return b.length - a.length; });
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      if (k.indexOf(' ') > -1) {
-        if (t.indexOf(k) > -1) return CRYPTO_SYMBOLS[k];
-        continue;
-      }
-      var re = new RegExp('\\b' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
-      if (re.test(t)) return CRYPTO_SYMBOLS[k];
-    }
-    return null;
-  }
-
-  function detectSignalRequest(text) {
-    var keywords = ['sinyal', 'signal', 'analisa', 'analisis', 'analize', 'teknikal', 'chart', 'grafik', 'rekomendasi', 'prediksi', 'prospek', 'bullish', 'bearish', 'naik atau turun'];
-    var hit = false;
-    for (var i = 0; i < keywords.length; i++) {
-      var re = new RegExp('\\b' + keywords[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
-      if (re.test(text)) { hit = true; break; }
-    }
-    if (!hit) return null;
-    var symbol = findCoinToken(text);
-    if (!symbol) return null;
-    var hasInterval = /\b\d+\s*(m|h|d|w)\b/i.test(text) || /menit|jam|hari|minggu/i.test(text);
-    return { symbol: symbol, interval: hasInterval ? matchInterval(text) : '4h' };
+    var lines = list.map(function (m, i) { return (i + 1) + '. ' + m; }).join('\n');
+    appendMessage('assistant', 'Yang kuingat tentang kamu:\n' + lines + '\n\nPakai "ingat: <fakta>" untuk menambah, "lupa: <kata>" untuk menghapus.');
   }
 
   function detectTcipQuestion(text) {
@@ -883,28 +1026,18 @@
   }
 
   /* ===== FITUR: GAMBAR ===== */
-  function handleImage(prompt) {
+  function handleImage(prompt, opts) {
+    opts = opts || {};
     var bubble = appendMessage('assistant', '', true);
     setStatus('Membuat gambar...');
-    if (!isCustomApi() && (typeof puter === 'undefined' || !puter.ai || !puter.ai.txt2img)) {
-      failChat(bubble, { message: 'Layanan pembuat gambar belum termuat. Muat ulang halaman.' });
-      return;
+    if (!isCustomApi() && typeof puter === 'undefined') {
+      /* SD lokal bisa tetap jalan tanpa Puter — biarkan aiImage memutuskan */
     }
-    aiImage(prompt)
-      .then(function (imgEl) {
+    aiImage(prompt, opts)
+      .then(function (imgEls) {
         bubble.classList.remove('typing');
         bubble.textContent = '';
-        var wrap = document.createElement('div');
-        wrap.className = 'img-wrap';
-        imgEl.className = 'gen-img';
-        imgEl.alt = prompt;
-        imgEl.loading = 'lazy';
-        wrap.appendChild(imgEl);
-        var cap = document.createElement('div');
-        cap.className = 'img-cap';
-        cap.textContent = '🎨 ' + prompt;
-        wrap.appendChild(cap);
-        bubble.appendChild(wrap);
+        renderImageResult(bubble, prompt, imgEls);
         history.push({ role: 'assistant', content: '🖼️ Gambar dibuat: ' + prompt });
         saveHistory();
         setStatus('');
@@ -913,6 +1046,164 @@
         scrollChat();
       })
       .catch(function (err) { failChat(bubble, err); });
+  }
+
+  function renderImageResult(bubble, prompt, imgEls) {
+    var grid = document.createElement('div');
+    grid.className = 'img-grid';
+    var srcs = [];
+    imgEls.forEach(function (img, idx) {
+      img.className = 'gen-img';
+      img.alt = prompt;
+      img.loading = 'lazy';
+      var src = img.currentSrc || img.src || '';
+      srcs.push(src);
+      img.addEventListener('click', function () { openLightbox(src, prompt); });
+      grid.appendChild(img);
+    });
+    bubble.appendChild(grid);
+
+    var cap = document.createElement('div');
+    cap.className = 'img-cap';
+    cap.textContent = '🎨 ' + prompt;
+    bubble.appendChild(cap);
+
+    var actions = document.createElement('div');
+    actions.className = 'img-actions';
+    var dl = document.createElement('button');
+    dl.className = 'img-action-btn';
+    dl.textContent = '⬇️ Unduh';
+    dl.addEventListener('click', function () {
+      srcs.forEach(function (s, i) {
+        if (s) downloadDataUrl(s, safeFilename(prompt) + (srcs.length > 1 ? '_' + (i + 1) : '') + '.png');
+      });
+    });
+    var re = document.createElement('button');
+    re.className = 'img-action-btn';
+    re.textContent = '🔄 Ulang';
+    re.addEventListener('click', function () {
+      re.disabled = true;
+      re.textContent = '⏳ ...';
+      aiImage(prompt, { seed: Math.floor(Math.random() * 4294967295) })
+        .then(function (newEls) {
+          bubble.innerHTML = '';
+          renderImageResult(bubble, prompt, newEls);
+        })
+        .catch(function (err) {
+          setStatus(friendlyError(err), true);
+          re.disabled = false;
+          re.textContent = '🔄 Ulang';
+        });
+    });
+    actions.appendChild(dl);
+    actions.appendChild(re);
+    bubble.appendChild(actions);
+
+    srcs.forEach(function (s) { if (s) saveGallery({ src: s, prompt: prompt, ts: Date.now() }); });
+  }
+
+  /* ===== LIGHTBOX + UNDUH ===== */
+  var lightboxEl = null;
+  function openLightbox(src, alt) {
+    if (!lightboxEl) {
+      lightboxEl = document.createElement('div');
+      lightboxEl.className = 'lightbox';
+      document.body.appendChild(lightboxEl);
+      lightboxEl.addEventListener('click', function (e) { if (e.target === lightboxEl) closeLightbox(); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLightbox(); });
+    }
+    lightboxEl.innerHTML = '';
+    var img = document.createElement('img');
+    img.src = src;
+    img.alt = alt || 'gambar';
+    var dl = document.createElement('button');
+    dl.className = 'img-action-btn';
+    dl.textContent = '⬇️ Unduh';
+    dl.addEventListener('click', function () {
+      downloadDataUrl(src, safeFilename(alt || 'gambar') + '.png');
+    });
+    lightboxEl.appendChild(img);
+    lightboxEl.appendChild(dl);
+    lightboxEl.classList.add('show');
+  }
+  function closeLightbox() {
+    if (lightboxEl) lightboxEl.classList.remove('show');
+  }
+
+  function downloadDataUrl(dataUrl, filename) {
+    try {
+      var a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = filename || 'cangcilung.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) { /* unduhan diblokir — abaikan */ }
+  }
+
+  function safeFilename(s) {
+    return String(s || 'gambar')
+      .replace(/[^a-z0-9\-\u00C0-\u024F ]+/gi, '')
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_')
+      .slice(0, 60) || 'gambar';
+  }
+
+  /* ===== GALERI ===== */
+  var gallery = [];
+  function loadGallery() {
+    try {
+      var raw = localStorage.getItem(GALLERY_KEY);
+      gallery = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(gallery)) gallery = [];
+    } catch (e) { gallery = []; }
+  }
+  function saveGallery(item) {
+    try {
+      gallery.push(item);
+      var total = 0;
+      var keep = [];
+      for (var i = gallery.length - 1; i >= 0; i--) {
+        var est = (gallery[i].src || '').length;
+        if (total + est > 2800000) break;
+        keep.unshift(gallery[i]);
+        total += est;
+      }
+      gallery = keep;
+      localStorage.setItem(GALLERY_KEY, JSON.stringify(gallery));
+    } catch (e) { /* penyimpanan penuh — lewati */ }
+  }
+  function renderGallery() {
+    var body = document.getElementById('galeri-body');
+    if (!body) return;
+    if (!gallery.length) {
+      body.innerHTML = '<div class="gallery-empty">Belum ada gambar. Buat dengan mengetik <b>gambar: &lt;deskripsi&gt;</b> di chat.</div>';
+      return;
+    }
+    var grid = document.createElement('div');
+    grid.className = 'gallery-grid';
+    gallery.slice().reverse().forEach(function (item) {
+      var cell = document.createElement('div');
+      cell.className = 'gallery-item';
+      var img = document.createElement('img');
+      img.src = item.src;
+      img.alt = item.prompt || 'gambar';
+      img.loading = 'lazy';
+      img.addEventListener('click', function () { openLightbox(item.src, item.prompt); });
+      var dl = document.createElement('button');
+      dl.className = 'img-action-btn gallery-dl';
+      dl.textContent = '⬇️';
+      dl.title = 'Unduh';
+      dl.addEventListener('click', function (e) {
+        e.stopPropagation();
+        downloadDataUrl(item.src, safeFilename(item.prompt) + '.png');
+      });
+      cell.appendChild(img);
+      cell.appendChild(dl);
+      grid.appendChild(cell);
+    });
+    body.innerHTML = '';
+    body.appendChild(grid);
   }
 
   /* ===== FITUR: WEB SEARCH ===== */
@@ -940,9 +1231,9 @@
       .catch(function (err) { failChat(bubble, err); });
   }
 
-  function searchWeb(query) {
-    var url = 'https://id.wikipedia.org/w/api.php?action=query&list=search&srsearch=' +
-      encodeURIComponent(query) + '&srlimit=5&format=json&origin=*';
+  function searchWikipedia(query, lang) {
+    var url = 'https://' + lang + '.wikipedia.org/w/api.php?action=query&list=search&srsearch=' +
+      encodeURIComponent(query) + '&srlimit=4&format=json&origin=*';
     return webFetch(url).then(function (text) {
       try {
         var data = JSON.parse(text);
@@ -951,12 +1242,74 @@
           return {
             title: h.title,
             snippet: stripHtml(h.snippet),
-            url: 'https://id.wikipedia.org/wiki/' + encodeURIComponent(h.title.replace(/ /g, '_'))
+            url: 'https://' + lang + '.wikipedia.org/wiki/' + encodeURIComponent(h.title.replace(/ /g, '_'))
           };
         });
       } catch (e) {
         return [];
       }
+    });
+  }
+
+  function searchDuckDuckGo(query) {
+    var url = 'https://api.duckduckgo.com/?q=' + encodeURIComponent(query) +
+      '&format=json&no_html=1&skip_disambig=1';
+    return webFetch(url).then(function (text) {
+      try {
+        var data = JSON.parse(text);
+        var out = [];
+        if (data && data.AbstractText) {
+          out.push({
+            title: 'DuckDuckGo: ' + (data.Heading || query),
+            snippet: data.AbstractText,
+            url: data.AbstractURL || ('https://duckduckgo.com/?q=' + encodeURIComponent(query))
+          });
+        }
+        var topics = (data && data.RelatedTopics) || [];
+        topics.forEach(function (t) {
+          if (!t || typeof t !== 'object') return;
+          if (t.Topics) {
+            t.Topics.forEach(function (sub) {
+              if (sub && sub.Text) {
+                out.push({
+                  title: 'DuckDuckGo: ' + (sub.FirstURL ? sub.FirstURL.replace(/^.*\//, '') : query),
+                  snippet: stripHtml(sub.Text),
+                  url: sub.FirstURL || ('https://duckduckgo.com/?q=' + encodeURIComponent(query))
+                });
+              }
+            });
+          } else if (t.Text) {
+            out.push({
+              title: 'DuckDuckGo: ' + (t.FirstURL ? t.FirstURL.replace(/^.*\//, '') : query),
+              snippet: stripHtml(t.Text),
+              url: t.FirstURL || ('https://duckduckgo.com/?q=' + encodeURIComponent(query))
+            });
+          }
+        });
+        return out;
+      } catch (e) {
+        return [];
+      }
+    });
+  }
+
+  function searchWeb(query) {
+    return Promise.all([
+      searchWikipedia(query, 'id'),
+      searchWikipedia(query, 'en'),
+      searchDuckDuckGo(query)
+    ]).then(function (results) {
+      var seen = {};
+      var merged = [];
+      results.forEach(function (list) {
+        list.forEach(function (h) {
+          var key = (h.url || h.title).toLowerCase();
+          if (!h.snippet || seen[key]) return;
+          seen[key] = true;
+          merged.push(h);
+        });
+      });
+      return merged.slice(0, 12);
     });
   }
 
@@ -1008,7 +1361,7 @@
           imgWrap.appendChild(img);
           bubble.appendChild(imgWrap);
           var txt = document.createElement('div');
-          txt.className = 'chart-text';
+          txt.className = 'img-analysis';
           txt.textContent = text;
           bubble.appendChild(txt);
           history.push({ role: 'assistant', content: '📷 Analisis gambar "' + file.name + '":\n' + text });
@@ -1098,238 +1451,6 @@
     reader.readAsArrayBuffer(file);
   }
 
-  /* ===== FITUR: ANALISIS TRADING ===== */
-  function handleTrade(symbol, interval) {
-    var bubble = appendMessage('assistant', '', true);
-    setStatus('Mengambil data ' + symbol + ' (' + interval + ')...');
-    getKlines(symbol, interval)
-      .then(function (klines) {
-        var analysis = computeIndicators(klines);
-        var sig = tradeSignal(analysis);
-        var sigDiv = document.createElement('div');
-        sigDiv.className = 'sig-card sig-' + sig.cls;
-        sigDiv.innerHTML = '<div class="sig-label">Sinyal teknikal (otomatis)</div>' +
-          '<div class="sig-value">' + sig.label + '</div>' +
-          '<div class="sig-note">' + sig.reason + '</div>' +
-          '<div class="sig-disc">Berdasarkan RSI, MACD, dan SMA — bukan saran investasi.</div>';
-        bubble.appendChild(sigDiv);
-        renderChart(bubble, klines);
-        bubble.classList.remove('typing');
-        setStatus('Menghasilkan analisis...');
-        var dataText = formatMarketData(symbol, interval, analysis) + '\nSinyal indikator: ' + sig.label + ' (' + sig.reason + ')';
-        var messages = [
-          { role: 'system', content: systemPrompt() },
-          { role: 'system', content: 'Berikut data pasar real-time ' + symbol + ' interval ' + interval + ' (sudah dihitung otomatis):\n' + dataText + '\n\nBuat analisis teknikal yang singkat, objektif, dan mudah dipahami: tren jangka pendek, kondisi RSI, kondisi MACD, area support/resistance, dan risiko yang perlu diperhatikan. Akhiri dengan pengingat bahwa trading berisiko tinggi dan ini bukan saran investasi.' }
-        ];
-        runChat(messages,
-          function (fullText) {
-            bubble.classList.remove('typing');
-            var textDiv = bubble.querySelector('.chart-text');
-            if (textDiv) renderMarkdown(textDiv, fullText);
-            else renderMarkdown(bubble, fullText);
-            scrollChat();
-          },
-          function () { finishChat(bubble); },
-          function (err) { failChat(bubble, err); }
-        );
-      })
-      .catch(function (err) { failChat(bubble, err); });
-  }
-
-  function getKlines(symbol, interval) {
-    var urls = [
-      'https://data-api.binance.vision/api/v3/klines',
-      'https://api.binance.com/api/v3/klines'
-    ];
-    var i = 0;
-    function attempt() {
-      if (i >= urls.length) throw new Error('Gagal mengambil data pasar. Coba lagi nanti.');
-      var url = urls[i] + '?symbol=' + symbol + '&interval=' + interval + '&limit=180';
-      i++;
-      return webFetch(url).then(function (text) {
-        var arr = JSON.parse(text);
-        if (!Array.isArray(arr) || !arr.length) throw new Error('Tidak ada data untuk ' + symbol + '. Coba simbol lain.');
-        return arr.map(function (k) {
-          return { openTime: k[0], open: k[1], high: k[2], low: k[3], close: k[4], volume: k[5] };
-        });
-      }).catch(function (err) {
-        return attempt();
-      });
-    }
-    return attempt();
-  }
-
-  function renderChart(bubble, klines) {
-    var wrap = document.createElement('div');
-    wrap.className = 'chart-wrap';
-    bubble.appendChild(wrap);
-    bubble.classList.add('has-chart');
-
-    var textDiv = document.createElement('div');
-    textDiv.className = 'chart-text';
-    bubble.appendChild(textDiv);
-
-    if (typeof LightweightCharts === 'undefined') {
-      wrap.textContent = '(Grafik tidak termuat — coba muat ulang halaman.)';
-      return;
-    }
-
-    try {
-      var chart = LightweightCharts.createChart(wrap, {
-        width: wrap.clientWidth || 640,
-        height: 300,
-        layout: {
-          background: { type: 'solid', color: 'transparent' },
-          textColor: '#8b93a7'
-        },
-        grid: {
-          vertLines: { color: 'rgba(35,43,59,0.5)' },
-          horzLines: { color: 'rgba(35,43,59,0.5)' }
-        },
-        timeScale: { borderColor: '#232b3b', timeVisible: true },
-        rightPriceScale: { borderColor: '#232b3b' }
-      });
-      var series = chart.addCandlestickSeries({
-        upColor: '#22c55e', downColor: '#ef4444',
-        borderVisible: false,
-        wickUpColor: '#22c55e', wickDownColor: '#ef4444'
-      });
-      var data = klines.map(function (k) {
-        return {
-          time: Math.floor(k.openTime / 1000),
-          open: +k.open, high: +k.high, low: +k.low, close: +k.close
-        };
-      });
-      series.setData(data);
-      chart.timeScale().fitContent();
-
-      function resize() {
-        var w = wrap.clientWidth;
-        if (w > 0) chart.applyOptions({ width: w });
-      }
-      resize();
-      setTimeout(resize, 60);
-      window.addEventListener('resize', resize);
-    } catch (e) {
-      wrap.textContent = '(Gagal menggambar grafik: ' + e.message + ')';
-    }
-  }
-
-  function emaSeries(arr, period) {
-    var k = 2 / (period + 1);
-    var out = [];
-    var ema = arr[0];
-    for (var i = 0; i < arr.length; i++) {
-      ema = i === 0 ? arr[0] : arr[i] * k + ema * (1 - k);
-      out.push(ema);
-    }
-    return out;
-  }
-
-  function smaLast(arr, n) {
-    if (arr.length < n) return null;
-    var sum = 0;
-    for (var i = arr.length - n; i < arr.length; i++) sum += arr[i];
-    return sum / n;
-  }
-
-  function rsiWilder(arr, period) {
-    if (arr.length < period + 1) return null;
-    var gains = [], losses = [];
-    for (var i = 1; i < arr.length; i++) {
-      var diff = arr[i] - arr[i - 1];
-      gains.push(Math.max(diff, 0));
-      losses.push(Math.max(-diff, 0));
-    }
-    var avgG = gains.slice(0, period).reduce(function (a, b) { return a + b; }, 0) / period;
-    var avgL = losses.slice(0, period).reduce(function (a, b) { return a + b; }, 0) / period;
-    for (var i = period; i < gains.length; i++) {
-      avgG = (avgG * (period - 1) + gains[i]) / period;
-      avgL = (avgL * (period - 1) + losses[i]) / period;
-    }
-    if (avgL === 0) return 100;
-    return 100 - (100 / (1 + avgG / avgL));
-  }
-
-  function macdCalc(arr, fast, slow, signal) {
-    var eF = emaSeries(arr, fast);
-    var eS = emaSeries(arr, slow);
-    var line = [];
-    for (var i = 0; i < arr.length; i++) line.push(eF[i] - eS[i]);
-    var sig = emaSeries(line, signal);
-    var li = line[line.length - 1];
-    var si = sig[sig.length - 1];
-    return { macd: li, signal: si, hist: li - si };
-  }
-
-  function computeIndicators(klines) {
-    var closes = klines.map(function (k) { return +k.close; });
-    var last = closes[closes.length - 1];
-    var first = closes[0];
-    var changePct = first ? ((last - first) / first * 100) : 0;
-    var highs = klines.map(function (k) { return +k.high; });
-    var lows = klines.map(function (k) { return +k.low; });
-    var hi = Math.max.apply(null, highs);
-    var lo = Math.min.apply(null, lows);
-    var pivot = (hi + lo + last) / 3;
-    return {
-      last: last,
-      changePct: changePct,
-      sma20: smaLast(closes, 20),
-      sma50: smaLast(closes, 50),
-      rsi: rsiWilder(closes, 14),
-      macd: macdCalc(closes, 12, 26, 9),
-      hi: hi, lo: lo,
-      pivot: pivot,
-      r1: 2 * pivot - lo,
-      s1: 2 * pivot - hi
-    };
-  }
-
-  function tradeSignal(a) {
-    var score = 0;
-    if (a.rsi != null) {
-      if (a.rsi < 30) score += 2;
-      else if (a.rsi < 40) score += 1;
-      else if (a.rsi > 70) score -= 2;
-      else if (a.rsi > 60) score -= 1;
-    }
-    if (a.macd.hist > 0) score += 1;
-    else score -= 1;
-    if (a.sma20 != null && a.sma50 != null) {
-      if (a.sma20 > a.sma50) score += 1; else score -= 1;
-    }
-    if (a.sma20 != null) {
-      if (a.last > a.sma20) score += 1; else score -= 1;
-    }
-    if (score >= 3) return { label: 'BUY', cls: 'buy', reason: 'Momentum bullish kuat' };
-    if (score <= -3) return { label: 'SELL', cls: 'sell', reason: 'Momentum bearish kuat' };
-    if (score >= 1) return { label: 'CENDERUNG BELI', cls: 'buy', reason: 'Momentum sedikit bullish' };
-    if (score <= -1) return { label: 'CENDERUNG JUAL', cls: 'sell', reason: 'Momentum sedikit bearish' };
-    return { label: 'HOLD', cls: 'hold', reason: 'Kondisi netral — tunggu konfirmasi' };
-  }
-
-  function fmt(n, d) {
-    if (n === null || n === undefined || isNaN(n)) return 'n/a';
-    return Number(n).toFixed(d === undefined ? 4 : d);
-  }
-
-  function formatMarketData(symbol, interval, a) {
-    return [
-      'Simbol: ' + symbol,
-      'Interval: ' + interval,
-      'Harga terakhir: ' + fmt(a.last, 2),
-      'Perubahan periode: ' + fmt(a.changePct, 2) + '%',
-      'SMA20: ' + fmt(a.sma20, 2),
-      'SMA50: ' + fmt(a.sma50, 2),
-      'RSI(14): ' + fmt(a.rsi, 2),
-      'MACD: ' + fmt(a.macd.macd, 6) + ' | Signal: ' + fmt(a.macd.signal, 6) + ' | Histogram: ' + fmt(a.macd.hist, 6),
-      'Tertinggi periode: ' + fmt(a.hi, 2),
-      'Terendah periode: ' + fmt(a.lo, 2),
-      'Pivot: ' + fmt(a.pivot, 2) + ' | Resistance R1: ' + fmt(a.r1, 2) + ' | Support S1: ' + fmt(a.s1, 2)
-    ].join('\n');
-  }
-
   /* ===== TAB: STATUS ===== */
   /* ===== DASHBOARD SINYAL ===== */
   var sinyalTimer = null;
@@ -1356,7 +1477,6 @@
       if (sub) sub.textContent = 'Diperbarui ' + new Date().toLocaleTimeString('id-ID') + ' · auto-refresh 2 mnt';
       body.innerHTML = '';
       body.appendChild(signalStatusCard(data));
-      if (data.latest) body.appendChild(signalChartCard(data.latest));
       body.appendChild(statsCard(data.stats));
       body.appendChild(pairsCard(data.stats));
       body.appendChild(verificationCard(data.verifications));
@@ -1445,69 +1565,6 @@
     grid.appendChild(dashCell('Diperbarui', fmtTime(latest.updatedAt)));
     sig.appendChild(grid);
     card.appendChild(sig);
-    return card;
-  }
-
-  function signalChartCard(latest) {
-    var pair = latest && BINANCE_PAIR[String(latest.symbol || '').toUpperCase()];
-    var card = mk('div', 'dash-card');
-    card.appendChild(mk('h3', null, 'Grafik harga — ' + (pair || (latest && latest.symbol) || '')));
-    var chartWrap = mk('div', 'dash-chart');
-    card.appendChild(chartWrap);
-    if (!pair) {
-      chartWrap.appendChild(mk('p', 'dash-muted', 'Belum ada pasangan Binance untuk simbol ini.'));
-      return card;
-    }
-    var interval = '1h';
-    var tf = latest.timeframe;
-    if (tf === 'M15' || tf === 'M30') interval = '15m';
-    else if (tf === 'H1') interval = '1h';
-    else if (tf === 'H4') interval = '4h';
-    else if (tf === 'D1') interval = '1d';
-    getKlines(pair, interval).then(function (klines) {
-      if (!chartWrap.parentNode) return;
-      chartWrap.innerHTML = '';
-      try {
-        if (typeof LightweightCharts === 'undefined') throw new Error('pustaka grafik belum termuat');
-        var chart = LightweightCharts.createChart(chartWrap, {
-          width: chartWrap.clientWidth || 640,
-          height: 280,
-          layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#8b93a7' },
-          grid: { vertLines: { color: 'rgba(35,43,59,0.5)' }, horzLines: { color: 'rgba(35,43,59,0.5)' } },
-          timeScale: { borderColor: '#232b3b', timeVisible: true },
-          rightPriceScale: { borderColor: '#232b3b' }
-        });
-        var series = chart.addCandlestickSeries({
-          upColor: '#22c55e', downColor: '#ef4444', borderVisible: false,
-          wickUpColor: '#22c55e', wickDownColor: '#ef4444'
-        });
-        series.setData(klines.map(function (k) {
-          return { time: Math.floor(k.openTime / 1000), open: +k.open, high: +k.high, low: +k.low, close: +k.close };
-        }));
-        if (latest.updatedAt && latest.price != null) {
-          var tSec = Math.floor(latest.updatedAt / 1000);
-          var k0 = klines[0], kLast = klines[klines.length - 1];
-          if (k0 && kLast && tSec >= Math.floor(k0.openTime / 1000) && tSec <= Math.floor(kLast.openTime / 1000)) {
-            series.createSeriesMarkers([{
-              time: tSec,
-              position: latest.direction === 'SELL' ? 'aboveBar' : 'belowBar',
-              color: latest.direction === 'SELL' ? '#ef4444' : '#22c55e',
-              shape: latest.direction === 'SELL' ? 'arrowDown' : 'arrowUp',
-              text: latest.direction
-            }]);
-          }
-        }
-        chart.timeScale().fitContent();
-        var resize = function () { var w = chartWrap.clientWidth; if (w > 0) chart.applyOptions({ width: w }); };
-        resize();
-        setTimeout(resize, 60);
-      } catch (e) {
-        chartWrap.appendChild(mk('p', 'dash-muted', 'Gagal menggambar grafik: ' + e.message));
-      }
-    }).catch(function () {
-      chartWrap.innerHTML = '';
-      chartWrap.appendChild(mk('p', 'dash-muted', 'Grafik tidak tersedia saat ini.'));
-    });
     return card;
   }
 
@@ -1631,13 +1688,11 @@
     var html = '<div class="status-card">' +
       '<div class="status-row head"><span>Layanan</span><span>Status</span></div>' +
       '<div class="status-row" id="st-ai"><span>Layanan AI (Puter)</span><span class="st-wait">mengecek...</span></div>' +
-      '<div class="status-row" id="st-binance"><span>Data pasar (Binance)</span><span class="st-wait">mengecek...</span></div>' +
       '<div class="status-row" id="st-local"><span>Penyimpanan lokal (localStorage)</span><span class="st-wait">mengecek...</span></div>' +
       '</div>';
     body.innerHTML = html;
     var checks = [
       { id: 'st-ai', run: function () { return Promise.resolve(typeof puter !== 'undefined' && puter.ai && !!puter.ai.chat); } },
-      { id: 'st-binance', run: function () { return pingOk('https://data-api.binance.vision/api/v3/ping'); } },
       { id: 'st-local', run: function () { return Promise.resolve(typeof localStorage !== 'undefined'); } }
     ];
     checks.forEach(function (c) {
@@ -1647,10 +1702,6 @@
         setStatusRow(c.id, false);
       });
     });
-  }
-
-  function pingOk(url) {
-    return webFetch(url).then(function (text) { return !!text; });
   }
 
   function setStatusRow(id, ok) {

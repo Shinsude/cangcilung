@@ -1,1 +1,16 @@
-{}
+{
+  "XAUUSD|M15|SELL|1786592141968": {
+    "key": "XAUUSD|M15|SELL|1786592141968",
+    "symbol": "XAUUSD",
+    "timeframe": "M15",
+    "direction": "SELL",
+    "entryPrice": 4410.115,
+    "entryAt": 1786592141968,
+    "primaryHorizon": "1h",
+    "samples": {
+      "1786592141968": 4410.115,
+      "1786592141972": 4409.909,
+      "1786592165570": 4409.505
+    }
+  }
+}

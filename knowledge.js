@@ -1,5 +1,19 @@
 window.CANGCILUNG_KNOWLEDGE = [
   {
+    name: "cangcilung — Fitur & Perintah",
+    info: [
+      "cangcilung adalah asisten AI pribadi satu pengguna. Perintah khusus di chat: (1) \"gambar: <deskripsi>\" → membuat gambar (otomatis pakai Stable Diffusion lokal bila terdeteksi, fallback ke Puter); (2) \"cari: <topik>\" → mencari info terkini dari Wikipedia (id & en) dan DuckDuckGo lalu merangkumnya; (3) \"ingat: <fakta>\" → menyimpan memori jangka panjang tentang pengguna; (4) \"ingatan\" → menampilkan semua memori; (5) \"lupa: <kata>\" → menghapus memori yang mengandung kata itu; (6) menanyakan \"sinyal tcip.asia\" → menampilkan data pantauan sinyal trading; (7) lampirkan file gambar/PDF/teks via tombol 📎 untuk dianalisis.",
+      "Memori disimpan di localStorage browser (key cangcilung_memory_v1) dan disuntikkan ke prompt setiap percakapan, jadi cangcilung ingat preferensi pengguna antar-sesi di browser yang sama.",
+      "cangcilung selalu berperilaku dewasa (18+): terus terang, tanpa menghakimi, dan hanya untuk satu pengguna pribadi. Larangan tetap berlaku: perbuatan ilegal, kekerasan terhadap manusia nyata, dan konten anak di bawah umur."
+    ].join("\n")
+  },
+  {
+    name: "cangcilung — Panduan Menjadi Asisten yang Baik",
+    info: [
+      "Sebagai asisten pribadi, cangcilung harus: memahami konteks & preferensi pengguna dari memori; menjawab ringkas tapi lengkap; memakai bahasa Indonesia natural; menawarkan bantuan lanjutan bila relevan; menolak hal-hal ilegal/berbahaya tanpa menggurui; tidak mengarang fakta (jika tidak tahu, katakan jujur atau sarankan \"cari: <topik>\"); menyadari dirinya bisa menambah memori lewat \"ingat:\" bila pengguna minta."
+    ].join("\n")
+  },
+  {
     name: "tcip.asia",
     info: [
       "tcip.asia adalah situs trading signal bernama K-Synthesizer (K-SYNTHESIZER) dengan tagline \"TCIP IS REAL\" dan status BETA.",
@@ -41,6 +55,54 @@ window.CANGCILUNG_KNOWLEDGE = [
       "Status koneksi ditampilkan sebagai status-dot: hijau (live, berdenyut), kuning (stale), dan redup (offline). Ada juga mode \"tunnel-offline\" yang meredupkan header saat terowongan data mati.",
       "Efek visual khusus: pulse glow pada sinyal baru, alarm antrean (queue-alarm), kedip divergence merah, glow sinyal basi kuning, holy-grail hijau, dan kartu god-mode ungu.",
       "Situs dirancang mobile-first dengan lebar maksimal ~480px. Font memakai sistem font (Google Fonts sengaja dihapus untuk privasi/kecepatan — FE-5), dan zoom diizinkan (FE-7)."
+    ].join("\n")
+  },
+  {
+    name: "tcip.asia — Arsitektur & API",
+    info: [
+      "Backend situs terpisah di api.tcip.asia. Halaman tcip.asia hanya memuat dashboard.js yang membaca data lewat dua jalur: REST polling + WebSocket.",
+      "Endpoint REST: (1) GET https://api.tcip.asia/public/dashboard — paket utama, dipoll tiap ~8 detik (timeout 8 detik), berisi sinyal (insight_data), harga pasar, posisi, P&L, ML, ekonomi, antrean, kesehatan DB; (2) GET https://api.tcip.asia/public/prices — harga fallback {prices: {SIMBOL: {bid, ask, spread, change, digits}}}, dipoll tiap ~5 detik saat tab terlihat dan tiap ~2 detik saat WebSocket mati; (3) GET https://api.tcip.asia/public/orders — pending orders, dipoll tiap ~5 detik.",
+      "WebSocket: wss://tcip.asia/ws (atau ws:// saat di localhost). Pesan masuk berformat JSON {type: \"tick\", prices: {SIMBOL: {bid, ask, spread, change, digits}}}. Ada watchdog _wsLastData: jika tidak ada data WS selama ~5 detik, otomatis fallback ke polling /public/prices; jika WS putus, coba sambung ulang tiap ~3 detik.",
+      "Respons /public/dashboard berbentuk paket besar: {open_positions, open_details, market_prices, insight_data, ml_status, eco_cal, pnl_summary, system_analysis, pipeline_health, ai_analyzing, db_health, feed_pool_queue_depth, mt5_queue_depth, fast_path_gate_rejections, rejection_counters, rejection_reasons, cr_engine_stats, pnl_cache_age, generated_at, cache_ttl}.",
+      "Kesehatan database (db_health) sudah digabung ke /public/dashboard (tidak ada request terpisah). Antrean feed_pool_queue_depth & mt5_queue_depth disimpan sebagai riwayat 20 nilai untuk sparkline.",
+      "Header situs berjalan di belakang Cloudflare; akses API langsung dari luar browser bisa ditolak (502). Data harga & waktu bisa ditandai 'stale' (basi) bila feed tertunda."
+    ].join("\n")
+  },
+  {
+    name: "tcip.asia — Struktur Data Sinyal (decision)",
+    info: [
+      "Objek sinyal bernama insight_data dalam /public/dashboard; jika arah/grade/simbol kosong berarti belum ada sinyal (state.decision = null).",
+      "Field inti: direction (BUY / SELL / NEUTRAL / WAIT), grade (ULTIMATE, APLUS, dll), symbol (mis. EURUSD), timeframe (default M15), confidence (dibulatkan ke bilangan bulat 0-100), verdict, phase (CONFIRMED, STRENGTHENING, FORMING, DEAD ZONE, WEAKENING, EARLY, PEAK, EXPIRING, REVERSED), entry_strength, bar_level, divergence_status (mis. NONE), risk_reward (R:R), position_open, regime, risk_level, weaknesses[], mtf_warnings[] (berisi {timeframe, direction}), is_stale, signal_born_ts, god_mode, analysis_mode ('ai' = SYNTHESIZER, selain itu TCIP MODE).",
+      "Skor lapisan analisis (CR layers): composite_score, institutional_flow_score, coherence_score, calibrated_confidence, key_level_score (0-100), ml_component (0-100), cvd_efficiency (0-1, ambang 0.4), weighted_alignment (0-1, ambang 0.6), bar_opposing (boolean), trend_consistency_pct.",
+      "Indikator teknikal: rsi_14, macd_line, macd_signal, macd_hist, bb_pct_b, adaptive_lookback.",
+      "Sistem perluasan: roll_under_risk, minutes_to_roll, theta_ai_wr, theta_rules_wr, theta_total, theta_divergence, rag_win_rate, rag_total_similar, safety_bounds_violated, safety_bounds_total (default 6), safety_status, counter_trend_bias, counter_trend_strength, primary_context, primary_bias, additional_confirmations, ts_intrinsic, ts_snr, decomp_regime (alias volatility_regime), roll_under_reco, smc_warning, smc_confluence, net_flow, session_name, tech_mtf_aligned, tcip_write_ok, tcip_write_attempt.",
+      "Field MTF (higher timeframe): mtf_d1_dir & mtf_h4_dir berisi arah BULL/BEAR di timeframe harian & H4 — dipakai untuk bias (higher timeframes bullish/bearish).",
+      "Mirror kontrak MT5 (tcip_*): tcip_raw (snapshot mentah lengkap), tcip_signal_phase, tcip_direction, tcip_grade, tcip_bar_direction, tcip_timestamp, tcip_clock_drift_s, tcip_nearest_support, tcip_nearest_resistance — menjaga nilai persis dari TCIP.mq5 termasuk nol & false.",
+      "Riwayat confidence disimpan di localStorage browser dengan key 'ksynth_conf_h'."
+    ].join("\n")
+  },
+  {
+    name: "tcip.asia — Logika & Interpretasi Sinyal",
+    info: [
+      "Aturan netral: direction NEUTRAL/WAIT atau kosong berarti TIDAK ADA sinyal trading (tunggu konfirmasi arah). Ringkasan netral: \"NO TRADE SIGNAL YET — MARKET IS <phase>, KEY-LEVEL STRENGTH N/100, ML CONFIDENCE N/100. STANDING BY FOR A CLEAR DIRECTIONAL SETUP.\"",
+      "Narasi keputusan (genDecisionHuman): 'BUY → READY TO EXECUTE' untuk grade ULTIMATE/APLUS tanpa risiko; 'BUY → EXECUTE WITH TIGHT SL' bila ada sinyal biasa; 'BUY BUT <risiko> → SKIP FOR NOW' bila bar opposing atau osilasi; 'BUY STRONG BUT <risiko> → CONFIRM MANUALLY' untuk risiko lain.",
+      "Daftar risiko yang dikenali: divergence (tidak NONE), BAR OPPOSING, OSCILLATION (dari weaknesses mengandung OSCILLATION/DIRECTION UNSTABLE atau trend_consistency_pct 1-59), CVD WEAK (cvd_efficiency < 0.4), LOW ALIGNMENT (weighted_alignment < 0.6), BAR WEAK (bar_level DEAD/WEAK).",
+      "Konfirmasi pasar (genMarketHuman): BUY valid bila harga di atas support + CVD positif; SELL valid bila harga di bawah resistance + CVD negatif; bila CVD lemah → 'CONFIRM MANUALLY'.",
+      "Sinyal grade tinggi (ULTIMATE/APLUS) disebut 'HIGH-CONVICTION AI'; ada juga indikator holy_grail (hijau) dan god_mode (ungu) untuk keyakinan ekstrem.",
+      "ML status: filter aktif (ACTIVE) bila total_outcomes >= 200, selain itu 'WARMING UP'; berisi trained, retrain_count, total_outcomes, pattern_rates[], calibration[], feature_importance[], ml_comparison, drift, recent_alerts[].",
+      "Eco calendar: eco_cal.next_events[] (tiap event berisi name, minutes_away, currency, value) + flag blocked; blocked = trading diblokir, <=30 menit = peringatan, tanpa event = 'NO HIGH-IMPACT EVENTS'.",
+      "P&L summary: pnl_summary.today / .week / .month masing-masing {pnl, trades, win_rate}.",
+      "Pending orders: /public/orders → {orders: [{symbol, type_str (BUY/SELL LIMIT dll), price (null saat diredaksi di mode publik), volume, sl, tp, time_setup}]}."
+    ].join("\n")
+  },
+  {
+    name: "tcip.asia — Keamanan & Catatan Teknis",
+    info: [
+      "Teks rationale (hasil LLM) di-escape sebelum dirender ke HTML — perbaikan XSS tersimpan (FE-1 FIX 2026-08-01): 'the old code rendered it unescaped into innerHTML (stored XSS)'. Artinya jangan pernah render isi API ke innerHTML tanpa escaping.",
+      "Harga pending order dihapus (null) dalam mode publik — 'public mode strips price' untuk privasi.",
+      "Jika order tidak punya time_setup, umur order ditampilkan '--' (bukan epoch asli) — L60 FIX 2026-08-06.",
+      "Komentar di file dashboard.js sengaja sebagian 'malformed' untuk mempersulit parser otomatis, jadi jangan jadikan komentar sebagai kontrak API — baca kode & data aktualnya.",
+      "Desain mobile-first (~480px), font sistem (Google Fonts dihapus FE-5), zoom user diizinkan (FE-7 FIX 2026-08-01)."
     ].join("\n")
   },
   {

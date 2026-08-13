@@ -31,6 +31,10 @@
           <span class="nav-icon">📊</span>
           <span>Sinyal</span>
         </button>
+        <button class="nav-item" data-tab="galeri" title="Galeri gambar yang pernah dibuat">
+          <span class="nav-icon">🖼️</span>
+          <span>Galeri</span>
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -45,14 +49,14 @@
       <section class="tab-pane active" id="tab-chat">
         <div class="chat-header">
           <h2>Chat dengan cangcilung</h2>
+          <button id="btn-clear-chat" class="ghost-btn" title="Hapus seluruh obrolan" aria-label="Hapus obrolan">🗑️ Hapus</button>
         </div>
         <div id="chat-messages" class="chat-messages">
           <div class="welcome">
             <div class="welcome-avatar">A</div>
             <p>Halo! Saya <strong>cangcilung</strong>, asisten AI kamu.</p>
-            <p class="welcome-sub">Tanya apa saja, atau pakai perintah khusus: <strong>gambar:</strong>, <strong>cari:</strong>, dan <strong>analisa</strong>.</p>
+            <p class="welcome-sub">Tanya apa saja, atau pakai perintah khusus: <strong>gambar:</strong> dan <strong>cari:</strong>.</p>
             <div class="prompt-grid">
-              <button class="prompt-btn" data-prompt="analisa BTC 4h">📈 Analisa BTC/USDT</button>
               <button class="prompt-btn" data-prompt="gambar: logo kucing kartun lucu">🎨 Buatkan gambar</button>
               <button class="prompt-btn" data-prompt="cari: harga emas hari ini">🔎 Cari info terkini</button>
               <button class="prompt-btn" data-prompt="Apa itu tcip.asia?">🔍 Tanya soal tcip.asia</button>
@@ -90,6 +94,17 @@
         </div>
         <div class="pane-body" id="sinyal-body">
           <div class="dash-loading">Memuat data...</div>
+        </div>
+      </section>
+
+      <!-- ====== TAB GALERI ====== -->
+      <section class="tab-pane" id="tab-galeri">
+        <div class="chat-header">
+          <h2>Galeri Gambar</h2>
+          <span class="pane-sub">Semua gambar yang pernah dibuat</span>
+        </div>
+        <div class="pane-body" id="galeri-body">
+          <div class="dash-loading">Memuat galeri...</div>
         </div>
       </section>
     </main>
@@ -130,13 +145,9 @@
         </label>
         <label class="set-field">
           <span>Model</span>
-          <input type="text" id="set-model" placeholder="gpt-4o-mini" autocomplete="off">
+          <input type="text" id="set-model" placeholder="claude-sonnet-4" autocomplete="off">
         </label>
-        <label class="set-row">
-          <span>Mode dewasa (18+) — personal use</span>
-          <input type="checkbox" id="set-adult">
-        </label>
-        <p class="set-hint">Menambah instruksi sistem agar asisten bersikap dewasa, terus terang, dan tidak menghakimi topik sensitif. Berlaku untuk percakapan (efek paling kuat saat API sendiri aktif).</p>
+        <p class="set-hint">Asisten berperilaku dewasa, terus terang, dan tanpa menghakimi (selalu aktif).</p>
         <div class="set-status" id="set-status"></div>
       </div>
       <div class="modal-footer">
@@ -149,7 +160,6 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
