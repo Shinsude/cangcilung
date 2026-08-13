@@ -5,3 +5,10 @@ node_modules/
 
 .vercel
 .env*
+
+# Artefak riset/screenshot sekali pakai
+bukti_auto_sd.png
+tcip-data/dashboard_full.js
+tcip-data/tcip_live_dashboard.json
+tcip-data/tcip_live_home.html
+tcip-data/tcip_probe.json
