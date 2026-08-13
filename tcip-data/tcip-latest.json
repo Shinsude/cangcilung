@@ -2,11 +2,11 @@
   "symbol": "XAUUSD",
   "timeframe": "M15",
   "direction": "SELL",
-  "confidence": 37,
+  "confidence": 6,
   "grade": "BPLUS",
   "phase": "FORMING",
   "risk_level": "MODERATE",
   "is_stale": false,
-  "price": 4357.364,
-  "updatedAt": 1786643122037
+  "price": 4358.794,
+  "updatedAt": 1786646509749
 }
