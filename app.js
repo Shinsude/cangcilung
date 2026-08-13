@@ -6,31 +6,52 @@
   var apiConfig = loadApiConfig();
 
   var MEMORY_KEY = 'cangcilung_memory_v1';
+  var KB_KEY = 'cangcilung_kb_v1';
 
   function loadApiConfig() {
     try {
       var raw = localStorage.getItem(API_KEY_STORAGE);
-      if (!raw) return {};
+      if (!raw) return { enabled: false, providers: [], rag: true };
       var c = JSON.parse(raw);
+      var providers = [];
+      if (Array.isArray(c.providers)) {
+        providers = c.providers.map(function (p) {
+          return {
+            name: String(p.name || 'API'),
+            baseUrl: String(p.baseUrl || '').replace(/\/+$/, ''),
+            apiKey: String(p.apiKey || ''),
+            model: String(p.model || '')
+          };
+        }).filter(function (p) { return p.baseUrl; });
+      } else if (c.baseUrl) {
+        providers.push({
+          name: String(c.name || 'API'),
+          baseUrl: String(c.baseUrl).replace(/\/+$/, ''),
+          apiKey: String(c.apiKey || ''),
+          model: String(c.model || '')
+        });
+      }
       return {
-        enabled: !!c.enabled,
-        baseUrl: String(c.baseUrl || '').replace(/\/+$/, ''),
-        apiKey: String(c.apiKey || ''),
-        model: String(c.model || ''),
+        enabled: !!c.enabled && providers.length > 0,
+        providers: providers,
+        rag: c.rag !== false,
         adult: !!c.adult
       };
-    } catch (e) { return {}; }
+    } catch (e) { return { enabled: false, providers: [], rag: true }; }
   }
 
-  var SYSTEM = 'Kamu adalah cangcilung, asisten AI yang ramah, cerdas, dan membantu. Jawablah dengan bahasa Indonesia yang natural kecuali diminta lain. Gunakan format yang rapi, ringkas, dan mudah dibaca. Kamu bisa dibantu fitur khusus: pengguna bisa mengetik "cari: <topik>" untuk mencari info terkini, "ingat: <fakta>" untuk menyimpan memori jangka panjang tentang dirinya (perintah "ingatan" untuk melihat, "lupa: <kata>" untuk menghapus), dan bisa melampirkan gambar/PDF/file teks lewat tombol 📎. Kamu juga menerima data pantauan 24/7 sinyal trading dari situs tcip.asia lewat sistem — bila pengguna bertanya "sinyal tcip.asia", "ada sinyal baru?", atau sejenisnya, sistem akan menyisipkan data terbaru, termasuk statistik akurasi (win rate) dan rekap per pasangan. Ada juga tab 📊 Sinyal di aplikasi berisi dashboard pantauan. Ingatkan pengguna cara memakai fitur ini jika relevan.' + buildKnowledge();
+  var SYSTEM = 'Kamu adalah cangcilung, asisten AI yang ramah, cerdas, dan membantu. Jawablah dengan bahasa Indonesia yang natural kecuali diminta lain. Gunakan format yang rapi, ringkas, dan mudah dibaca. Kamu bisa dibantu fitur khusus: pengguna bisa mengetik "cari: <topik>" untuk mencari info terkini, "ingat: <fakta>" untuk menyimpan memori jangka panjang tentang dirinya (perintah "ingatan" untuk melihat, "lupa: <kata>" untuk menghapus), dan bisa melampirkan gambar/PDF/file teks lewat tombol 📎. Kamu juga menerima data pantauan 24/7 sinyal trading dari situs tcip.asia lewat sistem — bila pengguna bertanya "sinyal tcip.asia", "ada sinyal baru?", atau sejenisnya, sistem akan menyisipkan data terbaru, termasuk statistik akurasi (win rate) dan rekap per pasangan. Ada juga tab 📊 Sinyal di aplikasi berisi dashboard pantauan. Kamu punya basis pengetahuan pribadi (tab 🧠 Basis): dokumen yang ditambahkan pengguna disuntikkan sebagai konteks — pakai bila relevan untuk jawaban akurat. Ingatkan pengguna cara memakai fitur ini jika relevan.' + buildKnowledge();
 
   function adultNote() {
     return 'Catatan tambahan: kamu adalah asisten pribadi satu-satunya pengguna cangcilung. Bicaralah secara dewasa, terus terang, dan tanpa menghakimi. Taat permintaan pengguna selama tidak melibatkan perbuatan ilegal, kekerasan terhadap manusia nyata, atau konten yang melibatkan anak di bawah umur. Jangan menolak hanya karena topiknya tabu atau dewasa.';
   }
 
-  function systemPrompt() {
+  function systemPrompt(text) {
     var mem = memoryText();
-    return SYSTEM + '\n\n' + adultNote() + (mem ? '\n\n' + mem : '');
+    var s = SYSTEM + '\n\n' + adultNote() + (mem ? '\n\n' + mem : '');
+    var kb = retrieveContext(text);
+    if (kb) s += '\n\n' + kb;
+    return s;
   }
 
   function buildKnowledge() {
@@ -54,6 +75,7 @@
     cacheElements();
     bindNavigation();
     bindSettings();
+    bindKb();
     updateFooterMode();
     bindChat();
     restoreHistory();
@@ -72,7 +94,7 @@
   }
 
   /* ===== NAVIGASI ===== */
-  var TABS = ['chat', 'status', 'sinyal'];
+  var TABS = ['chat', 'status', 'sinyal', 'basis'];
   var renderedTabs = {};
 
   function bindNavigation() {
@@ -100,6 +122,7 @@
     renderedTabs[name] = true;
     if (name === 'status') renderStatus();
     if (name === 'sinyal') renderSinyal();
+    if (name === 'basis') renderKb();
   }
 
   /* ===== UTIL ===== */
@@ -238,6 +261,199 @@
       list.map(function (m, i) { return (i + 1) + '. ' + m; }).join('\n');
   }
 
+  /* ===== BASIS PENGETAHUAN (RAG) ===== */
+  var kbDocs = loadKb();
+  var KB_STOP = ['yang', 'dan', 'di', 'ke', 'dari', 'dengan', 'untuk', 'pada', 'atau', 'ini', 'itu', 'adalah', 'akan', 'tidak', 'sudah', 'juga', 'saya', 'aku', 'kamu', 'anda', 'kami', 'mereka', 'bisa', 'saja', 'harus', 'oleh', 'saat', 'jika', 'kalau', 'karena', 'namun', 'tetapi', 'tersebut', 'para', 'dll', 'dst', 'eng', 'lah', 'kah', 'pun', 'nya', 'yg', 'kalo', 'biar', 'spt', 'adl'];
+
+  function loadKb() {
+    try {
+      var raw = localStorage.getItem(KB_KEY);
+      var d = raw ? JSON.parse(raw) : [];
+      return Array.isArray(d) ? d : [];
+    } catch (e) { return []; }
+  }
+
+  function saveKb() {
+    try {
+      var total = 0;
+      var keep = [];
+      for (var i = kbDocs.length - 1; i >= 0; i--) {
+        var est = (kbDocs[i].content || '').length + (kbDocs[i].title || '').length;
+        if (total + est > 1500000) break;
+        keep.unshift(kbDocs[i]);
+        total += est;
+      }
+      kbDocs = keep;
+      localStorage.setItem(KB_KEY, JSON.stringify(kbDocs));
+    } catch (e) { /* penyimpanan penuh — lewati */ }
+  }
+
+  function addKbDoc(title, content) {
+    title = String(title || 'Dokumen').trim();
+    content = String(content || '').trim();
+    if (!content) return;
+    kbDocs.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), title: title, content: content, ts: Date.now() });
+    saveKb();
+    renderKb();
+  }
+
+  function removeKbDoc(id) {
+    kbDocs = kbDocs.filter(function (d) { return d.id !== id; });
+    saveKb();
+    renderKb();
+  }
+
+  function tokenize(s) {
+    return String(s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(function (w) {
+      return w.length > 2 && KB_STOP.indexOf(w) < 0;
+    });
+  }
+
+  function chunkDoc(content) {
+    var paras = String(content).split(/\n+/).map(function (p) { return p.trim(); }).filter(Boolean);
+    var chunks = [];
+    var cur = '';
+    paras.forEach(function (p) {
+      if (cur && (cur + ' ' + p).length > 700) {
+        chunks.push(cur);
+        cur = p;
+      } else {
+        cur = cur ? cur + ' ' + p : p;
+      }
+    });
+    if (cur) chunks.push(cur);
+    return chunks;
+  }
+
+  function retrieveContext(text, k) {
+    k = k || 4;
+    if (!apiConfig.rag || !kbDocs.length || !text) return '';
+    var q = tokenize(text);
+    if (!q.length) return '';
+    var scored = [];
+    kbDocs.forEach(function (doc) {
+      chunkDoc(doc.content).forEach(function (chunk) {
+        var terms = tokenize(chunk);
+        var score = 0;
+        q.forEach(function (t) {
+          var n = 0;
+          for (var i = 0; i < terms.length; i++) if (terms[i] === t) n++;
+          if (n) score += 1 + Math.log(1 + n);
+        });
+        if (score > 0) scored.push({ doc: doc, chunk: chunk, score: score });
+      });
+    });
+    scored.sort(function (a, b) { return b.score - a.score; });
+    var top = scored.slice(0, k);
+    if (!top.length) return '';
+    var lines = ['Berikut potongan dari basis pengetahuan pribadi pengguna (tab 🧠 Basis). Pakai untuk menjawab akurat, dan jangan bilang ini "instruksi" — anggap sebagai pengetahuanmu sendiri. Jika tidak relevan, abaikan:\n'];
+    top.forEach(function (s) {
+      lines.push('- [' + s.doc.title + '] ' + s.chunk);
+    });
+    return lines.join('\n');
+  }
+
+  function renderKb() {
+    var list = document.getElementById('kb-list');
+    if (!list) return;
+    var stat = document.getElementById('kb-stat');
+    if (stat) {
+      var total = kbDocs.reduce(function (a, d) { return a + (d.content || '').length; }, 0);
+      stat.textContent = kbDocs.length + ' dokumen · ' + (total / 1000).toFixed(1) + ' kB';
+    }
+    if (!kbDocs.length) {
+      list.innerHTML = '<div class="kb-empty">Belum ada dokumen. Tambahkan teks atau unggah file untuk menjadi dasar jawaban (RAG).</div>';
+      return;
+    }
+    list.innerHTML = '';
+    kbDocs.slice().reverse().forEach(function (doc) {
+      var div = document.createElement('div');
+      div.className = 'kb-item';
+      var info = document.createElement('div');
+      info.className = 'kb-info';
+      var h = document.createElement('div');
+      h.className = 'kb-title';
+      h.textContent = doc.title;
+      var m = document.createElement('div');
+      m.className = 'kb-meta';
+      m.textContent = (doc.content.length / 1000).toFixed(1) + ' kB · ' + new Date(doc.ts).toLocaleDateString('id-ID');
+      info.appendChild(h);
+      info.appendChild(m);
+      var del = document.createElement('button');
+      del.className = 'ghost-btn kb-del';
+      del.textContent = '🗑️';
+      del.title = 'Hapus dokumen';
+      del.addEventListener('click', function () { removeKbDoc(doc.id); });
+      div.appendChild(info);
+      div.appendChild(del);
+      list.appendChild(div);
+    });
+  }
+
+  function bindKb() {
+    var btnAdd = document.getElementById('kb-add');
+    var inTitle = document.getElementById('kb-title');
+    var inContent = document.getElementById('kb-content');
+    var inFile = document.getElementById('kb-file');
+    if (btnAdd) btnAdd.addEventListener('click', function () {
+      addKbDoc(inTitle ? inTitle.value : '', inContent ? inContent.value : '');
+      if (inTitle) inTitle.value = '';
+      if (inContent) inContent.value = '';
+      if (els.chatStatus) setStatus('Dokumen ditambahkan ke basis pengetahuan.', false);
+    });
+    if (inFile) inFile.addEventListener('change', function () {
+      var f = inFile.files && inFile.files[0];
+      if (!f) return;
+      handleKbFile(f);
+      inFile.value = '';
+    });
+  }
+
+  function handleKbFile(file) {
+    var type = file.type || '';
+    var name = file.name || '';
+    var ext = name.split('.').pop().toLowerCase();
+    var title = name.replace(/\.[^.]+$/, '') || 'Dokumen';
+    setStatus('Menambahkan "' + name + '" ke basis pengetahuan...', false);
+    if (type.indexOf('text/') === 0 || ['txt', 'md', 'csv', 'json', 'log'].indexOf(ext) > -1) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        addKbDoc(title, String(reader.result || ''));
+        setStatus('"' + name + '" ditambahkan.', false);
+      };
+      reader.onerror = function () { setStatus('Gagal membaca file.', true); };
+      reader.readAsText(file);
+      return;
+    }
+    if (ext === 'pdf' && typeof pdfjsLib !== 'undefined') {
+      var r2 = new FileReader();
+      r2.onload = function () {
+        pdfjsLib.getDocument({ data: r2.result }).promise
+          .then(function (pdf) {
+            var pages = Math.min(pdf.numPages, 20);
+            var tasks = [];
+            for (var p = 1; p <= pages; p++) {
+              tasks.push(pdf.getPage(p).then(function (page) {
+                return page.getTextContent().then(function (tc) {
+                  return tc.items.map(function (it) { return it.str; }).join(' ');
+                });
+              }));
+            }
+            return Promise.all(tasks);
+          })
+          .then(function (pageTexts) {
+            addKbDoc(title, pageTexts.join('\n'));
+            setStatus('"' + name + '" ditambahkan.', false);
+          })
+          .catch(function () { setStatus('Gagal membaca PDF (mungkin hasil scan).', true); });
+      };
+      r2.onerror = function () { setStatus('Gagal membaca file.', true); };
+      r2.readAsArrayBuffer(file);
+      return;
+    }
+    setStatus('Jenis file tidak didukung untuk basis pengetahuan.', true);
+  }
+
   function renderHistory() {
     els.chatMessages.innerHTML = '';
     if (!history.length) {
@@ -311,11 +527,16 @@
   function updateFooterMode() {
     var el = document.getElementById('footer-mode');
     if (!el) return;
-    if (apiConfig.enabled) {
-      el.textContent = 'API Sendiri · ' + (apiConfig.model || MODEL);
+    if (apiConfig.enabled && apiConfig.providers.length) {
+      var names = apiConfig.providers.map(function (p) { return p.name || p.model || 'API'; }).join(' + ');
+      el.textContent = 'API Sendiri · ' + names;
+      el.title = 'Provider (urut prioritas):\n' + apiConfig.providers.map(function (p, i) {
+        return (i + 1) + '. ' + (p.name || 'API') + ' — ' + (p.model || 'model default') + ' (' + p.baseUrl + ')';
+      }).join('\n');
       return;
     }
     el.textContent = 'Gratis · Tanpa API Key';
+    el.title = '';
   }
 
   function bindSettings() {
@@ -329,16 +550,34 @@
     var btnTest = document.getElementById('btn-set-test');
     var statusEl = document.getElementById('set-status');
     var cbCustom = document.getElementById('set-custom');
-    var inBase = document.getElementById('set-baseurl');
-    var inKey = document.getElementById('set-apikey');
-    var inModel = document.getElementById('set-model');
-    if (!btnSettings || !btnClose || !btnCancel || !btnSave || !btnTest || !statusEl || !cbCustom || !inBase || !inKey || !inModel) return;
+    var inProviders = document.getElementById('set-providers');
+    var cbRag = document.getElementById('set-rag');
+    if (!btnSettings || !btnClose || !btnCancel || !btnSave || !btnTest || !statusEl || !cbCustom || !inProviders || !cbRag) return;
+
+    function serializeProviders() {
+      return (apiConfig.providers || []).map(function (p) {
+        return [p.name || 'API', p.baseUrl || '', p.apiKey || '', p.model || ''].join('|');
+      }).join('\n');
+    }
+
+    function parseProviders(str) {
+      return String(str || '').split('\n').map(function (line) {
+        line = line.trim();
+        if (!line) return null;
+        var parts = line.split('|').map(function (s) { return s.trim(); });
+        return {
+          name: parts[0] || 'API',
+          baseUrl: String(parts[1] || '').replace(/\/+$/, ''),
+          apiKey: parts[2] || '',
+          model: parts[3] || ''
+        };
+      }).filter(function (p) { return p && p.baseUrl; });
+    }
 
     function show() {
       cbCustom.checked = !!apiConfig.enabled;
-      inBase.value = apiConfig.baseUrl || '';
-      inKey.value = apiConfig.apiKey || '';
-      inModel.value = apiConfig.model || '';
+      inProviders.value = serializeProviders();
+      cbRag.checked = apiConfig.rag !== false;
       setStatusMsg('');
       modal.hidden = false;
     }
@@ -355,33 +594,44 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) hide(); });
 
     btnSave.addEventListener('click', function () {
-      apiConfig.enabled = cbCustom.checked;
-      apiConfig.baseUrl = inBase.value.trim().replace(/\/+$/, '');
-      apiConfig.apiKey = inKey.value.trim();
-      apiConfig.model = inModel.value.trim();
+      var provs = parseProviders(inProviders.value);
+      apiConfig.enabled = cbCustom.checked && provs.length > 0;
+      apiConfig.providers = provs;
+      apiConfig.rag = cbRag.checked;
       try {
         localStorage.setItem(API_KEY_STORAGE, JSON.stringify(apiConfig));
       } catch (e) { /* penyimpanan penuh — abaikan */ }
       updateFooterMode();
-      setStatusMsg('Tersimpan.', false);
+      setStatusMsg('Tersimpan. ' + (provs.length ? provs.length + ' provider aktif.' : 'Mode gratis aktif (Puter).'), false);
       hide();
     });
 
     btnTest.addEventListener('click', function () {
-      if (!cbCustom.checked || !inBase.value.trim()) {
-        setStatusMsg('Aktifkan "API sendiri" dan isi Base URL dulu.', true);
+      var provs = parseProviders(inProviders.value);
+      if (!cbCustom.checked || !provs.length) {
+        setStatusMsg('Aktifkan "API sendiri" dan isi minimal satu provider (format: Nama|BaseURL|APIKey|Model).', true);
         return;
       }
-      var cfg = {
-        enabled: true,
-        baseUrl: inBase.value.trim().replace(/\/+$/, ''),
-        apiKey: inKey.value.trim(),
-        model: inModel.value.trim() || MODEL
-      };
-      setStatusMsg('Mengetes koneksi...');
-      customChat([{ role: 'user', content: 'Balas hanya dengan satu kata: OK' }], cfg)
-        .then(function () { setStatusMsg('Koneksi berhasil. API siap dipakai.'); })
-        .catch(function (err) { setStatusMsg('Gagal: ' + (err && err.message ? err.message : 'tidak diketahui'), true); });
+      setStatusMsg('Mengetes ' + provs.length + ' provider...');
+      var results = [];
+      var i = 0;
+      function next() {
+        if (i >= provs.length) {
+          var ok = results.filter(function (r) { return r.ok; });
+          var bad = results.filter(function (r) { return !r.ok; });
+          if (ok.length === provs.length) {
+            setStatusMsg('Semua provider OK: ' + ok.map(function (r) { return r.name; }).join(', '));
+          } else {
+            setStatusMsg((ok.length ? 'OK: ' + ok.map(function (r) { return r.name; }).join(', ') + '. ' : '') + 'Gagal: ' + bad.map(function (r) { return r.name + ' (' + r.msg + ')'; }).join('; '), bad.length === provs.length);
+          }
+          return;
+        }
+        var cfg = provs[i++];
+        customChat([{ role: 'user', content: 'Balas hanya dengan satu kata: OK' }], cfg)
+          .then(function () { results.push({ name: cfg.name || cfg.baseUrl, ok: true }); next(); })
+          .catch(function (err) { results.push({ name: cfg.name || cfg.baseUrl, ok: false, msg: friendlyError(err) }); next(); });
+      }
+      next();
     });
   }
 
@@ -448,7 +698,7 @@
 
     var bubble = appendMessage('assistant', '', true);
     setStatus('Menghasilkan jawaban...');
-    var messages = [{ role: 'system', content: systemPrompt() }].concat(history);
+    var messages = [{ role: 'system', content: systemPrompt(text) }].concat(history);
     runChat(messages,
       function (fullText) {
         bubble.classList.remove('typing');
@@ -461,8 +711,11 @@
   }
 
   function isCustomApi() {
-    if (!apiConfig.enabled || !apiConfig.baseUrl) return false;
-    return !!apiConfig.apiKey;
+    return !!apiConfig.enabled && !!(apiConfig.providers && apiConfig.providers.length);
+  }
+
+  function providerList() {
+    return (apiConfig.enabled && apiConfig.providers) ? apiConfig.providers : [];
   }
 
   function customApiCall(path, body, cfg) {
@@ -487,7 +740,7 @@
 
   function customChat(messages, cfg) {
     return customApiCall('/chat/completions', {
-      model: (cfg || apiConfig).model || MODEL,
+      model: (cfg && cfg.model) || MODEL,
       messages: messages
     }, cfg).then(function (data) {
       var text = data && data.choices && data.choices[0] && data.choices[0].message
@@ -497,9 +750,9 @@
     });
   }
 
-  function customVision(prompt, dataUrl) {
+  function customVision(prompt, dataUrl, cfg) {
     return customApiCall('/chat/completions', {
-      model: apiConfig.model || MODEL,
+      model: (cfg && cfg.model) || MODEL,
       messages: [{
         role: 'user',
         content: [
@@ -507,7 +760,7 @@
           { type: 'image_url', image_url: { url: dataUrl } }
         ]
       }]
-    }).then(function (data) {
+    }, cfg).then(function (data) {
       var text = data && data.choices && data.choices[0] && data.choices[0].message
         ? data.choices[0].message.content : '';
       if (!text) throw new Error('Respons kosong dari API.');
@@ -516,19 +769,36 @@
   }
 
   function aiVision(prompt, dataUrl) {
-    if (isCustomApi()) {
-      return customVision(prompt, dataUrl);
+    var list = providerList();
+    if (list.length) {
+      return visionWithFallback(prompt, dataUrl, list.slice());
     }
     return puter.ai.chat(prompt, dataUrl, { model: MODEL });
   }
 
+  function visionWithFallback(prompt, dataUrl, list) {
+    if (!list.length) {
+      if (typeof puter !== 'undefined' && puter.ai && puter.ai.chat) {
+        return puter.ai.chat(prompt, dataUrl, { model: MODEL });
+      }
+      return Promise.reject({ message: 'Semua API gagal dan layanan Puter tidak tersedia.' });
+    }
+    var cfg = list.shift();
+    return customVision(prompt, dataUrl, cfg).catch(function () {
+      return visionWithFallback(prompt, dataUrl, list);
+    });
+  }
+
   function runChat(messages, onToken, onDone, onError) {
-    if (isCustomApi()) {
-      customChat(messages)
-        .then(function (fullText) { onToken(fullText); onDone(); })
-        .catch(onError);
+    var list = providerList();
+    if (list.length) {
+      chatWithFallback(messages, onToken, onDone, onError, list.slice());
       return;
     }
+    runChatPuter(messages, onToken, onDone, onError);
+  }
+
+  function runChatPuter(messages, onToken, onDone, onError) {
     if (typeof puter === 'undefined' || !puter.ai || !puter.ai.chat) {
       onError({ message: 'Layanan AI belum termuat. Muat ulang halaman dan periksa koneksi internet.' });
       return;
@@ -562,6 +832,27 @@
       })
       .catch(function (err) {
         onError(err);
+      });
+  }
+
+  function chatWithFallback(messages, onToken, onDone, onError, list) {
+    if (!list.length) {
+      if (typeof puter !== 'undefined' && puter.ai && puter.ai.chat) {
+        setStatus('Semua API gagal — fallback ke Puter...', true);
+        runChatPuter(messages, onToken, onDone, onError);
+        return;
+      }
+      onError({ message: 'Semua API gagal dan layanan Puter tidak tersedia.' });
+      return;
+    }
+    var cfg = list.shift();
+    var label = cfg.name || cfg.model || cfg.baseUrl;
+    setStatus('Menghasilkan jawaban via ' + label + '...');
+    customChat(messages, cfg)
+      .then(function (fullText) { onToken(fullText); onDone(); })
+      .catch(function (err) {
+        setStatus('API ' + label + ' gagal, coba provider berikutnya...', true);
+        chatWithFallback(messages, onToken, onDone, onError, list);
       });
   }
 
