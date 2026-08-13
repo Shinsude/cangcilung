@@ -173,10 +173,23 @@
   }
 
   function webFetch(url, options) {
-    if (typeof puter !== 'undefined' && puter.net && puter.net.fetch) {
-      return puter.net.fetch(url, options || {}).then(function (r) { return r.text(); });
-    }
-    return fetch(url, options || {}).then(function (r) { return r.text(); });
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = controller ? setTimeout(function () { controller.abort(); }, 30000) : null;
+    var opts = options || {};
+    if (controller) opts.signal = controller.signal;
+    var p = (typeof puter !== 'undefined' && puter.net && puter.net.fetch)
+      ? puter.net.fetch(url, opts).then(function (r) { return r.text(); })
+      : fetch(url, opts).then(function (r) { return r.text(); });
+    return p.then(function (text) {
+      if (timer) clearTimeout(timer);
+      return text;
+    }, function (err) {
+      if (timer) clearTimeout(timer);
+      if (controller && controller.signal.aborted) {
+        throw new Error('Timeout: server tidak merespons dalam 30 detik.');
+      }
+      throw err;
+    });
   }
 
   function escHtml(s) {
@@ -188,7 +201,7 @@
   /* ===== PENYIMPANAN LOKAL ===== */
   function saveHistory() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-100)));
     } catch (e) { /* penyimpanan penuh/off — abaikan */ }
   }
 
@@ -526,11 +539,16 @@
     cfg = cfg || apiConfig;
     var headers = { 'Content-Type': 'application/json' };
     if (cfg.apiKey) headers['Authorization'] = 'Bearer ' + cfg.apiKey;
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = controller ? setTimeout(function () { controller.abort(); }, 90000) : null;
+    var signal = controller ? controller.signal : undefined;
     return fetch(cfg.baseUrl + path, {
       method: 'POST',
       headers: headers,
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: signal
     }).then(function (r) {
+      if (timer) clearTimeout(timer);
       return r.json().catch(function () { return {}; }).then(function (data) {
         if (!r.ok) {
           var err = new Error((data && data.error && (data.error.message || data.error.code)) || ('HTTP ' + r.status));
@@ -539,6 +557,12 @@
         }
         return data;
       });
+    }, function (err) {
+      if (timer) clearTimeout(timer);
+      if (controller && controller.signal.aborted) {
+        throw new Error('Timeout: provider tidak merespons dalam 90 detik.');
+      }
+      throw err;
     });
   }
 
@@ -710,25 +734,34 @@
   function handleMemoryCommand(cmd) {
     if (cmd.type === 'remember') {
       var dup = addMemory(cmd.fact);
-      appendMessage('assistant', dup
+      endMemoryReply(dup
         ? 'Sudah kupahami. Memori terkait diperbarui ya.'
         : 'Oke, kuingat: ' + cmd.fact);
       return;
     }
     if (cmd.type === 'forget') {
       var removed = removeMemory(cmd.keyword);
-      appendMessage('assistant', removed > 0
+      endMemoryReply(removed > 0
         ? 'Lupa. Aku hapus ' + removed + ' memori yang mengandung "' + cmd.keyword + '".'
         : 'Tidak ada memori yang cocok dengan "' + cmd.keyword + '".');
       return;
     }
     var list = loadMemories();
     if (!list.length) {
-      appendMessage('assistant', 'Belum ada memori. Bilang "ingat: <fakta>" supaya aku mengingat sesuatu tentang kamu.');
+      endMemoryReply('Belum ada memori. Bilang "ingat: <fakta>" supaya aku mengingat sesuatu tentang kamu.');
       return;
     }
     var lines = list.map(function (m, i) { return (i + 1) + '. ' + m; }).join('\n');
-    appendMessage('assistant', 'Yang kuingat tentang kamu:\n' + lines + '\n\nPakai "ingat: <fakta>" untuk menambah, "lupa: <kata>" untuk menghapus.');
+    endMemoryReply('Yang kuingat tentang kamu:\n' + lines + '\n\nPakai "ingat: <fakta>" untuk menambah, "lupa: <kata>" untuk menghapus.');
+  }
+
+  function endMemoryReply(text) {
+    appendMessage('assistant', text);
+    history.push({ role: 'assistant', content: text });
+    saveHistory();
+    setStatus('');
+    els.btnSend.disabled = false;
+    els.chatInput.focus();
   }
 
   function detectTcipQuestion(text) {
@@ -1367,14 +1400,17 @@
   function renderStatus() {
     var body = document.getElementById('status-body');
     if (!body) return;
+    var aiLabel = isCustomApi()
+      ? 'Layanan AI (API sendiri · ' + apiConfig.providers.map(function (p) { return p.name || p.model || 'API'; }).join(' + ') + ')'
+      : 'Layanan AI (Puter, gratis)';
     var html = '<div class="status-card">' +
       '<div class="status-row head"><span>Layanan</span><span>Status</span></div>' +
-      '<div class="status-row" id="st-ai"><span>Layanan AI (Puter)</span><span class="st-wait">mengecek...</span></div>' +
+      '<div class="status-row" id="st-ai"><span>' + escHtml(aiLabel) + '</span><span class="st-wait">mengecek...</span></div>' +
       '<div class="status-row" id="st-local"><span>Penyimpanan lokal (localStorage)</span><span class="st-wait">mengecek...</span></div>' +
       '</div>';
     body.innerHTML = html;
     var checks = [
-      { id: 'st-ai', run: function () { return Promise.resolve(typeof puter !== 'undefined' && puter.ai && !!puter.ai.chat); } },
+      { id: 'st-ai', run: function () { return Promise.resolve(isCustomApi() ? !!apiConfig.providers.length : (typeof puter !== 'undefined' && puter.ai && !!puter.ai.chat)); } },
       { id: 'st-local', run: function () { return Promise.resolve(typeof localStorage !== 'undefined'); } }
     ];
     checks.forEach(function (c) {
