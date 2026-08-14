@@ -1,7 +1,7 @@
 {
   "ok": false,
   "status": "offline",
-  "at": 1786681647716,
-  "error": "HTTP 530",
+  "at": 1786687258525,
+  "error": "HTTP 502",
   "changed": false
 }

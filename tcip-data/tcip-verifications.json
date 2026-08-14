@@ -81,5 +81,80 @@
       }
     ],
     "verifiedAt": 1786681648016
+  },
+  "XAUUSD|M15|SELL|1786594746719": {
+    "key": "XAUUSD|M15|SELL|1786594746719",
+    "symbol": "XAUUSD",
+    "timeframe": "M15",
+    "direction": "SELL",
+    "grade": "BPLUS",
+    "confidence": 2,
+    "phase": "FORMING",
+    "entryPrice": 4394.856,
+    "entryAt": 1786594746719,
+    "primaryHorizon": "1h",
+    "horizons": {
+      "1h": {
+        "t": null,
+        "price": null,
+        "pnl": null
+      },
+      "4h": {
+        "t": null,
+        "price": null,
+        "pnl": null
+      },
+      "24h": {
+        "t": null,
+        "price": null,
+        "pnl": null
+      }
+    },
+    "result": "N/A",
+    "avgPnl": null,
+    "sampleCount": 10,
+    "sampleSeries": [
+      {
+        "t": 1786594746719,
+        "price": 4394.856
+      },
+      {
+        "t": 1786594746724,
+        "price": 4394.814
+      },
+      {
+        "t": 1786628603855,
+        "price": 4380.871
+      },
+      {
+        "t": 1786632447980,
+        "price": 4383.976
+      },
+      {
+        "t": 1786635882654,
+        "price": 4369.643
+      },
+      {
+        "t": 1786639226861,
+        "price": 4363.776
+      },
+      {
+        "t": 1786643122038,
+        "price": 4357.743
+      },
+      {
+        "t": 1786646509749,
+        "price": 4358.904
+      },
+      {
+        "t": 1786650436630,
+        "price": 4348.646
+      },
+      {
+        "t": 1786652733771,
+        "price": 4350.282
+      }
+    ],
+    "verifiedAt": 1786687259691
   }
 }

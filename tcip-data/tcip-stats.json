@@ -1,43 +1,43 @@
 {
-  "generatedAt": 1786681648016,
-  "total": 1,
+  "generatedAt": 1786687259692,
+  "total": 2,
   "wins": 1,
   "losses": 0,
   "draws": 0,
-  "noResult": 0,
+  "noResult": 1,
   "winRate": 1,
-  "avgPnl": 0.00347,
+  "avgPnl": 0.00173,
   "byDirection": {
     "SELL": {
-      "total": 1,
+      "total": 2,
       "wins": 1,
       "losses": 0,
       "draws": 0,
-      "noResult": 0,
+      "noResult": 1,
       "winRate": 1,
-      "avgPnl": 0.00347
+      "avgPnl": 0.00173
     }
   },
   "byTimeframe": {
     "M15": {
-      "total": 1,
+      "total": 2,
       "wins": 1,
       "losses": 0,
       "draws": 0,
-      "noResult": 0,
+      "noResult": 1,
       "winRate": 1,
-      "avgPnl": 0.00347
+      "avgPnl": 0.00173
     }
   },
   "bySymbol": {
     "XAUUSD": {
-      "total": 1,
+      "total": 2,
       "wins": 1,
       "losses": 0,
       "draws": 0,
-      "noResult": 0,
+      "noResult": 1,
       "winRate": 1,
-      "avgPnl": 0.00347,
+      "avgPnl": 0.00173,
       "lastSignal": {
         "timeframe": "M15",
         "direction": "SELL",
