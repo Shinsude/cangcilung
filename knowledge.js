@@ -65,7 +65,35 @@ window.CANGCILUNG_KNOWLEDGE = [
       "WebSocket: wss://tcip.asia/ws (atau ws:// saat di localhost). Pesan masuk berformat JSON {type: \"tick\", prices: {SIMBOL: {bid, ask, spread, change, digits}}}. Ada watchdog _wsLastData: jika tidak ada data WS selama ~5 detik, otomatis fallback ke polling /public/prices; jika WS putus, coba sambung ulang tiap ~3 detik.",
       "Respons /public/dashboard berbentuk paket besar: {open_positions, open_details, market_prices, insight_data, ml_status, eco_cal, pnl_summary, system_analysis, pipeline_health, ai_analyzing, db_health, feed_pool_queue_depth, mt5_queue_depth, fast_path_gate_rejections, rejection_counters, rejection_reasons, cr_engine_stats, pnl_cache_age, generated_at, cache_ttl}.",
       "Kesehatan database (db_health) sudah digabung ke /public/dashboard (tidak ada request terpisah). Antrean feed_pool_queue_depth & mt5_queue_depth disimpan sebagai riwayat 20 nilai untuk sparkline.",
-      "Header situs berjalan di belakang Cloudflare; akses API langsung dari luar browser bisa ditolak (502). Data harga & waktu bisa ditandai 'stale' (basi) bila feed tertunda."
+      "Header situs berjalan di belakang Cloudflare; akses API langsung dari luar browser bisa ditolak (502). Data harga & waktu bisa ditandai 'stale' (basi) bila feed tertunda.",
+      "PENTING: blok di atas menggambarkan arsitektur ASLI tcip.asia (live API + WebSocket). Aplikasi cangcilung TIDAK memakai API live itu — lihat blok 'Snapshot Data cangcilung' dan 'Replika Dashboard' di bawah untuk format data yang sebenarnya digunakan."
+    ].join("\n")
+  },
+  {
+    name: "tcip.asia — Snapshot Data cangcilung (tcip-detail.json)",
+    info: [
+      "cangcilung membaca data sinyal dari file statis tcip-data/tcip-detail.json (bukan API langsung). File ini adalah snapshot JSON hasil pantauan, struktur NESTED dan bukan insight_data flat. Posisi: tcip-data/tcip-detail.json di repo, di-serve di /tcip-data/tcip-detail.json pada cangcilung.vercel.app.",
+      "Top-level keys: generatedAt (epoch ms), symbol, timeframe, direction, confidence, grade, phase, risk_level, verdict, final_reco, regime, decomp_regime, volatility_regime, stability, is_stale, ts_intrinsic, ts_snr, weighted_alignment, trend_consistency_pct, composite_score, confluence_score, tech_score, coherence_score, institutional_flow_score, ml_confidence, layers, mtf, indicators, levels, risk, entry_strength, signal_consistency, adaptive_lookback, filter_reason, hierarchy_reason, smc, roll_under_reco, inferred_reversal, reversal_confidence, safety, primary_context, primary_bias, signal_age_s, market_quality, session_name, divergence_status, divergence_downgraded, market_prices, pnl_summary, ml_status, pipeline_health, system_analysis, eco_cal, cr_engine_stats, open_positions, open_details, recent_signals.",
+      "Sub-objek: layers{tcip,key,candle,session,atr,ml} (skor 0-100); mtf{d1_dir,h4_dir,h1_dir,m30_dir,m15_dir, d1_score..m15_score, w1_d1_aligned, d1_h4_aligned}; indicators{rsi_14,macd_line,macd_signal,macd_hist,bb_pct_b,cvd,current_cvd,cvd_efficiency,net_flow,flow_direction}; levels{entry_price,support_price,resistance_price,nearest_support,nearest_resistance}; risk{atr,atr_points,spread_points,sl_pips,tp_pips,risk_reward}; smc{warning,confluence}; safety{status,violated,total}.",
+      "recent_signals: array riwayat sinyal {symbol,timeframe,direction,grade,verdict,unified_score,outcome,timestamp}. open_details: array posisi {symbol,type,entry_price,sl,tp,lot,profit,current_price,trail_level,trail_label,profit_locked}. pnl_summary{today,week,month,daily_breakdown,loading} tiap {pnl,trades,win_rate}. ml_status{trained,retrain_count,total_outcomes,accuracy,pattern_rates,calibration,feature_importance,drift,recent_alerts}. eco_cal{blocked,next_events[]}.",
+      "cr_engine_stats{total_processed,total_rejected,total_tradeable,by_verdict,by_reject_reason,tcip_cache_evictions,config{8 bobot: tcip,key_level,candle,bar_strength,session,atr,history,ml},layer_performance,last_layer_health,last_pool_healthy,layer_alert_streaks,layer_alerted}. pipeline_health{health_score,signals_per_hour,entry_rate,cr_rejection_rate,baseline_arrival,baseline_entry_pct,baseline_cr_pct}. system_analysis{enabled,running,last_run_ts,proposals_open,proposals_total,reports_total,latest_proposal,collectors{13 kolektor: pipeline,ai,cr_engine,filter,safety,trade,db,mt5,system,signal_pipeline,outcome_quality,gating_effectiveness,counterfactual, masing {emits,last_emit_age_s,last_error}}}."
+    ].join("\n")
+  },
+  {
+    name: "cangcilung — Replika Dashboard Sinyal (tab Sinyal)",
+    info: [
+      "Tab 'Sinyal' di cangcilung menampilkan replika dashboard tcip.asia (K-Synthesizer) yang di-render dalam IFRAME terisolasi: halaman sinyal-dashboard.html memuat script dashboard.js.",
+      "Mode-nya SNAPSHOT (statis): dashboard.js memakai DATA_URL='tcip-data/tcip-detail.json' (path relatif dari iframe), di-poll tiap 30 detik. Tidak ada WebSocket dan tidak ada REST API live.",
+      "Karena tcip-detail.json berbentuk nested sedangkan kode render asli mengharapkan insight_data flat, dashboard.js memakai adapter flattenDetail(detail) untuk memetakan struktur nested ke field yang dibaca renderer (contoh: layers.tcip → tcip_component, layers.key → key_level_score, risk.sl_pips → suggested_sl_pips, risk.tp_pips → suggested_tp_pips, dst).",
+      "Saat data penuh (ada direction/grade/symbol) ditampilkan keputusan lengkap (contoh nyata: XAUUSD SELL BPLUS, tcip_component 42.8, mtf_d1 BULLISH, sl 9.7 pips); tombol refresh manual me-reload iframe. Peringatan: karena snapshot, angka tidak bertambah real-time seperti feed live."
+    ].join("\n")
+  },
+  {
+    name: "tcip.asia — Status Nyata API & Monitor Bot",
+    info: [
+      "API asli api.tcip.asia saat ini OFFLINE (HTTP 530). Karena itu cangcilung mengandalkan snapshot dan bukan permintaan live.",
+      "File tcip-data/tcip-detail.json ditulis oleh bot 'cangcilung-bot' yang menjalankan GitHub Actions workflow 'Pantau tcip.asia' secara terjadwal (cron, ~tiap jam) — setiap berhasil mengontak tcip.asia ia memperbarui snapshot dan commit.",
+      "Ada juga seed awal (commit 'seed tcip-detail.json dari snapshot API asli') sehingga dashboard tetap menampilkan data walau API sedang mati. Header produksi sudah diset X-Frame-Options SAMEORIGIN agar iframe replika boleh dimuat dari origin yang sama."
     ].join("\n")
   },
   {
