@@ -1489,9 +1489,94 @@
     return card;
   }
 
+  function normalizeInsight(d) {
+    d = d || {};
+    var i = d.insight_data || {};
+    var L = d.layers || {};
+    var mtf = d.mtf || {};
+    var ind = d.indicators || {};
+    var lv = d.levels || {};
+    var rk = d.risk || {};
+    var smc = d.smc || {};
+    var saf = d.safety || {};
+    function pick() {
+      for (var a = 0; a < arguments.length; a++) {
+        var v = arguments[a];
+        if (v != null) return v;
+      }
+      return null;
+    }
+    return {
+      symbol: pick(i.symbol, d.symbol),
+      timeframe: pick(i.timeframe, d.timeframe),
+      direction: pick(i.direction, d.direction),
+      confidence: pick(i.confidence, d.confidence),
+      calibrated_confidence: i.calibrated_confidence,
+      phase: pick(i.phase, d.phase),
+      grade: pick(i.grade, d.grade),
+      risk_level: pick(i.risk_level, d.risk_level),
+      regime: pick(i.regime, d.regime),
+      decomp_regime: pick(i.decomp_regime, d.decomp_regime),
+      volatility_regime: pick(i.volatility_regime, d.volatility_regime),
+      stability: pick(i.stability, d.stability),
+      current_price: pick(i.current_price, d.current_price),
+      spread_points: pick(i.spread_points, rk.spread_points),
+      ai_available: i.ai_available,
+      ai_provider: i.ai_provider,
+      verdict: pick(i.verdict, d.verdict),
+      filter_reason: pick(i.filter_reason, d.filter_reason),
+      hierarchy_reason: pick(i.hierarchy_reason, d.hierarchy_reason),
+      weighted_alignment: pick(i.weighted_alignment, d.weighted_alignment),
+      composite_score: pick(i.composite_score, d.composite_score),
+      entry_strength: pick(i.entry_strength, d.entry_strength),
+      primary_context: pick(i.primary_context, d.primary_context),
+      primary_bias: pick(i.primary_bias, d.primary_bias),
+      roll_under_reco: pick(i.roll_under_reco, d.roll_under_reco),
+      minutes_to_roll: i.minutes_to_roll,
+      divergence_status: pick(i.divergence_status, d.divergence_status),
+      is_counter_trend: i.is_counter_trend,
+      safety_status: pick(i.safety_status, saf.status),
+      signal_age_s: pick(i.signal_age_s, d.signal_age_s),
+      ml_rejected: i.ml_rejected,
+      holy_grail: pick(i.holy_grail, d.holy_grail),
+      god_mode: pick(i.god_mode, d.god_mode),
+      rsi_14: pick(i.rsi_14, ind.rsi_14),
+      macd_hist: pick(i.macd_hist, ind.macd_hist),
+      bb_pct_b: pick(i.bb_pct_b, ind.bb_pct_b),
+      current_cvd: pick(i.current_cvd, ind.current_cvd, ind.cvd),
+      net_flow: pick(i.net_flow, ind.net_flow),
+      entry_price: pick(i.entry_price, lv.entry_price),
+      support_price: pick(i.support_price, lv.support_price),
+      resistance_price: pick(i.resistance_price, lv.resistance_price),
+      suggested_sl_pips: pick(i.suggested_sl_pips, rk.sl_pips),
+      suggested_tp_pips: pick(i.suggested_tp_pips, rk.tp_pips),
+      risk_reward: pick(i.risk_reward, rk.risk_reward),
+      atr: pick(i.atr, rk.atr),
+      smc_warning: pick(i.smc_warning, smc.warning),
+      smc_confluence: pick(i.smc_confluence, smc.confluence),
+      tcip_component: pick(i.tcip_component, L.tcip),
+      key_level_score: pick(i.key_level_score, L.key),
+      candle_score: pick(i.candle_score, L.candle),
+      session_score: pick(i.session_score, L.session),
+      atr_score: pick(i.atr_score, L.atr),
+      ml_component: pick(i.ml_component, L.ml),
+      bar_total_score: i.bar_total_score,
+      mtf_d1_dir: pick(i.mtf_d1_dir, mtf.d1_dir),
+      mtf_h4_dir: pick(i.mtf_h4_dir, mtf.h4_dir),
+      mtf_h1_dir: pick(i.mtf_h1_dir, mtf.h1_dir),
+      mtf_m30_dir: pick(i.mtf_m30_dir, mtf.m30_dir),
+      mtf_m15_dir: pick(i.mtf_m15_dir, mtf.m15_dir),
+      mtf_d1_score: pick(i.mtf_d1_score, mtf.d1_score),
+      mtf_h4_score: pick(i.mtf_h4_score, mtf.h4_score),
+      mtf_h1_score: pick(i.mtf_h1_score, mtf.h1_score),
+      mtf_m30_score: pick(i.mtf_m30_score, mtf.m30_score),
+      mtf_m15_score: pick(i.mtf_m15_score, mtf.m15_score)
+    };
+  }
+
   function insightCard(detail) {
     var d = detail || {};
-    var i = d.insight_data || {};
+    var i = normalizeInsight(d);
     var card = mk('div', 'dash-card');
     var head = mk('div', 'dash-card-head');
     head.appendChild(mk('h3', null, 'Analisis K-Synthesizer'));

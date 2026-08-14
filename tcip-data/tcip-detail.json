@@ -1,0 +1,743 @@
+{
+  "generatedAt": 1786692166954,
+  "symbol": "XAUUSD",
+  "timeframe": "M15",
+  "direction": "SELL",
+  "confidence": 0,
+  "grade": "BPLUS",
+  "phase": "FORMING",
+  "risk_level": "MODERATE",
+  "verdict": "REJECT",
+  "final_reco": "",
+  "regime": "TACTICAL NEUTRAL",
+  "decomp_regime": "CHOP",
+  "volatility_regime": "LOW",
+  "stability": "LOW",
+  "is_stale": false,
+  "ts_intrinsic": 22.9,
+  "ts_snr": 0.297,
+  "weighted_alignment": 0.49634999999999996,
+  "trend_consistency_pct": 100,
+  "composite_score": 46,
+  "confluence_score": -1,
+  "tech_score": 42.2,
+  "coherence_score": 50,
+  "institutional_flow_score": 49,
+  "ml_confidence": 0,
+  "layers": {
+    "tcip": 42.8,
+    "key": 62,
+    "candle": 60,
+    "session": 43,
+    "atr": 65,
+    "ml": 39.5
+  },
+  "mtf": {
+    "d1_dir": "BULLISH",
+    "h4_dir": "BEARISH",
+    "h1_dir": "BEARISH",
+    "m30_dir": "BEARISH",
+    "m15_dir": "SELL",
+    "d1_score": 18,
+    "h4_score": -18,
+    "h1_score": -6,
+    "m30_score": 0,
+    "m15_score": 0,
+    "w1_d1_aligned": null,
+    "d1_h4_aligned": null,
+    "h4_h1_aligned": null,
+    "h1_m30_aligned": null,
+    "m30_m15_aligned": null
+  },
+  "indicators": {
+    "rsi_14": 47.1,
+    "macd_line": -1.1044,
+    "macd_signal": 0.124,
+    "macd_hist": -1.2284,
+    "bb_pct_b": 0.38,
+    "cvd": 0.22,
+    "current_cvd": 0.22,
+    "cvd_efficiency": 0.3,
+    "net_flow": -314,
+    "flow_direction": "NEUTRAL"
+  },
+  "levels": {
+    "entry_price": 4409.803,
+    "support_price": 4396.098,
+    "resistance_price": 4418.49,
+    "nearest_support": 4396.098,
+    "nearest_resistance": 4418.49
+  },
+  "risk": {
+    "atr": 6.466666666666666,
+    "atr_points": 9.7,
+    "spread_points": 182,
+    "sl_pips": 9.7,
+    "tp_pips": 19.4,
+    "risk_reward": 2
+  },
+  "entry_strength": "CORE STRONG",
+  "signal_consistency": 0,
+  "adaptive_lookback": 50,
+  "filter_reason": "NO DOMINANT SIDE",
+  "hierarchy_reason": "OVERRIDE ACTIVE",
+  "smc": {
+    "warning": true,
+    "confluence": 5
+  },
+  "roll_under_reco": "HOLD",
+  "inferred_reversal": "NONE",
+  "reversal_confidence": 0,
+  "safety": {
+    "status": "1 VIOLATED",
+    "violated": 1,
+    "total": 6
+  },
+  "primary_context": "H4+H1 MOMENTUM",
+  "primary_bias": "D1 BULLISH (H4 CONFLICT)",
+  "signal_age_s": 1,
+  "market_quality": "INEFFICIENT +VOL",
+  "session_name": "TOKYO (LOW-MED)",
+  "divergence_status": "NONE",
+  "divergence_downgraded": false,
+  "market_prices": {
+    "XAUUSD": {
+      "bid": 4409.798,
+      "ask": 4409.98,
+      "spread": 182,
+      "time": 1786592085,
+      "time_utc": 1786592085.979613,
+      "stale": false,
+      "tick_age": 1,
+      "digits": 3,
+      "last": 4409.798,
+      "change": -0.1,
+      "daily_high": 4449.817,
+      "daily_low": 4398.86
+    },
+    "USTEC": {
+      "bid": 29790.25,
+      "ask": 29791.14,
+      "spread": 89,
+      "time": 1786592081,
+      "time_utc": 1786592085.98004,
+      "stale": false,
+      "tick_age": 5,
+      "digits": 2,
+      "last": 29790.25,
+      "change": 0.22,
+      "daily_high": 29797.5,
+      "daily_low": 29715.51
+    }
+  },
+  "pnl_summary": {
+    "today": {
+      "pnl": 0,
+      "trades": 0,
+      "win_rate": 0
+    },
+    "week": {
+      "pnl": -154.84,
+      "trades": 49,
+      "win_rate": 65.3
+    },
+    "month": {
+      "pnl": 177.08,
+      "trades": 108,
+      "win_rate": 72.2
+    },
+    "daily_breakdown": [
+      {
+        "date": "2026-08-13",
+        "trades": 0,
+        "wins": 0,
+        "losses": 0,
+        "pnl": 0,
+        "win_rate": 0
+      },
+      {
+        "date": "2026-08-12",
+        "trades": 3,
+        "wins": 1,
+        "losses": 2,
+        "pnl": -50.04,
+        "win_rate": 33.33333333333333
+      },
+      {
+        "date": "2026-08-11",
+        "trades": 9,
+        "wins": 7,
+        "losses": 2,
+        "pnl": 27.36,
+        "win_rate": 77.77777777777779
+      },
+      {
+        "date": "2026-08-10",
+        "trades": 10,
+        "wins": 6,
+        "losses": 4,
+        "pnl": -169.51,
+        "win_rate": 60
+      },
+      {
+        "date": "2026-08-09",
+        "trades": 1,
+        "wins": 0,
+        "losses": 1,
+        "pnl": -1.33,
+        "win_rate": 0
+      },
+      {
+        "date": "2026-08-08",
+        "trades": 1,
+        "wins": 0,
+        "losses": 1,
+        "pnl": -7,
+        "win_rate": 0
+      },
+      {
+        "date": "2026-08-07",
+        "trades": 25,
+        "wins": 18,
+        "losses": 7,
+        "pnl": 45.68000000000003,
+        "win_rate": 72
+      },
+      {
+        "date": "2026-08-06",
+        "trades": 3,
+        "wins": 1,
+        "losses": 2,
+        "pnl": -4.829999999999999,
+        "win_rate": 33.33333333333333
+      },
+      {
+        "date": "2026-08-05",
+        "trades": 15,
+        "wins": 14,
+        "losses": 1,
+        "pnl": 310,
+        "win_rate": 93.33333333333333
+      },
+      {
+        "date": "2026-08-04",
+        "trades": 5,
+        "wins": 4,
+        "losses": 1,
+        "pnl": 13.580000000000002,
+        "win_rate": 80
+      },
+      {
+        "date": "2026-08-03",
+        "trades": 10,
+        "wins": 7,
+        "losses": 3,
+        "pnl": 1.010000000000002,
+        "win_rate": 70
+      },
+      {
+        "date": "2026-08-02",
+        "trades": 11,
+        "wins": 8,
+        "losses": 3,
+        "pnl": -94.30999999999999,
+        "win_rate": 72.72727272727273
+      },
+      {
+        "date": "2026-08-01",
+        "trades": 9,
+        "wins": 7,
+        "losses": 2,
+        "pnl": 93.92999999999999,
+        "win_rate": 77.77777777777779
+      },
+      {
+        "date": "2026-07-31",
+        "trades": 3,
+        "wins": 2,
+        "losses": 1,
+        "pnl": -1.7299999999999993,
+        "win_rate": 66.66666666666666
+      },
+      {
+        "date": "2026-07-30",
+        "trades": 1,
+        "wins": 1,
+        "losses": 0,
+        "pnl": 2.58,
+        "win_rate": 100
+      },
+      {
+        "date": "2026-07-29",
+        "trades": 1,
+        "wins": 1,
+        "losses": 0,
+        "pnl": 5.93,
+        "win_rate": 100
+      },
+      {
+        "date": "2026-07-28",
+        "trades": 1,
+        "wins": 1,
+        "losses": 0,
+        "pnl": 5.76,
+        "win_rate": 100
+      }
+    ],
+    "loading": false
+  },
+  "ml_status": {
+    "trained": true,
+    "retrain_count": 24,
+    "total_outcomes": 141,
+    "accuracy": 0.7576,
+    "pattern_rates": [
+      {
+        "pattern": "BPLUS_SELL",
+        "wins": 1,
+        "losses": 0,
+        "total": 1,
+        "win_rate": 1
+      },
+      {
+        "pattern": "SPINNING_TOP",
+        "wins": 1,
+        "losses": 0,
+        "total": 1,
+        "win_rate": 1
+      },
+      {
+        "pattern": "INSIDE_BAR",
+        "wins": 1,
+        "losses": 0,
+        "total": 1,
+        "win_rate": 1
+      },
+      {
+        "pattern": "UNKNOWN",
+        "wins": 66,
+        "losses": 34,
+        "total": 100,
+        "win_rate": 0.66
+      },
+      {
+        "pattern": "ULTIMATE_BUY",
+        "wins": 1,
+        "losses": 1,
+        "total": 2,
+        "win_rate": 0.5
+      },
+      {
+        "pattern": "RECONCILE",
+        "wins": 1,
+        "losses": 1,
+        "total": 2,
+        "win_rate": 0.5
+      }
+    ],
+    "calibration": [
+      {
+        "bucket": "40-49%",
+        "total": 1,
+        "wins": 1,
+        "win_rate": 1
+      },
+      {
+        "bucket": "50-59%",
+        "total": 106,
+        "wins": 70,
+        "win_rate": 0.6604
+      }
+    ],
+    "feature_importance": [
+      {
+        "feature": "body_ratio",
+        "importance": 0.276
+      },
+      {
+        "feature": "body",
+        "importance": 0.1421
+      },
+      {
+        "feature": "lag_1",
+        "importance": 0.0773
+      },
+      {
+        "feature": "shadow_lower",
+        "importance": 0.0696
+      },
+      {
+        "feature": "shadow_upper",
+        "importance": 0.0693
+      }
+    ],
+    "drift": {
+      "window_size": 200,
+      "current_samples": 0,
+      "win_rate": null,
+      "alert_threshold": 0.4,
+      "critical_threshold": 0.3
+    },
+    "recent_alerts": []
+  },
+  "pipeline_health": {
+    "health_score": 0.3181,
+    "signals_per_hour": 175,
+    "entry_rate": 0.0631,
+    "cr_rejection_rate": 0.9369,
+    "baseline_arrival": 671,
+    "baseline_entry_pct": 26.767,
+    "baseline_cr_pct": 6.91
+  },
+  "system_analysis": {
+    "enabled": true,
+    "running": true,
+    "last_run_ts": 1786591550.9689224,
+    "proposals_open": 131,
+    "proposals_total": 296,
+    "reports_total": 701,
+    "latest_proposal": {
+      "title": "Correlation: all_filters_fail_rate ~ pipeline_health_score (r=-0.92)",
+      "target_loop": "cr_engine",
+      "status": "pending",
+      "priority": 2
+    },
+    "collectors": {
+      "pipeline": {
+        "emits": 1,
+        "last_emit_age_s": 539.6,
+        "last_error": null
+      },
+      "ai": {
+        "emits": 1,
+        "last_emit_age_s": 539.6,
+        "last_error": null
+      },
+      "cr_engine": {
+        "emits": 1,
+        "last_emit_age_s": 539.6,
+        "last_error": null
+      },
+      "filter": {
+        "emits": 1,
+        "last_emit_age_s": 539.6,
+        "last_error": null
+      },
+      "safety": {
+        "emits": 1,
+        "last_emit_age_s": 539.6,
+        "last_error": null
+      },
+      "trade": {
+        "emits": 1,
+        "last_emit_age_s": 539.6,
+        "last_error": null
+      },
+      "db": {
+        "emits": 1,
+        "last_emit_age_s": 539.6,
+        "last_error": null
+      },
+      "mt5": {
+        "emits": 1,
+        "last_emit_age_s": 539.6,
+        "last_error": null
+      },
+      "system": {
+        "emits": 1,
+        "last_emit_age_s": 539.6,
+        "last_error": null
+      },
+      "signal_pipeline": {
+        "emits": 1,
+        "last_emit_age_s": 539.6,
+        "last_error": null
+      },
+      "outcome_quality": {
+        "emits": 1,
+        "last_emit_age_s": 539.6,
+        "last_error": null
+      },
+      "gating_effectiveness": {
+        "emits": 1,
+        "last_emit_age_s": 539.6,
+        "last_error": null
+      },
+      "counterfactual": {
+        "emits": 1,
+        "last_emit_age_s": 539.5,
+        "last_error": null
+      }
+    }
+  },
+  "eco_cal": {
+    "blocked": false,
+    "next_events": [
+      {
+        "name": "GDP m/m",
+        "timestamp": 1786600800,
+        "currency": "GBP",
+        "impact": "HIGH",
+        "is_high": true,
+        "is_speech": false,
+        "time_utc": "06:00",
+        "minutes_away": 145,
+        "event": "GDP m/m"
+      },
+      {
+        "name": "Prelim GDP q/q",
+        "timestamp": 1786600800,
+        "currency": "GBP",
+        "impact": "HIGH",
+        "is_high": true,
+        "is_speech": false,
+        "time_utc": "06:00",
+        "minutes_away": 145,
+        "event": "Prelim GDP q/q"
+      },
+      {
+        "name": "PPI m/m",
+        "timestamp": 1786602600,
+        "currency": "CHF",
+        "impact": "HIGH",
+        "is_high": true,
+        "is_speech": false,
+        "time_utc": "06:30",
+        "minutes_away": 175,
+        "event": "PPI m/m"
+      }
+    ]
+  },
+  "cr_engine_stats": {
+    "total_processed": 175,
+    "total_rejected": 0,
+    "total_tradeable": 92,
+    "by_verdict": {
+      "MODERATE": 63,
+      "LOW": 77,
+      "CAUTION": 6,
+      "MAX_CONVICTION": 16,
+      "HIGH_CONFIDENCE": 13
+    },
+    "by_reject_reason": {},
+    "tcip_cache_evictions": 0,
+    "config": {
+      "tcip_weight": 0.35,
+      "key_level_weight": 0.08,
+      "candle_weight": 0.1,
+      "bar_strength_weight": 0.03,
+      "session_weight": 0.04,
+      "atr_weight": 0.05,
+      "history_weight": 0.03,
+      "ml_weight": 0.25
+    },
+    "layer_performance": {},
+    "last_layer_health": {
+      "tcip": {
+        "status": "ok",
+        "score": 42.8,
+        "weight": 0.35,
+        "status_history": [
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok"
+        ],
+        "streak_started": null
+      },
+      "bar": {
+        "status": "ok",
+        "score": 65,
+        "weight": 0.03,
+        "status_history": [
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok"
+        ],
+        "streak_started": null
+      },
+      "key_level": {
+        "status": "ok",
+        "score": 62,
+        "weight": 0.08,
+        "status_history": [
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok"
+        ],
+        "streak_started": null
+      },
+      "candle": {
+        "status": "ok",
+        "score": 60,
+        "weight": 0.1,
+        "status_history": [
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok"
+        ],
+        "streak_started": null
+      },
+      "session": {
+        "status": "ok",
+        "score": 43,
+        "weight": 0.04,
+        "status_history": [
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok"
+        ],
+        "streak_started": null
+      },
+      "atr": {
+        "status": "ok",
+        "score": 65,
+        "weight": 0.05,
+        "status_history": [
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok"
+        ],
+        "streak_started": null
+      },
+      "history": {
+        "status": "ok",
+        "score": 50,
+        "weight": 0.03,
+        "status_history": [
+          "no_context",
+          "ok",
+          "no_context",
+          "ok",
+          "no_context",
+          "ok",
+          "no_context",
+          "ok"
+        ],
+        "streak_started": null
+      },
+      "ml": {
+        "status": "ok",
+        "score": 39.5,
+        "weight": 0.25,
+        "status_history": [
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
+          "ok"
+        ],
+        "streak_started": null
+      }
+    },
+    "last_pool_healthy": true,
+    "layer_alert_streaks": {},
+    "layer_alerted": [],
+    "layer_alert_threshold": 3,
+    "layer_alert_cooldown_s": 900,
+    "layer_last_event_ts": {},
+    "layer_cooldown_remaining": {}
+  },
+  "open_positions": 1,
+  "open_details": [
+    {
+      "symbol": "USTEC",
+      "type": "BUY",
+      "entry_price": 29795.39,
+      "sl": 29710.39,
+      "tp": 29935.39,
+      "lot": 0.06,
+      "profit": -0.31,
+      "current_price": 29790.25,
+      "trail_level": 0,
+      "trail_label": "",
+      "profit_locked": 0
+    }
+  ],
+  "recent_signals": [
+    {
+      "symbol": "TEST",
+      "timeframe": "M5",
+      "direction": "BUY",
+      "grade": "APLUS",
+      "verdict": "",
+      "unified_score": 0,
+      "outcome": "WIN",
+      "timestamp": 1786590001.0451198
+    },
+    {
+      "symbol": "TEST",
+      "timeframe": "M5",
+      "direction": "BUY",
+      "grade": "APLUS",
+      "verdict": "",
+      "unified_score": 0,
+      "outcome": "WIN",
+      "timestamp": 1786589586.0627117
+    },
+    {
+      "symbol": "TEST",
+      "timeframe": "M5",
+      "direction": "BUY",
+      "grade": "APLUS",
+      "verdict": "",
+      "unified_score": 0,
+      "outcome": "WIN",
+      "timestamp": 1786589168.9427612
+    },
+    {
+      "symbol": "TEST",
+      "timeframe": "M5",
+      "direction": "BUY",
+      "grade": "APLUS",
+      "verdict": "",
+      "unified_score": 0,
+      "outcome": "WIN",
+      "timestamp": 1786560415.4319847
+    },
+    {
+      "symbol": "TEST",
+      "timeframe": "M5",
+      "direction": "BUY",
+      "grade": "APLUS",
+      "verdict": "",
+      "unified_score": 0,
+      "outcome": "WIN",
+      "timestamp": 1786560085.4523447
+    }
+  ],
+  "seeded_from": "tcip_probe.json (snapshot API asli sebelum offline)",
+  "seeded_at": 1786692166956
+}

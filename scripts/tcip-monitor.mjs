@@ -205,7 +205,10 @@ function extractDetail(data, sig) {
     pipeline_health: data && data.pipeline_health || null,
     system_analysis: data && data.system_analysis || null,
     eco_cal: data && data.eco_cal || null,
-    cr_engine_stats: data && data.cr_engine_stats || null
+    cr_engine_stats: data && data.cr_engine_stats || null,
+    open_positions: data && data.open_positions != null ? data.open_positions : null,
+    open_details: Array.isArray(data && data.open_details) ? data.open_details : null,
+    recent_signals: Array.isArray(data && data.recent_signals) ? data.recent_signals : null
   };
   return d;
 }
