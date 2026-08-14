@@ -1,3 +1,0 @@
-fastapi
-uvicorn[standard]
-# Windows + MT5 asli: pip install MetaTrader5

@@ -1,74 +1,44 @@
-# cangcilung — Asisten AI Gratis
+# cangcilung — Asisten AI Gratis (model lokal)
 
-Asisten AI chatbot berbasis web seperti DOLA / tcip.asia.
-
-- 100% gratis untuk pengembang, **tanpa API key**.
-- Chat memakai [Puter.js](https://developer.puter.com) (default `claude-sonnet-4`, bisa diganti ke GPT/Gemini/dll.).
-- Pemakai cukup masuk akun Puter **gratis** sekali pada percakapan pertama.
-- Murni statis (HTML/CSS/JS) — bisa dibuka langsung atau di-deploy di **Vercel**.
+Chatbot AI berbasis web, murni statis (HTML/CSS/JS). Chat memakai **model lokal** lewat [Ollama](https://ollama.com) — tanpa API key, tanpa layanan cloud, gratis, dan privat. Bisa di-deploy di Vercel atau dibuka langsung di browser.
 
 ## Fitur
 
-### Chat (tab 💬)
-- Chat umum dengan AI (bahasa Indonesia).
-- **`cari: <topik>`** — mencari info dari web (Wikipedia id & en + DuckDuckGo) lalu dirangkum AI.
-- **`ingat: <fakta>`** — menyimpan memori jangka panjang tentang pengguna (localStorage). Perintah **`ingatan`** untuk melihat semua memori, **`lupa: <kata>`** untuk menghapus. Memori otomatis disuntikkan ke prompt setiap percakapan, jadi cangcilung ingat preferensi kamu antar-sesi.
-- **📎 Lampirkan file** — unggah gambar (dianalisis AI), PDF (teks diekstrak & dirangkum), atau file teks (.txt/.md/.csv/.json) langsung di chat.
-- Riwayat chat tersimpan otomatis di browser (localStorage).
+- Chat sederhana satu tab, jawaban streaming.
+- Backend: Ollama endpoint OpenAI-compatible (`/v1/chat/completions`).
+- Pengaturan model & alamat server di ⚙️ Pengaturan (tersimpan di browser).
+- Riwayat chat tersimpan otomatis di localStorage.
 
-### Status (tab ⚙️)
-- System Analysis: status layanan AI (Puter) dan localStorage.
+## Menjalankan lokal
 
-### API sendiri (opsional) — multi-provider + fallback
-- Di **⚙️ Pengaturan**, aktifkan "API sendiri" dan tulis **beberapa provider** (satu per baris, format `Nama|BaseURL|APIKey|Model`), urutan dari atas = prioritas.
-- Kalau provider pertama gagal (error/mati/limit), otomatis coba provider berikutnya; jika semua gagal, fallback ke Puter (gratis).
-- Contoh: OpenAI, OpenRouter, Groq, DeepSeek, atau endpoint OpenAI-compatible mana pun. Semua diuji sekaligus lewat tombol **Tes Koneksi**.
+1. Instal & jalankan [Ollama](https://ollama.com), lalu tarik model, mis.:
+   ```
+   ollama pull llama3
+   ```
+2. Buka `index.html` di browser (atau `npx serve .`).
+3. Klik ⚙️ → isi **Model** (contoh `llama3`) → **Tes Koneksi** → **Simpan**.
 
-## Cara menjalankan
+> Model **default tidak disensor** untuk konten dewasa/18+ (mis. keluarga `dolphin`/`uncensored`) — pilih sesuai kebutuhan Anda.
 
-**Lokal:** buka `index.html` di browser, atau jalankan server statis:
+## Akses dari HP / perangkat lain
+
+Agar server Ollama di PC bisa dipanggil browser dari perangkat lain:
 
 ```
-npx serve .
+OLLAMA_HOST=0.0.0.0 OLLAMA_ORIGINS=* ollama serve
 ```
 
-**Deploy ke Vercel:**
+Lalu di ⚙️ isi Base URL dengan alamat LAN PC, mis. `http://192.168.1.5:11434`.
 
-1. Push repo ini ke GitHub.
-2. Di [vercel.com](https://vercel.com), klik **Add New → Project**.
-3. Import repo GitHub kamu → **Deploy**. Selesai.
+## Deploy ke Vercel
 
-## Pantauan 24/7 sinyal tcip.asia
+1. Push repo ke GitHub.
+2. Di [vercel.com](https://vercel.com) → **Add New → Project** → import repo → **Deploy**.
+3. Ada workflow `.github/workflows/deploy-vercel.yml` yang otomatis deploy setiap push ke `main` (butuh secret `VERCEL_TOKEN`).
 
-Bot bisa menjawab "ada sinyal baru dari tcip.asia?" memakai data yang dipantau berkala otomatis — **tanpa perlu daftar layanan tambahan**:
-
-- **`scripts/tcip-monitor.mjs`** — mengambil sinyal dari `https://api.tcip.asia/public/dashboard`, lalu menyimpan ke `tcip-data/`:
-  - `tcip-latest.json` — sinyal terakhir (atau `null`).
-  - `tcip-history.json` — riwayat sinyal (terbaru duluan, maks 60).
-  - `tcip-status.json` — status pantauan (online/offline).
-  - `tcip-snapshots.json` — sampling harga per sinyal (untuk verifikasi akurasi).
-  - `tcip-verifications.json` — hasil verifikasi: P&L sinyal pada horizon **1 jam / 4 jam / 24 jam** terhadap harga masuk, diklasifikasi **WIN / LOSS / DRAW**.
-  - `tcip-stats.json` — agregat: total, win rate, rata-rata P&L, rekap **per arah**, **per timeframe**, dan **per pasangan**.
-  - `tcip-learnings.json` — **pembelajaran otomatis**: analisis pola sinyal paling akurat (arah, grade, timeframe, simbol terbaik) + insight otomatis dalam bahasa Indonesia. Tampil di tab Sinyal dan ikut dalam jawaban chat.
-- **`.github/workflows/monitor-tcip.yml`** — GitHub Actions menjalankan pemantau tiap **10 menit** (jadwal UTC) dan meng-commit data jika ada perubahan. Repo publik → gratis & tanpa batas menit.
-- Bot membaca data langsung dari file JSON di repo ini (tanpa server tambahan):
-  - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-latest.json` — sinyal terakhir (atau `null` jika belum ada).
-  - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-status.json` — status pantauan (online/offline).
-  - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-history.json` — riwayat sinyal (terbaru duluan, maks 60).
-  - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-stats.json` — statistik akurasi & rekap per pasangan.
-  - `https://raw.githubusercontent.com/Shinsude/cangcilung/main/tcip-data/tcip-verifications.json` — hasil verifikasi P&L per sinyal.
-  - (`api/tcip-latest.js` adalah endpoint Vercel opsional yang merangkai data di atas; di proyek Vercel yang mengaktifkan **Vercel Authentication/SSO**, endpoint itu hanya bisa diakses setelah login — pakai URL raw GitHub di atas agar bebas proteksi.)
-- **Tab 📊 Sinyal** di aplikasi = dashboard visual: kartu sinyal terakhir, statistik akurasi, rekap per pasangan, tabel verifikasi, dan tabel riwayat. Auto-refresh tiap 2 menit.
-- Di chat, ketik mis. **"sinyal tcip.asia"**, **"akurasi sinyal tcip"**, atau **"rekap per pasangan"** untuk jawaban langsung.
-
-> Catatan: saat `api.tcip.asia` sedang offline (mis. HTTP 502), status pantauan tercatat OFFLINE dan bot akan memberitahu pengguna. Sampling harga hanya berjalan saat API online (harga diambil dari `decision.current_price` / `market`), jadi sinyal yang aktif saat API lama down bisa berujung verifikasi "tanpa hasil".
-> GitHub Actions menonaktifkan workflow otomatis jika repo tidak ada aktivitas selama 60 hari — commit dari pemantau ini termasuk aktivitas, jadi aman selama ada data; jika terlanjur ter-disable, jalankan ulang dari tab Actions → **Run workflow**.
+> Chat ke model lokal hanya jalan dari perangkat yang bisa menjangkau server Ollama. Versi yang di-deploy di Vercel tetap memanggil Base URL yang Anda set (default `localhost:11434`), jadi untuk akses dari jauh set Base URL ke alamat LAN/server Ollama Anda.
 
 ## Catatan
 
-- Percakapan pertama akan memunculkan pop-up masuk akun Puter — buat akun gratis sekali, selesai.
-- Ada tombol saran pertanyaan (*starter prompts*) di layar pertama untuk memudahkan pengguna baru.
-- Pengetahuan khusus bot disimpan di `knowledge.js` (mis. info tentang tcip.asia).
 - Persona bot diatur lewat konstanta `SYSTEM` di `app.js`.
-- Model bisa diganti lewat konstanta `MODEL` di `app.js` (mis. `claude-sonnet-4`, `gpt-4o`, `gemini-2.0-flash`, `gpt-5`, dll.).
-- Nama aplikasi (cangcilung) bisa diganti di `index.html`.
+- Jika Ollama mati atau CORS tidak diizinkan, muncul pesan error yang jelas di chat.

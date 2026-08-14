@@ -9,78 +9,25 @@
 </head>
 <body>
   <div class="app">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-logo">A</div>
-        <div>
-          <h1>cangcilung</h1>
-          <span>Asisten AI Gratis</span>
-        </div>
-      </div>
-
-      <nav class="nav">
-        <button class="nav-item active" data-tab="chat" title="Chat dengan cangcilung">
-          <span class="nav-icon">💬</span>
-          <span>Chat</span>
-        </button>
-        <button class="nav-item" data-tab="status" title="Status layanan & sistem">
-          <span class="nav-icon">⚙️</span>
-          <span>Status</span>
-        </button>
-        <button class="nav-item" data-tab="sinyal" title="Dashboard sinyal & akurasi tcip.asia">
-          <span class="nav-icon">📊</span>
-          <span>Sinyal</span>
-        </button>
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="status-dot"></div>
-        <span id="footer-mode">Gratis · Tanpa API Key</span>
-        <button id="btn-settings" class="settings-btn" title="Pengaturan" aria-label="Pengaturan">⚙️</button>
-      </div>
-    </aside>
-
     <main class="main">
-      <!-- ====== TAB CHAT ====== -->
-      <section class="tab-pane active" id="tab-chat">
-        <div class="chat-header">
+      <div class="chat-header">
+        <div>
           <h2>Chat dengan cangcilung</h2>
+          <span class="pane-sub" id="conn-sub">Menghubungkan model lokal...</span>
+        </div>
+        <div class="header-actions">
           <button id="btn-clear-chat" class="ghost-btn" title="Hapus seluruh obrolan" aria-label="Hapus obrolan">🗑️ Hapus</button>
+          <button id="btn-settings" class="settings-btn" title="Pengaturan" aria-label="Pengaturan">⚙️</button>
         </div>
-        <div id="chat-messages" class="chat-messages"></div>
-        <div class="chat-input-area">
-          <div class="chat-input-wrap">
-            <button id="btn-attach" class="attach-btn" title="Lampirkan gambar, PDF, atau file teks" aria-label="Lampirkan file">📎</button>
-            <textarea id="chat-input" rows="1" placeholder="Tulis pesan ke cangcilung... (Enter untuk kirim)"></textarea>
-            <button id="btn-send" class="send-btn" title="Kirim pesan" aria-label="Kirim pesan">➤</button>
-            <input type="file" id="file-input" accept="image/*,.pdf,.txt,.md,.csv,.json,.log" hidden>
-          </div>
-          <div class="chat-status" id="chat-status"></div>
+      </div>
+      <div id="chat-messages" class="chat-messages"></div>
+      <div class="chat-input-area">
+        <div class="chat-input-wrap">
+          <textarea id="chat-input" rows="1" placeholder="Tulis pesan ke cangcilung... (Enter untuk kirim)"></textarea>
+          <button id="btn-send" class="send-btn" title="Kirim pesan" aria-label="Kirim pesan">➤</button>
         </div>
-      </section>
-
-      <!-- ====== TAB STATUS ====== -->
-      <section class="tab-pane" id="tab-status">
-        <div class="chat-header">
-          <h2>System Analysis</h2>
-          <span class="pane-sub">Status layanan &amp; sistem</span>
-        </div>
-        <div class="pane-body" id="status-body"></div>
-      </section>
-
-      <!-- ====== TAB SINYAL ====== -->
-      <section class="tab-pane" id="tab-sinyal">
-        <div class="chat-header">
-          <h2>Dashboard Sinyal</h2>
-          <div class="pane-head-right">
-            <span class="pane-sub" id="sinyal-sub">Pantauan 24/7 tcip.asia</span>
-            <button id="btn-sinyal-refresh" class="ghost-btn" title="Muat ulang data">⟳ Muat ulang</button>
-          </div>
-        </div>
-        <div class="pane-body" id="sinyal-body">
-          <div class="dash-loading">Memuat data...</div>
-        </div>
-      </section>
+        <div class="chat-status" id="chat-status"></div>
+      </div>
     </main>
   </div>
 
@@ -88,29 +35,20 @@
   <div class="modal-overlay" id="settings-modal" hidden>
     <div class="modal">
       <div class="modal-header">
-        <h3>Pengaturan</h3>
+        <h3>Pengaturan Model Lokal</h3>
         <button id="btn-modal-close" class="modal-close" aria-label="Tutup">×</button>
       </div>
       <div class="modal-body">
-        <label class="set-row">
-          <span>Pakai API sendiri (kompatibel OpenAI)</span>
-          <input type="checkbox" id="set-custom">
-        </label>
-        <p class="set-hint">Aktifkan untuk memakai endpoint OpenAI-compatible milik Anda. Tulis beberapa provider, satu per baris — urutan dari atas = prioritas. Kalau yang pertama gagal, otomatis coba berikutnya, lalu fallback ke Puter (gratis).</p>
         <label class="set-field">
-          <span>Daftar provider (Nama|BaseURL|APIKey|Model)</span>
-          <textarea id="set-providers" rows="5" placeholder="contoh:&#10;DeepSeek|https://api.deepseek.com|sk-xxx|deepseek-chat&#10;Qwen|https://dashscope.aliyuncs.com/compatible-mode/v1|sk-xxx|qwen-plus&#10;OpenAI|https://api.openai.com/v1|sk-xxx|gpt-4o"></textarea>
+          <span>Base URL Ollama</span>
+          <input type="text" id="set-baseurl" placeholder="http://localhost:11434">
         </label>
-        <div class="set-presets">
-          <span>Preset cepat:</span>
-          <button type="button" class="ghost-btn preset-btn" data-preset="deepseek">DeepSeek</button>
-          <button type="button" class="ghost-btn preset-btn" data-preset="qwen">Qwen</button>
-          <button type="button" class="ghost-btn preset-btn" data-preset="openai">OpenAI</button>
-          <button type="button" class="ghost-btn preset-btn" data-preset="openrouter">OpenRouter</button>
-          <button type="button" class="ghost-btn preset-btn" data-preset="groq">Groq</button>
-          <button type="button" class="ghost-btn preset-btn" data-preset="clear">Bersihkan</button>
-        </div>
-        <p class="set-hint">Asisten berperilaku dewasa, terus terang, dan tanpa menghakimi (selalu aktif).</p>
+        <p class="set-hint">Alamat server Ollama di perangkat Anda. Untuk diakses dari HP/perangkat lain, jalankan Ollama dengan <code>OLLAMA_HOST=0.0.0.0</code> lalu isi alamat LAN (mis. <code>http://192.168.1.5:11434</code>). CORS: set <code>OLLAMA_ORIGINS=*</code>.</p>
+        <label class="set-field">
+          <span>Model</span>
+          <input type="text" id="set-model" placeholder="contoh: dolphin-mixtral, llama3">
+        </label>
+        <p class="set-hint">Nama model yang sudah di-<code>ollama pull</code>. Untuk konten 18+, gunakan model tanpa sensor (mis. dolphin, uncensored).</p>
         <div class="set-status" id="set-status"></div>
       </div>
       <div class="modal-footer">
@@ -122,11 +60,8 @@
     </div>
   </div>
 
-  <script src="https://js.puter.com/v2/"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
-  <script src="knowledge.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
