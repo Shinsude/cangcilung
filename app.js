@@ -112,7 +112,6 @@
 
   /* ===== NAVIGASI ===== */
   var TABS = ['chat', 'status', 'sinyal'];
-  var renderedTabs = {};
 
   function bindNavigation() {
     var items = document.querySelectorAll('.nav-item');
@@ -131,19 +130,8 @@
       var pane = document.getElementById('tab-' + t);
       if (pane) pane.classList.toggle('active', t === name);
     });
-    if (name !== 'sinyal' && sinyalTimer) {
-      clearInterval(sinyalTimer);
-      sinyalTimer = null;
-    }
     if (name === 'sinyal') renderSinyal();
     else if (name === 'status') renderStatus();
-  }
-
-  function lazyLoadTab(name) {
-    if (renderedTabs[name]) return;
-    renderedTabs[name] = true;
-    if (name === 'status') renderStatus();
-    if (name === 'sinyal') renderSinyal();
   }
 
   /* ===== UTIL ===== */
@@ -1340,7 +1328,6 @@
 
   /* ===== TAB: STATUS ===== */
   /* ===== DASHBOARD SINYAL ===== */
-  var sinyalTimer = null;
 
   // Tab Dashboard Sinyal menampilkan replika dashboard tcip.asia (K-Synthesizer)
   // yang di-render dalam iframe terisolasi. Sumber data: tcip-data/tcip-detail.json
@@ -1348,8 +1335,6 @@
   function renderSinyal() {
     var body = document.getElementById('sinyal-body');
     if (!body) return;
-    if (sinyalTimer) clearInterval(sinyalTimer);
-    sinyalTimer = null;
     if (body.getAttribute('data-iframe-ready')) return;
     body.setAttribute('data-iframe-ready', '1');
     var refresh = document.getElementById('btn-sinyal-refresh');

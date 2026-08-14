@@ -1,9 +1,6 @@
 
 // ====== GLOBAL STATE ======
 const state = { decision: null, market: null, online: false, analysisMode: 'ai', openCount: 0, minimal: false, prevSignalHash: null, m15TimerId: null, ml_status: null, eco_cal: null, prevPrices: {}, symbolDigits: {}, confHistory: (function(){try{return (JSON.parse(localStorage.getItem('ksynth_conf_h')||'[]')).filter(function(v){return typeof v==='number';});}catch(e){return [];}})(), ai_analyzing: false, _lastEntrySym: null, mt5QHistory: [], feedQHistory: [], rejection_counters: null, rejection_reasons: null, cr_engine_stats: null, pnl_cache_age: null };
-const IS_LOCAL = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-const API_BASE = "";
-const WS_URL = "";
 const DATA_URL = "tcip-data/tcip-detail.json";
 
 // ====== 3D MOUSE TRACKING ENGINE ======
@@ -303,7 +300,7 @@ function renderRadar(scores) {
 
   // Front face (scored polygon) with glow
   let pts=pts2d.map(function(p){ return p.x.toFixed(1)+','+p.y.toFixed(1); }).join(' ');
-  let avgScore = (scores.tcip_component+scores.key_level_score+scores.candle_score+scores.session_score+scores.atr_score+scores.ml_component)/6;
+  let avgScore = ((scores.tcip_component||0)+(scores.key_level_score||0)+(scores.candle_score||0)+(scores.session_score||0)+(scores.atr_score||0)+(scores.ml_component||0))/6;
   let avgColor = avgScore >= 60 ? '#30D158' : avgScore >= 40 ? '#FFD60A' : '#FF453A';
   svg+='<polygon points="'+pts+'" fill="'+avgColor+'18" stroke="'+avgColor+'" stroke-width="1.2" opacity="0.9"/>';
   // Vertex dots
@@ -729,7 +726,7 @@ function renderDecision() {
       // Flag lines
       let flagLines3 = [];
       if (d.roll_under_reco && d.roll_under_reco !== '') flagLines3.push('<span style="color:var(--amber);font-weight:700;">ROLLUNDER: ' + esc(d.roll_under_reco) + '</span>');
-      if (d.inferred_reversal && d.inferred_reversal !== 'NONE') flagLines3.push('<span style="color:var(--red);font-weight:700;">REVERSAL: ' + esc(d.inferred_reversal) + ' ' + (d.reversal_confidence * 100).toFixed(0) + '%</span>');
+      if (d.inferred_reversal && d.inferred_reversal !== 'NONE') flagLines3.push('<span style="color:var(--red);font-weight:700;">REVERSAL: ' + esc(d.inferred_reversal) + ' ' + (d.reversal_confidence != null ? (d.reversal_confidence * 100).toFixed(0) : '--') + '%</span>');
       if (d.is_dead_zone) flagLines3.push('<span style="color:var(--red);font-weight:700;">DEAD ZONE</span>');
       if (d.divergence_downgraded) flagLines3.push('<span style="color:var(--red);font-weight:700;">DIV DOWNGRADED</span>');
       if (d.smc_warning) flagLines3.push('<span style="color:var(--amber);font-weight:700;">SMC WARNING</span>');
@@ -1752,9 +1749,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
 setInterval(function() { renderEcoCal(); }, 10000);
 
-// ── WS + REST fallback price feed (module-scoped to survive reconnect) ──
-var _wsLastData = 0, _fallbackTimer = null, _staleWatchdogId = null;
-
 function processPriceData(d) {
   var arr = [];
   for (var k in d.prices) {
@@ -1764,68 +1758,6 @@ function processPriceData(d) {
   }
   state.market = arr;
   try { renderMarket(); } catch(e) { console.error('renderMarket', e); }
-}
-
-function pollFallback() {
-  fetchWithTimeout(API_BASE + '/public/prices', {}, 5000)
-    .then(function(r) { return r.ok ? r.json() : null; })
-    .then(function(data) {
-      if (data && data.prices && Object.keys(data.prices).length) {
-        _wsLastData = Date.now();
-        processPriceData(data);
-      }
-    })
-    .catch(function() {});
-}
-
-function startFallback() {
-  if (_fallbackTimer) return;
-  _fallbackTimer = setInterval(pollFallback, 2000);
-  pollFallback();
-}
-
-function stopFallback() {
-  if (_fallbackTimer) { clearInterval(_fallbackTimer); _fallbackTimer = null; }
-}
-
-function connectWS() {
-  setWSStatus('connecting');
-  // Clean up any lingering stale-watchdog from a previous connectWS() call.
-  if (_staleWatchdogId) { clearInterval(_staleWatchdogId); _staleWatchdogId = null; }
-
-  // Stale-watchdog: if WS connected but no data for 5s, start REST fallback.
-  _staleWatchdogId = setInterval(function() {
-    if (Date.now() - _wsLastData > 5000) { startFallback(); }
-  }, 2000);
-
-  setTimeout(function() {
-    var ws = new WebSocket(WS_URL);
-    ws.onopen = function() {
-      setWSStatus('online');
-      _wsLastData = Date.now();
-      stopFallback();
-    };
-    ws.onmessage = function(evt) {
-      try {
-        var d = JSON.parse(evt.data);
-        if (d.type === "tick" && d.prices) {
-          _wsLastData = Date.now();
-          stopFallback();
-          processPriceData(d);
-        }
-      } catch(e) {}
-    };
-    ws.onclose = function() {
-      setWSStatus('offline');
-      startFallback();
-      setTimeout(connectWS, 3000);
-    };
-    ws.onerror = function() {
-      setWSStatus('connecting');
-      startFallback();
-      ws.close();
-    };
-  }, 300);
 }
 
 function fetchWithTimeout(url, opts, ms) {
