@@ -1342,47 +1342,36 @@
   /* ===== DASHBOARD SINYAL ===== */
   var sinyalTimer = null;
 
+  // Tab Dashboard Sinyal menampilkan replika dashboard tcip.asia (K-Synthesizer)
+  // yang di-render dalam iframe terisolasi. Sumber data: tcip-data/tcip-detail.json
+  // (snapshot monitor), diolah oleh dashboard.js di dalam halaman sinyal-dashboard.html.
   function renderSinyal() {
     var body = document.getElementById('sinyal-body');
     if (!body) return;
     if (sinyalTimer) clearInterval(sinyalTimer);
+    sinyalTimer = null;
+    if (body.getAttribute('data-iframe-ready')) return;
+    body.setAttribute('data-iframe-ready', '1');
     var refresh = document.getElementById('btn-sinyal-refresh');
     if (refresh && !refresh._bound) {
       refresh._bound = true;
       refresh.addEventListener('click', function () { loadSinyal(); });
     }
-    sinyalTimer = setInterval(loadSinyal, 120000);
     loadSinyal();
   }
 
   function loadSinyal() {
     var body = document.getElementById('sinyal-body');
     if (!body) return;
-    body.innerHTML = '<div class="dash-loading">Memuat data pantauan...</div>';
-    fetchTcipMonitorData().then(function (data) {
-      var sub = document.getElementById('sinyal-sub');
-      if (sub) sub.textContent = 'Diperbarui ' + new Date().toLocaleTimeString('id-ID') + ' · auto-refresh 2 mnt';
-      body.innerHTML = '';
-      body.appendChild(signalStatusCard(data));
-      if (data.detail) {
-        body.appendChild(insightCard(data.detail));
-        body.appendChild(positionsCard(data.detail));
-        body.appendChild(pnlCard(data.detail));
-        body.appendChild(mlCard(data.detail));
-        body.appendChild(marketCard(data.detail));
-        body.appendChild(pipelineCard(data.detail));
-        body.appendChild(ecoCard(data.detail));
-      } else {
-        body.appendChild(detailUnavailableCard(data.lastcheck));
-      }
-      body.appendChild(learningsCard(data.learnings));
-      body.appendChild(statsCard(data.stats));
-      body.appendChild(pairsCard(data.stats));
-      body.appendChild(verificationCard(data.verifications));
-      body.appendChild(historyCard(data.history));
-    }).catch(function () {
-      body.innerHTML = '<div class="dash-error">Gagal memuat data pantauan. Periksa koneksi lalu tekan ⟳ Muat ulang.</div>';
-    });
+    body.innerHTML = '';
+    var frame = document.createElement('iframe');
+    frame.id = 'sinyal-iframe';
+    frame.className = 'dash-iframe';
+    frame.setAttribute('src', 'sinyal-dashboard.html');
+    frame.setAttribute('title', 'Dashboard Sinyal K-Synthesizer');
+    body.appendChild(frame);
+    var sub = document.getElementById('sinyal-sub');
+    if (sub) sub.textContent = 'Replika tcip.asia · auto-refresh 30 dtk';
   }
 
   function detailUnavailableCard(lastcheck) {
