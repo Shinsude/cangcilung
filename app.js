@@ -910,7 +910,7 @@
   }
 
   function fetchTcipMonitorData() {
-    var files = ['tcip-latest.json', 'tcip-status.json', 'tcip-history.json', 'tcip-stats.json', 'tcip-verifications.json', 'tcip-learnings.json'];
+    var files = ['tcip-latest.json', 'tcip-status.json', 'tcip-history.json', 'tcip-stats.json', 'tcip-verifications.json', 'tcip-learnings.json', 'tcip-detail.json'];
     return Promise.all(files.map(function (f) {
       return webFetch(TCIP_RAW_BASE + f).catch(function () { return 'null'; });
     })).then(function (res) {
@@ -927,6 +927,7 @@
         if (!data.verifications || typeof data.verifications !== 'object' || Array.isArray(data.verifications)) data.verifications = {};
       } catch (e) { data.verifications = {}; }
       try { data.learnings = JSON.parse(res[5]); } catch (e) { data.learnings = null; }
+      try { data.detail = JSON.parse(res[6]); } catch (e) { data.detail = null; }
       return data;
     });
   }
@@ -1018,7 +1019,65 @@
       lines.push('Pembelajaran otomatis dari data terverifikasi:');
       data.learnings.insights.forEach(function (i) { lines.push('- ' + i); });
     }
-    lines.push('Jelaskan kepada pengguna dalam bahasa Indonesia: apakah ada sinyal aktif, instrumennya apa, arah, keyakinan, risiko, dan bila ada data akurasi, rekap win rate per pasangan. Bila ada "Pembelajaran otomatis", sampaikan ringkas temuan tersebut (mis. arah/grade/timeframe paling akurat). Gunakan data di atas dengan jujur (jangan mengarang). Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.');
+    if (data.detail) {
+      var d = data.detail;
+      var i = d.insight || d;
+      lines.push('Detail analisis K-Synthesizer (data lengkap):');
+      lines.push('- Rezim: ' + (i.regime || 'n/a') + (i.decomp_regime ? ' / ' + i.decomp_regime : '') + (i.volatility_regime ? ' / volatilitas ' + i.volatility_regime : '') + (i.stability ? ' / stabilitas ' + i.stability : ''));
+      if (i.verdict) lines.push('- Filter verdict: ' + i.verdict + (i.filter_reason ? ' (' + i.filter_reason + ')' : ''));
+      var L = d.layers || {};
+      if (L.tcip != null || L.key != null) {
+        var layerParts = [];
+        [['tcip', 'TCIP'], ['key', 'KEY'], ['candle', 'CANDLE'], ['session', 'SESN'], ['atr', 'ATR'], ['ml', 'ML']].forEach(function (k) {
+          if (L[k[0]] != null) layerParts.push(k[1] + ' ' + L[k[0]]);
+        });
+        if (layerParts.length) lines.push('- Skor lapisan: ' + layerParts.join(', '));
+      }
+      var mtf = d.mtf || {};
+      if (mtf.d1_dir || mtf.h4_dir) {
+        var mtfParts = [];
+        [['d1', 'D1'], ['h4', 'H4'], ['h1', 'H1'], ['m30', 'M30'], ['m15', 'M15']].forEach(function (k) {
+          if (mtf[k[0] + '_dir']) mtfParts.push(k[1] + '=' + mtf[k[0] + '_dir']);
+        });
+        lines.push('- Multi-timeframe: ' + mtfParts.join(', '));
+      }
+      var ind = d.indicators || {};
+      if (ind.rsi_14 != null || ind.macd_line != null) {
+        lines.push('- Indikator: ' + (ind.rsi_14 != null ? 'RSI ' + ind.rsi_14 : '') + (ind.macd_line != null ? ' MACD ' + ind.macd_line : '') + (ind.bb_pct_b != null ? ' BB ' + ind.bb_pct_b : '') + (ind.current_cvd != null || ind.cvd != null ? ' CVD ' + (ind.current_cvd != null ? ind.current_cvd : ind.cvd) : ''));
+      }
+      var lv = d.levels || {};
+      if (lv.entry_price != null) lines.push('- Level: entry ' + lv.entry_price + ' | support ' + (lv.support_price != null ? lv.support_price : 'n/a') + ' | resistance ' + (lv.resistance_price != null ? lv.resistance_price : 'n/a'));
+      var rk = d.risk || {};
+      if (rk.sl_pips != null || rk.risk_reward != null) lines.push('- Risiko: SL ' + (rk.sl_pips != null ? rk.sl_pips + 'p' : 'n/a') + ' | TP ' + (rk.tp_pips != null ? rk.tp_pips + 'p' : 'n/a') + ' | R:R ' + (rk.risk_reward != null ? rk.risk_reward : 'n/a'));
+      if (i.entry_strength || i.primary_context) lines.push('- ' + (i.entry_strength ? 'Kekuatan entry: ' + i.entry_strength : '') + (i.primary_context ? ' | Konteks: ' + i.primary_context : ''));
+      if (d.smc && d.smc.warning != null) lines.push('- SMC warning: ' + (d.smc.warning ? 'ya' : 'tidak') + (d.smc.confluence != null ? ' (confluence ' + d.smc.confluence + ')' : ''));
+      if (d.pnl_summary) {
+        var pnl = d.pnl_summary;
+        lines.push('P&L riil bot: ' + (pnl.today && pnl.today.pnl != null ? 'hari ini $' + Number(pnl.today.pnl).toFixed(2) + ' (' + (pnl.today.trades || 0) + ' tr)' : '') + ' | ' + (pnl.week && pnl.week.pnl != null ? '7 hari $' + Number(pnl.week.pnl).toFixed(2) + ' (' + (pnl.week.trades || 0) + ' tr, WR ' + (pnl.week.win_rate != null ? pnl.week.win_rate + '%' : 'n/a') + ')' : '') + ' | ' + (pnl.month && pnl.month.pnl != null ? '30 hari $' + Number(pnl.month.pnl).toFixed(2) + ' (' + (pnl.month.trades || 0) + ' tr, WR ' + (pnl.month.win_rate != null ? pnl.month.win_rate + '%' : 'n/a') + ')' : ''));
+      }
+      if (d.ml_status) {
+        var ml = d.ml_status;
+        lines.push('Machine learning: ' + (ml.trained ? 'terlatih' : 'belum terlatih') + ' | retrain ' + (ml.retrain_count != null ? ml.retrain_count : ml.retrains != null ? ml.retrains : 'n/a') + ' | outcome ' + (ml.total_outcomes != null ? ml.total_outcomes : ml.outcomes != null ? ml.outcomes : 'n/a') + (ml.accuracy != null ? ' | akurasi ' + (ml.accuracy * 100).toFixed(1) + '%' : ''));
+      }
+      if (d.market_prices) {
+        var mp = d.market_prices;
+        var mpr = [];
+        Object.keys(mp).slice(0, 6).forEach(function (sym) {
+          var m = mp[sym];
+          if (!m || typeof m !== 'object') return;
+          var bid = m.bid != null ? m.bid : (m.last != null ? m.last : m.price);
+          mpr.push(sym + ' ' + (bid != null ? bid : '?') + (m.change != null ? ' (' + (m.change > 0 ? '+' : '') + m.change + '%)' : ''));
+        });
+        if (mpr.length) lines.push('- Market: ' + mpr.join(' | '));
+      }
+      if (d.eco_cal) {
+        var eco = Array.isArray(d.eco_cal) ? d.eco_cal : (d.eco_cal.next_events || []);
+        var evs = eco.filter(function (e) { return e && String(e.impact).toUpperCase() === 'HIGH'; }).slice(0, 5);
+        if (evs.length) lines.push('- Event ekonomi ber-impak tinggi terdekat: ' + evs.map(function (e) { return (e.name || e.event || '?') + ' (' + (e.currency || '') + ' ' + (e.time_utc || '') + ')'; }).join(' | '));
+        else lines.push('- Kalender ekonomi: tidak ada event ber-impak tinggi terdekat.');
+      }
+    }
+    lines.push('Jelaskan kepada pengguna dalam bahasa Indonesia: apakah ada sinyal aktif, instrumennya apa, arah, keyakinan, risiko, dan bila ada data akurasi, rekap win rate per pasangan. Bila ada "Pembelajaran otomatis", sampaikan ringkas temuan tersebut (mis. arah/grade/timeframe paling akurat). Bila ada data detail analisis, jelaskan ringkas regime, skor lapisan, arah multi-timeframe, dan level entry/SL/TP. Gunakan data di atas dengan jujur (jangan mengarang). Selalu ingatkan bahwa trading berisiko tinggi dan ini bukan saran investasi.');
     return lines.join('\n');
   }
 
@@ -1312,6 +1371,12 @@
       if (sub) sub.textContent = 'Diperbarui ' + new Date().toLocaleTimeString('id-ID') + ' · auto-refresh 2 mnt';
       body.innerHTML = '';
       body.appendChild(signalStatusCard(data));
+      body.appendChild(insightCard(data.detail));
+      body.appendChild(pnlCard(data.detail));
+      body.appendChild(mlCard(data.detail));
+      body.appendChild(marketCard(data.detail));
+      body.appendChild(pipelineCard(data.detail));
+      body.appendChild(ecoCard(data.detail));
       body.appendChild(learningsCard(data.learnings));
       body.appendChild(statsCard(data.stats));
       body.appendChild(pairsCard(data.stats));
@@ -1401,6 +1466,220 @@
     grid.appendChild(dashCell('Diperbarui', fmtTime(latest.updatedAt)));
     sig.appendChild(grid);
     card.appendChild(sig);
+    return card;
+  }
+
+  function insightCard(detail) {
+    var d = detail || {};
+    var i = d.insight || d;
+    var card = mk('div', 'dash-card');
+    card.appendChild(mk('h3', null, 'Analisis K-Synthesizer'));
+    if (!d.generatedAt && !d.layers) {
+      card.appendChild(mk('p', 'dash-muted', 'Detail analisis belum tersedia (data lengkap mulai direkam monitor).'));
+      return card;
+    }
+    var verdict = mk('span', d.generatedAt ? 'st-ok' : 'st-bad');
+    verdict.textContent = 'Rezim: ' + (i.regime || 'n/a') + (i.decomp_regime ? ' · ' + i.decomp_regime : '');
+    card.appendChild(verdict);
+
+    var layers = d.layers || {};
+    var layerKeys = [['tcip', 'TCIP'], ['key', 'KEY'], ['candle', 'CANDLE'], ['session', 'SESN'], ['atr', 'ATR'], ['ml', 'ML']];
+    var hasLayers = layerKeys.some(function (k) { return layers[k[0]] != null; });
+    if (hasLayers) {
+      card.appendChild(mk('h4', 'dash-sub', 'Skor lapisan (0–100)'));
+      var tiles = mk('div', 'dash-tiles');
+      var sum = 0, cnt = 0;
+      layerKeys.forEach(function (k) {
+        var v = layers[k[0]];
+        if (v == null) return;
+        sum += v; cnt++;
+        tiles.appendChild(tile(k[1], String(v), v >= 60 ? 'tile-win' : v <= 40 ? 'tile-loss' : ''));
+      });
+      if (cnt) tiles.appendChild(tile('RATA', (sum / cnt).toFixed(0)));
+      card.appendChild(tiles);
+    }
+
+    var mtf = d.mtf || {};
+    if (mtf.d1_dir || mtf.h4_dir || mtf.h1_dir) {
+      card.appendChild(mk('h4', 'dash-sub', 'Arah multi-timeframe'));
+      var mrows = [
+        ['D1', mtf.d1_dir, mtf.d1_score], ['H4', mtf.h4_dir, mtf.h4_score],
+        ['H1', mtf.h1_dir, mtf.h1_score], ['M30', mtf.m30_dir, mtf.m30_score],
+        ['M15', mtf.m15_dir, mtf.m15_score]
+      ];
+      var mtrs = mrows.map(function (m) {
+        var dir = m[1] || '—';
+        var b = mk('span', 'badge ' + (dir.indexOf('SELL') > -1 || dir.indexOf('BEAR') > -1 ? 'badge-sell' : dir.indexOf('BUY') > -1 || dir.indexOf('BULL') > -1 ? 'badge-buy' : 'badge-hold'));
+        b.textContent = dir;
+        return [m[0] + ' (' + (m[2] != null ? Math.round(m[2]) : '—') + ')', b];
+      });
+      mtrs.push(['Aligment', (d.weighted_alignment != null ? (d.weighted_alignment * 100).toFixed(0) + '%' : '—')]);
+      card.appendChild(dashTable(['TF', 'Arah'], mtrs));
+    }
+
+    var ind = d.indicators || {};
+    var levels = d.levels || {};
+    var risk = d.risk || {};
+    if (ind.rsi_14 != null || levels.entry_price != null) {
+      card.appendChild(mk('h4', 'dash-sub', 'Indikator & level'));
+      var ig = mk('div', 'dash-detail-grid');
+      if (ind.rsi_14 != null) ig.appendChild(dashCell('RSI (14)', String(ind.rsi_14)));
+      if (ind.macd_line != null) ig.appendChild(dashCell('MACD', String(ind.macd_line) + (ind.macd_hist != null ? ' (' + (ind.macd_hist >= 0 ? '+' : '') + Number(ind.macd_hist).toFixed(3) + ')' : '')));
+      if (ind.bb_pct_b != null) ig.appendChild(dashCell('%B', String(ind.bb_pct_b)));
+      if (ind.current_cvd != null || ind.cvd != null) ig.appendChild(dashCell('CVD', String(ind.current_cvd != null ? ind.current_cvd : ind.cvd)));
+      if (ind.net_flow != null) ig.appendChild(dashCell('Net flow', String(ind.net_flow)));
+      if (levels.entry_price != null) ig.appendChild(dashCell('Entry', String(levels.entry_price)));
+      if (levels.support_price != null) ig.appendChild(dashCell('Support', String(levels.support_price)));
+      if (levels.resistance_price != null) ig.appendChild(dashCell('Resistance', String(levels.resistance_price)));
+      if (risk.sl_pips != null) ig.appendChild(dashCell('SL', String(risk.sl_pips) + 'p'));
+      if (risk.tp_pips != null) ig.appendChild(dashCell('TP', String(risk.tp_pips) + 'p'));
+      if (risk.risk_reward != null) ig.appendChild(dashCell('R:R', String(risk.risk_reward)));
+      if (i.entry_strength) ig.appendChild(dashCell('Entry strength', String(i.entry_strength)));
+      card.appendChild(ig);
+    }
+
+    if (i.verdict || i.filter_reason || i.hierarchy_reason || i.smc || i.safety) {
+      card.appendChild(mk('h4', 'dash-sub', 'Penilaian'));
+      var ng = mk('div', 'dash-detail-grid');
+      if (i.verdict) ng.appendChild(dashCell('Filter', String(i.verdict)));
+      if (i.filter_reason) ng.appendChild(dashCell('Alasan filter', String(i.filter_reason)));
+      if (i.hierarchy_reason) ng.appendChild(dashCell('Hierarki', String(i.hierarchy_reason)));
+      if (d.smc && d.smc.warning != null) ng.appendChild(dashCell('SMC warning', d.smc.warning ? 'ya' : 'tidak'));
+      if (d.smc && d.smc.confluence != null) ng.appendChild(dashCell('SMC confluence', String(d.smc.confluence)));
+      if (i.roll_under_reco) ng.appendChild(dashCell('Roll under', String(i.roll_under_reco)));
+      if (i.inferred_reversal) ng.appendChild(dashCell('Reversal', String(i.inferred_reversal) + (i.reversal_confidence != null ? ' ' + Math.round(i.reversal_confidence) + '%' : '')));
+      if (i.primary_context) ng.appendChild(dashCell('Konteks', String(i.primary_context)));
+      if (i.primary_bias) ng.appendChild(dashCell('Bias', String(i.primary_bias)));
+      if (d.safety && d.safety.status) ng.appendChild(dashCell('Safety', String(d.safety.status)));
+      if (i.signal_age_s != null) ng.appendChild(dashCell('Umur sinyal', Math.floor(i.signal_age_s / 60) + 'm' + (i.signal_age_s % 60) + 's'));
+      card.appendChild(ng);
+    }
+    return card;
+  }
+
+  function pnlCard(detail) {
+    var d = detail || {};
+    var p = d.pnl_summary || (d.pnl);
+    var card = mk('div', 'dash-card');
+    card.appendChild(mk('h3', null, 'P&L bot (riil)'));
+    if (!p || (p.today == null && p.week == null && p.month == null)) {
+      card.appendChild(mk('p', 'dash-muted', 'Data P&L belum tersedia.'));
+      return card;
+    }
+    var tiles = mk('div', 'dash-tiles');
+    function pnlTile(label, seg) {
+      if (!seg || seg.pnl == null) return;
+      var cls = seg.pnl > 0 ? 'tile-win' : seg.pnl < 0 ? 'tile-loss' : '';
+      tiles.appendChild(tile(label + ' (' + (seg.trades || 0) + ' tr)', '$' + Number(seg.pnl).toFixed(2), cls));
+    }
+    pnlTile('Hari ini', p.today);
+    pnlTile('7 hari', p.week);
+    pnlTile('30 hari', p.month);
+    card.appendChild(tiles);
+    return card;
+  }
+
+  function mlCard(detail) {
+    var d = detail || {};
+    var m = d.ml_status || (d.ml);
+    var card = mk('div', 'dash-card');
+    card.appendChild(mk('h3', null, 'Machine learning'));
+    if (!m) {
+      card.appendChild(mk('p', 'dash-muted', 'Status ML belum tersedia.'));
+      return card;
+    }
+    var trained = !!m.trained;
+    var status = mk('span', trained ? 'st-ok' : 'st-bad');
+    status.textContent = trained ? 'Model aktif' : 'Belum terlatih';
+    card.appendChild(status);
+    var g = mk('div', 'dash-detail-grid');
+    g.appendChild(dashCell('Retrain', String(m.retrain_count != null ? m.retrain_count : m.retrains != null ? m.retrains : 0)));
+    g.appendChild(dashCell('Outcome', String(m.total_outcomes != null ? m.total_outcomes : m.outcomes != null ? m.outcomes : 0)));
+    if (m.accuracy != null) g.appendChild(dashCell('Akurasi', fmtPct(m.accuracy)));
+    if (m.win_rate != null) g.appendChild(dashCell('Win rate', fmtPct(m.win_rate)));
+    var drift = m.drift;
+    if (drift && typeof drift === 'object') {
+      g.appendChild(dashCell('Drift window', String(drift.window_size != null ? drift.window_size : '—')));
+      g.appendChild(dashCell('Drift samples', String(drift.current_samples != null ? drift.current_samples : '—')));
+      if (drift.win_rate != null) g.appendChild(dashCell('Drift WR', fmtPct(drift.win_rate)));
+      if (drift.alert_threshold != null) g.appendChild(dashCell('Alert di', fmtPct(drift.alert_threshold)));
+    }
+    card.appendChild(g);
+    return card;
+  }
+
+  function marketCard(detail) {
+    var d = detail || {};
+    var mp = d.market_prices;
+    var card = mk('div', 'dash-card');
+    card.appendChild(mk('h3', null, 'Market prices'));
+    if (!mp || typeof mp !== 'object' || !Object.keys(mp).length) {
+      card.appendChild(mk('p', 'dash-muted', 'Harga market belum tersedia.'));
+      return card;
+    }
+    var rows = [];
+    Object.keys(mp).forEach(function (sym) {
+      var m = mp[sym];
+      if (!m || typeof m !== 'object') return;
+      var bid = m.bid != null ? m.bid : (m.last != null ? m.last : m.price);
+      var ask = m.ask;
+      var change = m.change;
+      rows.push([
+        sym,
+        bid != null ? String(bid) : '—',
+        ask != null ? String(ask) : '—',
+        change != null ? (change > 0 ? '+' : '') + change + '%' : '—'
+      ]);
+    });
+    card.appendChild(dashTable(['Simbol', 'Bid', 'Ask', 'Perubahan'], rows));
+    return card;
+  }
+
+  function pipelineCard(detail) {
+    var d = detail || {};
+    var ph = d.pipeline_health;
+    var sa = d.system_analysis;
+    var card = mk('div', 'dash-card');
+    card.appendChild(mk('h3', null, 'Sistem K-Synthesizer'));
+    if (!ph && !sa) {
+      card.appendChild(mk('p', 'dash-muted', 'Data sistem belum tersedia.'));
+      return card;
+    }
+    var tiles = mk('div', 'dash-tiles');
+    if (ph) {
+      tiles.appendChild(tile('Kesehatan', fmtPct(ph.health_score), ph.health_score >= 0.6 ? 'tile-win' : ph.health_score >= 0.4 ? '' : 'tile-loss'));
+      if (ph.signals_per_hour != null) tiles.appendChild(tile('Sinyal/jam', String(ph.signals_per_hour)));
+      if (ph.entry_rate != null) tiles.appendChild(tile('Entry rate', fmtPct(ph.entry_rate)));
+      if (ph.cr_rejection_rate != null) tiles.appendChild(tile('Rejeksi CR', fmtPct(ph.cr_rejection_rate)));
+    }
+    if (sa && typeof sa === 'object') {
+      var g = mk('div', 'dash-detail-grid');
+      if (sa.proposals_open != null || sa.proposals != null) g.appendChild(dashCell('Proposal terbuka', String(sa.proposals_open != null ? sa.proposals_open : sa.proposals)));
+      if (sa.reports_total != null || sa.reports != null) g.appendChild(dashCell('Laporan', String(sa.reports_total != null ? sa.reports_total : sa.reports)));
+      if (sa.latest_proposal && sa.latest_proposal.title) g.appendChild(dashCell('Temuan', String(sa.latest_proposal.title)));
+      card.appendChild(g);
+    }
+    card.appendChild(tiles);
+    return card;
+  }
+
+  function ecoCard(detail) {
+    var d = detail || {};
+    var eco = d.eco_cal;
+    var events = null;
+    if (eco && Array.isArray(eco)) events = eco;
+    else if (eco && Array.isArray(eco.next_events)) events = eco.next_events;
+    var card = mk('div', 'dash-card');
+    card.appendChild(mk('h3', null, 'Kalender ekonomi'));
+    if (!events || !events.length) {
+      card.appendChild(mk('p', 'dash-muted', 'Tidak ada event ber-impak tinggi dalam 24 jam.'));
+      return card;
+    }
+    card.appendChild(dashTable(['Waktu', 'Kurs', 'Impak', 'Event'], events.slice(0, 8).map(function (e) {
+      var imp = mk('span', 'badge ' + (String(e.impact).toUpperCase() === 'HIGH' ? 'badge-sell' : String(e.impact).toUpperCase() === 'MEDIUM' || String(e.impact).toUpperCase() === 'MOD' ? 'badge-hold' : 'badge-neutral'));
+      imp.textContent = e.impact || '—';
+      return [e.time_utc || e.time || '—', e.currency || '—', imp, e.name || e.event || '—'];
+    })));
     return card;
   }
 

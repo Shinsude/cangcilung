@@ -53,6 +53,22 @@ function extractSignal(d) {
   };
 }
 
+function normalizeMarket(market) {
+  if (!market) return null;
+  if (Array.isArray(market)) {
+    const out = {};
+    for (const m of market) {
+      if (!m || typeof m !== 'object') continue;
+      const sym = String(m.symbol || m.pair || m.name || '').toUpperCase();
+      if (!sym) continue;
+      out[sym] = m;
+    }
+    return Object.keys(out).length ? out : null;
+  }
+  if (typeof market === 'object') return market;
+  return null;
+}
+
 function extractPriceMap(data, sig) {
   const map = {};
   const market = data && (data.market_prices || data.market);
@@ -78,6 +94,120 @@ function extractPriceMap(data, sig) {
   }
   if (sig && sig.price != null && !map[sig.symbol]) map[sig.symbol] = sig.price;
   return map;
+}
+
+function extractDetail(data, sig) {
+  const insight = data && (data.insight_data || data.decision);
+  const market = data && (data.market_prices || data.market);
+  const pick = (o, k, fb) => (o && o[k] != null ? o[k] : fb);
+  const d = {
+    generatedAt: Date.now(),
+    symbol: pick(insight, 'symbol', sig && sig.symbol),
+    timeframe: pick(insight, 'timeframe', sig && sig.timeframe),
+    direction: pick(insight, 'direction', sig && sig.direction),
+    confidence: pick(insight, 'confidence', sig && sig.confidence),
+    grade: pick(insight, 'grade', sig && sig.grade),
+    phase: pick(insight, 'phase', sig && sig.phase),
+    risk_level: pick(insight, 'risk_level', sig && sig.risk_level),
+    verdict: pick(insight, 'verdict', ''),
+    final_reco: pick(insight, 'final_reco', ''),
+    regime: pick(insight, 'regime', ''),
+    decomp_regime: pick(insight, 'decomp_regime', ''),
+    volatility_regime: pick(insight, 'volatility_regime', ''),
+    stability: pick(insight, 'stability', ''),
+    is_stale: pick(insight, 'is_stale', false),
+    ts_intrinsic: pick(insight, 'ts_intrinsic', null),
+    ts_snr: pick(insight, 'ts_snr', null),
+    weighted_alignment: pick(insight, 'weighted_alignment', null),
+    trend_consistency_pct: pick(insight, 'trend_consistency_pct', null),
+    composite_score: pick(insight, 'composite_score', null),
+    confluence_score: pick(insight, 'confluence_score', null),
+    tech_score: pick(insight, 'tech_score', null),
+    coherence_score: pick(insight, 'coherence_score', null),
+    institutional_flow_score: pick(insight, 'institutional_flow_score', null),
+    ml_confidence: pick(insight, 'ml_confidence', null),
+    layers: {
+      tcip: pick(insight, 'tcip_component', null),
+      key: pick(insight, 'key_level_score', null),
+      candle: pick(insight, 'candle_score', null),
+      session: pick(insight, 'session_score', null),
+      atr: pick(insight, 'atr_score', null),
+      ml: pick(insight, 'ml_component', null)
+    },
+    mtf: {
+      d1_dir: pick(insight, 'mtf_d1_dir', ''),
+      h4_dir: pick(insight, 'mtf_h4_dir', ''),
+      h1_dir: pick(insight, 'mtf_h1_dir', ''),
+      m30_dir: pick(insight, 'mtf_m30_dir', ''),
+      m15_dir: pick(insight, 'mtf_m15_dir', ''),
+      d1_score: pick(insight, 'mtf_d1_score', null),
+      h4_score: pick(insight, 'mtf_h4_score', null),
+      h1_score: pick(insight, 'mtf_h1_score', null),
+      m30_score: pick(insight, 'mtf_m30_score', null),
+      m15_score: pick(insight, 'mtf_m15_score', null),
+      w1_d1_aligned: pick(insight, 'w1_d1_aligned', null),
+      d1_h4_aligned: pick(insight, 'd1_h4_aligned', null),
+      h4_h1_aligned: pick(insight, 'h4_h1_aligned', null),
+      h1_m30_aligned: pick(insight, 'h1_m30_aligned', null),
+      m30_m15_aligned: pick(insight, 'm30_m15_aligned', null)
+    },
+    indicators: {
+      rsi_14: pick(insight, 'rsi_14', null),
+      macd_line: pick(insight, 'macd_line', null),
+      macd_signal: pick(insight, 'macd_signal', null),
+      macd_hist: pick(insight, 'macd_hist', null),
+      bb_pct_b: pick(insight, 'bb_pct_b', null),
+      cvd: pick(insight, 'cvd', null),
+      current_cvd: pick(insight, 'current_cvd', null),
+      cvd_efficiency: pick(insight, 'cvd_efficiency', null),
+      net_flow: pick(insight, 'net_flow', null),
+      flow_direction: pick(insight, 'flow_direction', '')
+    },
+    levels: {
+      entry_price: pick(insight, 'entry_price', null),
+      support_price: pick(insight, 'support_price', null),
+      resistance_price: pick(insight, 'resistance_price', null),
+      nearest_support: pick(insight, 'nearest_support', null),
+      nearest_resistance: pick(insight, 'nearest_resistance', null)
+    },
+    risk: {
+      atr: pick(insight, 'atr', null),
+      atr_points: pick(insight, 'atr_points', null),
+      spread_points: pick(insight, 'spread_points', null),
+      sl_pips: pick(insight, 'suggested_sl_pips', null),
+      tp_pips: pick(insight, 'suggested_tp_pips', null),
+      risk_reward: pick(insight, 'risk_reward', null)
+    },
+    entry_strength: pick(insight, 'entry_strength', ''),
+    signal_consistency: pick(insight, 'signal_consistency', null),
+    adaptive_lookback: pick(insight, 'adaptive_lookback', null),
+    filter_reason: pick(insight, 'filter_reason', ''),
+    hierarchy_reason: pick(insight, 'hierarchy_reason', ''),
+    smc: { warning: pick(insight, 'smc_warning', null), confluence: pick(insight, 'smc_confluence', null) },
+    roll_under_reco: pick(insight, 'roll_under_reco', ''),
+    inferred_reversal: pick(insight, 'inferred_reversal', ''),
+    reversal_confidence: pick(insight, 'reversal_confidence', null),
+    safety: {
+      status: pick(insight, 'safety_status', ''),
+      violated: pick(insight, 'safety_bounds_violated', null),
+      total: pick(insight, 'safety_bounds_total', null)
+    },
+    primary_context: pick(insight, 'primary_context', ''),
+    primary_bias: pick(insight, 'primary_bias', ''),
+    signal_age_s: pick(insight, 'signal_age_s', null),
+    market_quality: pick(insight, 'market_quality', ''),
+    session_name: pick(insight, 'session_name', ''),
+    divergence_status: pick(insight, 'divergence_status', ''),
+    divergence_downgraded: pick(insight, 'divergence_downgraded', null),
+    market_prices: normalizeMarket(market),
+    pnl_summary: data && data.pnl_summary || null,
+    ml_status: data && data.ml_status || null,
+    pipeline_health: data && data.pipeline_health || null,
+    system_analysis: data && data.system_analysis || null,
+    eco_cal: data && data.eco_cal || null,
+    cr_engine_stats: data && data.cr_engine_stats || null
+  };
+  return d;
 }
 
 function snapshotKey(sig) {
@@ -281,6 +411,7 @@ try {
   const statusOk = { ok: true, status: 'online', at: Date.now(), error: null };
   writeJson('tcip-status.json', statusOk);
   out.ok = true; out.status = 'online';
+  writeJson('tcip-detail.json', extractDetail(data, sig));
 
   if (sig) {
     const prev = readJson('tcip-latest.json');
