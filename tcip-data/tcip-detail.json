@@ -1,46 +1,46 @@
 {
-  "generatedAt": 1786702062334,
+  "generatedAt": 1786705689938,
   "symbol": "XAUUSD",
   "timeframe": "M15",
-  "direction": "SELL",
+  "direction": "BUY",
   "confidence": 0,
   "grade": "NEUTRAL",
   "phase": "FORMING",
-  "risk_level": "MODERATE",
-  "verdict": "CAUTION",
+  "risk_level": "LOW",
+  "verdict": "REJECT",
   "final_reco": "",
-  "regime": "TACTICAL MOVE",
+  "regime": "D1-H4 CONFLICT",
   "decomp_regime": "RANGING",
   "volatility_regime": "LOW",
   "stability": "LOW",
   "is_stale": false,
-  "ts_intrinsic": 56.6,
-  "ts_snr": 1.303,
-  "weighted_alignment": 0.58,
+  "ts_intrinsic": 57.2,
+  "ts_snr": 1.339,
+  "weighted_alignment": 0.73,
   "trend_consistency_pct": 100,
-  "composite_score": 58.8,
-  "confluence_score": 44.2,
-  "tech_score": 60.3,
-  "coherence_score": 50,
-  "institutional_flow_score": 56.6,
+  "composite_score": 60.4,
+  "confluence_score": 49.9,
+  "tech_score": 62.1,
+  "coherence_score": 55,
+  "institutional_flow_score": 59.1,
   "ml_confidence": 0,
   "layers": {
     "tcip": 22.5,
     "key": 50,
     "candle": 60,
-    "session": 70,
+    "session": 65,
     "atr": 35,
-    "ml": 100
+    "ml": 70
   },
   "mtf": {
     "d1_dir": "BEARISH",
     "h4_dir": "BULLISH",
-    "h1_dir": "BULLISH",
-    "m30_dir": "BULLISH",
-    "m15_dir": "SELL",
+    "h1_dir": "D1 BEARISH (H4 CONFLICT)",
+    "m30_dir": "D1 BEARISH (H4 CONFLICT)",
+    "m15_dir": "BUY",
     "d1_score": -25,
     "h4_score": 22,
-    "h1_score": 7,
+    "h1_score": 0,
     "m30_score": 0,
     "m15_score": 0,
     "w1_d1_aligned": null,
@@ -50,30 +50,30 @@
     "m30_m15_aligned": null
   },
   "indicators": {
-    "rsi_14": 69.9,
-    "macd_line": 6.3125,
-    "macd_signal": 4.0031,
-    "macd_hist": 2.3094,
-    "bb_pct_b": 0.88,
-    "cvd": -0.05,
-    "current_cvd": -0.05,
-    "cvd_efficiency": 0.3,
-    "net_flow": 1818,
+    "rsi_14": 59,
+    "macd_line": 5.1323,
+    "macd_signal": 4.853,
+    "macd_hist": 0.2793,
+    "bb_pct_b": 0.66,
+    "cvd": 0.98,
+    "current_cvd": 0.98,
+    "cvd_efficiency": 0.6,
+    "net_flow": 1427,
     "flow_direction": "NEUTRAL"
   },
   "levels": {
-    "entry_price": 4357.555,
+    "entry_price": 4350.415,
     "support_price": 4310.866,
-    "resistance_price": 4364.272,
+    "resistance_price": null,
     "nearest_support": 4310.866,
-    "nearest_resistance": 4364.272
+    "nearest_resistance": null
   },
   "risk": {
-    "atr": 4.3999999999999995,
-    "atr_points": 6.6,
+    "atr": 3.6666666666666665,
+    "atr_points": 5.5,
     "spread_points": 182,
-    "sl_pips": 6.6,
-    "tp_pips": 13.2,
+    "sl_pips": 5.5,
+    "tp_pips": 11,
     "risk_reward": 2
   },
   "entry_strength": "PARTIAL CORE",
@@ -83,62 +83,62 @@
   "hierarchy_reason": "OFF",
   "smc": {
     "warning": true,
-    "confluence": 3
+    "confluence": 1
   },
   "roll_under_reco": "HOLD",
-  "inferred_reversal": "SELL",
+  "inferred_reversal": "BUY",
   "reversal_confidence": 0,
   "safety": {
-    "status": "1 VIOLATED",
-    "violated": 1,
+    "status": "OK",
+    "violated": 0,
     "total": 6
   },
   "primary_context": "H4+H1 MOMENTUM",
   "primary_bias": "D1 BEARISH (H4 CONFLICT)",
   "signal_age_s": 1,
-  "market_quality": "INEFFICIENT",
+  "market_quality": "INEFFICIENT +VOL",
   "session_name": "LONDON (HIGH)",
   "divergence_status": "NONE",
   "divergence_downgraded": false,
   "market_prices": {
     "XAUUSD": {
-      "bid": 4357.284,
-      "ask": 4357.466,
+      "bid": 4350.704,
+      "ask": 4350.886,
       "spread": 182,
-      "time": 1786702061,
-      "time_utc": 1786702062.1089857,
-      "stale": false,
-      "tick_age": 1.1,
       "digits": 3,
-      "last": 4357.232,
-      "change": 0.01,
+      "last": 4350.704,
+      "time": 1786705688,
+      "time_utc": 1786705689.7155437,
+      "stale": false,
+      "tick_age": 0.7,
+      "change": -0.14,
       "daily_high": 4362.237,
       "daily_low": 4310.866
     }
   },
   "pnl_summary": {
     "today": {
-      "pnl": 0,
-      "trades": 0,
+      "pnl": -19.96,
+      "trades": 1,
       "win_rate": 0
     },
     "week": {
-      "pnl": -165.6,
-      "trades": 33,
-      "win_rate": 60.6
+      "pnl": -185.56,
+      "trades": 34,
+      "win_rate": 58.8
     },
     "month": {
-      "pnl": 212,
-      "trades": 117,
-      "win_rate": 71.8
+      "pnl": 192.04,
+      "trades": 118,
+      "win_rate": 71.2
     },
     "daily_breakdown": [
       {
         "date": "2026-08-14",
-        "trades": 0,
+        "trades": 1,
         "wins": 0,
-        "losses": 0,
-        "pnl": 0,
+        "losses": 1,
+        "pnl": -19.96,
         "win_rate": 0
       },
       {
@@ -283,23 +283,23 @@
   "ml_status": {
     "trained": false,
     "retrain_count": 0,
-    "total_outcomes": 5,
+    "total_outcomes": 6,
     "accuracy": 0,
     "pattern_rates": [
       {
         "pattern": "UNKNOWN",
         "wins": 3,
-        "losses": 2,
-        "total": 5,
-        "win_rate": 0.6
+        "losses": 3,
+        "total": 6,
+        "win_rate": 0.5
       }
     ],
     "calibration": [
       {
         "bucket": "50-59%",
-        "total": 5,
+        "total": 6,
         "wins": 3,
-        "win_rate": 0.6
+        "win_rate": 0.5
       }
     ],
     "feature_importance": [],
@@ -313,8 +313,8 @@
     "recent_alerts": []
   },
   "pipeline_health": {
-    "health_score": 0.15,
-    "signals_per_hour": 32,
+    "health_score": 0.253,
+    "signals_per_hour": 595,
     "entry_rate": 0,
     "cr_rejection_rate": 1,
     "baseline_arrival": 273,
@@ -324,7 +324,7 @@
   "system_analysis": {
     "enabled": true,
     "running": true,
-    "last_run_ts": 1786701888.0363226,
+    "last_run_ts": 1786705292.267581,
     "proposals_open": 11,
     "proposals_total": 11,
     "reports_total": 64,
@@ -337,67 +337,67 @@
     "collectors": {
       "pipeline": {
         "emits": 1,
-        "last_emit_age_s": 188.1,
+        "last_emit_age_s": 410.7,
         "last_error": null
       },
       "ai": {
         "emits": 1,
-        "last_emit_age_s": 188.1,
+        "last_emit_age_s": 410.7,
         "last_error": null
       },
       "cr_engine": {
         "emits": 1,
-        "last_emit_age_s": 188.1,
+        "last_emit_age_s": 410.7,
         "last_error": null
       },
       "filter": {
         "emits": 1,
-        "last_emit_age_s": 188.1,
+        "last_emit_age_s": 410.7,
         "last_error": null
       },
       "safety": {
         "emits": 1,
-        "last_emit_age_s": 188.1,
+        "last_emit_age_s": 410.7,
         "last_error": null
       },
       "trade": {
         "emits": 1,
-        "last_emit_age_s": 188.1,
+        "last_emit_age_s": 410.7,
         "last_error": null
       },
       "db": {
         "emits": 1,
-        "last_emit_age_s": 188,
+        "last_emit_age_s": 410.7,
         "last_error": null
       },
       "mt5": {
         "emits": 1,
-        "last_emit_age_s": 188,
+        "last_emit_age_s": 410.7,
         "last_error": null
       },
       "system": {
         "emits": 1,
-        "last_emit_age_s": 188,
+        "last_emit_age_s": 410.7,
         "last_error": null
       },
       "signal_pipeline": {
         "emits": 1,
-        "last_emit_age_s": 188,
+        "last_emit_age_s": 410.7,
         "last_error": null
       },
       "outcome_quality": {
         "emits": 1,
-        "last_emit_age_s": 188,
+        "last_emit_age_s": 410.7,
         "last_error": null
       },
       "gating_effectiveness": {
         "emits": 1,
-        "last_emit_age_s": 188,
+        "last_emit_age_s": 410.6,
         "last_error": null
       },
       "counterfactual": {
         "emits": 1,
-        "last_emit_age_s": 178.1,
+        "last_emit_age_s": 400.8,
         "last_error": null
       }
     }
@@ -407,17 +407,14 @@
     "next_events": []
   },
   "cr_engine_stats": {
-    "total_processed": 32,
-    "total_rejected": 1,
-    "total_tradeable": 3,
+    "total_processed": 70,
+    "total_rejected": 0,
+    "total_tradeable": 0,
     "by_verdict": {
-      "CAUTION": 20,
-      "LOW": 8,
-      "MODERATE": 3
+      "CAUTION": 49,
+      "LOW": 21
     },
-    "by_reject_reason": {
-      "BAD_ENTRY_STRENGTH": 1
-    },
+    "by_reject_reason": {},
     "tcip_cache_evictions": 0,
     "config": {
       "tcip_weight": 0.35,
@@ -449,7 +446,7 @@
       },
       "bar": {
         "status": "ok",
-        "score": 25,
+        "score": 65,
         "weight": 0.03,
         "status_history": [
           "ok",
@@ -497,7 +494,7 @@
       },
       "session": {
         "status": "ok",
-        "score": 70,
+        "score": 65,
         "weight": 0.04,
         "status_history": [
           "ok",
@@ -517,8 +514,8 @@
         "weight": 0.05,
         "status_history": [
           "ok",
-          "ok",
-          "ok",
+          "no_context",
+          "no_context",
           "ok",
           "ok",
           "ok",
@@ -529,7 +526,7 @@
       },
       "history": {
         "status": "ok",
-        "score": 52.4,
+        "score": 50,
         "weight": 0.03,
         "status_history": [
           "ok",
@@ -545,7 +542,7 @@
       },
       "ml": {
         "status": "ok",
-        "score": 100,
+        "score": 70,
         "weight": 0.25,
         "status_history": [
           "ok",
@@ -568,23 +565,19 @@
     "layer_last_event_ts": {},
     "layer_cooldown_remaining": {}
   },
-  "open_positions": 1,
-  "open_details": [
-    {
-      "symbol": "XAUUSD",
-      "type": "BUY",
-      "entry_price": 4358.295,
-      "sl": 4351.642,
-      "tp": 4371.442,
-      "lot": 0.03,
-      "profit": -3.04,
-      "current_price": 4357.284,
-      "trail_level": 0,
-      "trail_label": "",
-      "profit_locked": 0
-    }
-  ],
+  "open_positions": 0,
+  "open_details": [],
   "recent_signals": [
+    {
+      "symbol": "TEST",
+      "timeframe": "M5",
+      "direction": "BUY",
+      "grade": "APLUS",
+      "verdict": "",
+      "unified_score": 0,
+      "outcome": "WIN",
+      "timestamp": 1786704373.3197215
+    },
     {
       "symbol": "TEST",
       "timeframe": "M5",
@@ -624,16 +617,6 @@
       "unified_score": 0,
       "outcome": "WIN",
       "timestamp": 1786635808.6583378
-    },
-    {
-      "symbol": "TEST",
-      "timeframe": "M5",
-      "direction": "BUY",
-      "grade": "APLUS",
-      "verdict": "",
-      "unified_score": 0,
-      "outcome": "WIN",
-      "timestamp": 1786634399.045688
     }
   ]
 }
