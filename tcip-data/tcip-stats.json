@@ -1,13 +1,52 @@
 {
-  "generatedAt": 1786674934606,
-  "total": 0,
-  "wins": 0,
+  "generatedAt": 1786681648016,
+  "total": 1,
+  "wins": 1,
   "losses": 0,
   "draws": 0,
   "noResult": 0,
-  "winRate": 0,
-  "avgPnl": null,
-  "byDirection": {},
-  "byTimeframe": {},
-  "bySymbol": {}
+  "winRate": 1,
+  "avgPnl": 0.00347,
+  "byDirection": {
+    "SELL": {
+      "total": 1,
+      "wins": 1,
+      "losses": 0,
+      "draws": 0,
+      "noResult": 0,
+      "winRate": 1,
+      "avgPnl": 0.00347
+    }
+  },
+  "byTimeframe": {
+    "M15": {
+      "total": 1,
+      "wins": 1,
+      "losses": 0,
+      "draws": 0,
+      "noResult": 0,
+      "winRate": 1,
+      "avgPnl": 0.00347
+    }
+  },
+  "bySymbol": {
+    "XAUUSD": {
+      "total": 1,
+      "wins": 1,
+      "losses": 0,
+      "draws": 0,
+      "noResult": 0,
+      "winRate": 1,
+      "avgPnl": 0.00347,
+      "lastSignal": {
+        "timeframe": "M15",
+        "direction": "SELL",
+        "confidence": 6,
+        "grade": "BPLUS",
+        "phase": "FORMING",
+        "price": 4350.262,
+        "updatedAt": 1786652733771
+      }
+    }
+  }
 }

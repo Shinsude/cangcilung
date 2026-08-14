@@ -1,7 +1,7 @@
 {
-  "generatedAt": 1786674934606,
-  "verifiedTotal": 0,
-  "trackedTotal": 0,
+  "generatedAt": 1786681648017,
+  "verifiedTotal": 1,
+  "trackedTotal": 1,
   "best": {
     "direction": null,
     "grade": null,
@@ -9,12 +9,52 @@
     "symbol": null
   },
   "rankings": {
-    "byDirection": [],
-    "byGrade": [],
-    "byTimeframe": [],
-    "bySymbol": []
+    "byDirection": [
+      {
+        "total": 1,
+        "wins": 1,
+        "losses": 0,
+        "draws": 0,
+        "winRate": 1,
+        "avgPnl": 0.00347,
+        "name": "SELL"
+      }
+    ],
+    "byGrade": [
+      {
+        "total": 1,
+        "wins": 1,
+        "losses": 0,
+        "draws": 0,
+        "winRate": 1,
+        "avgPnl": 0.00347,
+        "name": "(KOSONG)"
+      }
+    ],
+    "byTimeframe": [
+      {
+        "total": 1,
+        "wins": 1,
+        "losses": 0,
+        "draws": 0,
+        "winRate": 1,
+        "avgPnl": 0.00347,
+        "name": "M15"
+      }
+    ],
+    "bySymbol": [
+      {
+        "total": 1,
+        "wins": 1,
+        "losses": 0,
+        "draws": 0,
+        "winRate": 1,
+        "avgPnl": 0.00347,
+        "name": "XAUUSD"
+      }
+    ]
   },
   "insights": [
-    "Belum ada sinyal terverifikasi. Data pembelajaran mulai terkumpul seiring pemantauan berjalan."
+    "Dari 1 sinyal terverifikasi, win rate keseluruhan 100%."
   ]
 }
