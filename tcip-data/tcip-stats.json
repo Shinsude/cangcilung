@@ -1,5 +1,5 @@
 {
-  "generatedAt": 1786705689939,
+  "generatedAt": 1786708626019,
   "total": 2,
   "wins": 1,
   "losses": 0,
@@ -41,11 +41,11 @@
       "lastSignal": {
         "timeframe": "M15",
         "direction": "BUY",
-        "confidence": 0,
-        "grade": "NEUTRAL",
+        "confidence": 44,
+        "grade": "BPLUS",
         "phase": "FORMING",
-        "price": 4350.415,
-        "updatedAt": 1786705689937
+        "price": 4366.023,
+        "updatedAt": 1786708626017
       }
     }
   }

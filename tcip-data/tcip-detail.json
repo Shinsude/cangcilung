@@ -1,47 +1,47 @@
 {
-  "generatedAt": 1786705689938,
+  "generatedAt": 1786708626017,
   "symbol": "XAUUSD",
   "timeframe": "M15",
   "direction": "BUY",
-  "confidence": 0,
-  "grade": "NEUTRAL",
+  "confidence": 44,
+  "grade": "BPLUS",
   "phase": "FORMING",
-  "risk_level": "LOW",
-  "verdict": "REJECT",
+  "risk_level": "MODERATE",
+  "verdict": "MODERATE",
   "final_reco": "",
-  "regime": "D1-H4 CONFLICT",
+  "regime": "TACTICAL MOVE",
   "decomp_regime": "RANGING",
   "volatility_regime": "LOW",
   "stability": "LOW",
   "is_stale": false,
-  "ts_intrinsic": 57.2,
-  "ts_snr": 1.339,
-  "weighted_alignment": 0.73,
+  "ts_intrinsic": 55.3,
+  "ts_snr": 1.239,
+  "weighted_alignment": 0.89,
   "trend_consistency_pct": 100,
-  "composite_score": 60.4,
-  "confluence_score": 49.9,
-  "tech_score": 62.1,
-  "coherence_score": 55,
-  "institutional_flow_score": 59.1,
+  "composite_score": 89.9,
+  "confluence_score": 6,
+  "tech_score": 99.5,
+  "coherence_score": 50,
+  "institutional_flow_score": 61.4,
   "ml_confidence": 0,
   "layers": {
-    "tcip": 22.5,
+    "tcip": 51.2,
     "key": 50,
-    "candle": 60,
+    "candle": 90,
     "session": 65,
     "atr": 35,
-    "ml": 70
+    "ml": 100
   },
   "mtf": {
     "d1_dir": "BEARISH",
     "h4_dir": "BULLISH",
-    "h1_dir": "D1 BEARISH (H4 CONFLICT)",
-    "m30_dir": "D1 BEARISH (H4 CONFLICT)",
+    "h1_dir": "BULLISH",
+    "m30_dir": "BULLISH",
     "m15_dir": "BUY",
-    "d1_score": -25,
+    "d1_score": -18,
     "h4_score": 22,
-    "h1_score": 0,
-    "m30_score": 0,
+    "h1_score": 16,
+    "m30_score": 10,
     "m15_score": 0,
     "w1_d1_aligned": null,
     "d1_h4_aligned": null,
@@ -50,47 +50,47 @@
     "m30_m15_aligned": null
   },
   "indicators": {
-    "rsi_14": 59,
-    "macd_line": 5.1323,
-    "macd_signal": 4.853,
-    "macd_hist": 0.2793,
-    "bb_pct_b": 0.66,
-    "cvd": 0.98,
-    "current_cvd": 0.98,
-    "cvd_efficiency": 0.6,
-    "net_flow": 1427,
+    "rsi_14": 71.5,
+    "macd_line": 6.5696,
+    "macd_signal": 5.4317,
+    "macd_hist": 1.1379,
+    "bb_pct_b": 0.98,
+    "cvd": -0.08,
+    "current_cvd": -0.08,
+    "cvd_efficiency": 0.3,
+    "net_flow": 2042,
     "flow_direction": "NEUTRAL"
   },
   "levels": {
-    "entry_price": 4350.415,
+    "entry_price": 4366.023,
     "support_price": 4310.866,
     "resistance_price": null,
     "nearest_support": 4310.866,
     "nearest_resistance": null
   },
   "risk": {
-    "atr": 3.6666666666666665,
-    "atr_points": 5.5,
+    "atr": 3.9333333333333336,
+    "atr_points": 5.9,
     "spread_points": 182,
-    "sl_pips": 5.5,
-    "tp_pips": 11,
+    "sl_pips": 5.9,
+    "tp_pips": 11.8,
     "risk_reward": 2
   },
-  "entry_strength": "PARTIAL CORE",
+  "entry_strength": "CORE PERFECT",
   "signal_consistency": 0,
   "adaptive_lookback": 50,
   "filter_reason": "OFF",
   "hierarchy_reason": "OFF",
   "smc": {
     "warning": true,
-    "confluence": 1
+    "confluence": 2
   },
   "roll_under_reco": "HOLD",
-  "inferred_reversal": "BUY",
+  "inferred_reversal": "NONE",
   "reversal_confidence": 0,
   "safety": {
-    "status": "OK",
-    "violated": 0,
+    "status": "1 VIOLATED",
+    "violated": 1,
     "total": 6
   },
   "primary_context": "H4+H1 MOMENTUM",
@@ -102,16 +102,16 @@
   "divergence_downgraded": false,
   "market_prices": {
     "XAUUSD": {
-      "bid": 4350.704,
-      "ask": 4350.886,
-      "spread": 182,
+      "bid": 4366.013,
+      "ask": 4366.195,
+      "spread": 181,
       "digits": 3,
-      "last": 4350.704,
-      "time": 1786705688,
-      "time_utc": 1786705689.7155437,
+      "last": 4366.013,
+      "time": 1786708625,
+      "time_utc": 1786708625.4189065,
       "stale": false,
-      "tick_age": 0.7,
-      "change": -0.14,
+      "tick_age": 0.4,
+      "change": 0.21,
       "daily_high": 4362.237,
       "daily_low": 4310.866
     }
@@ -313,10 +313,10 @@
     "recent_alerts": []
   },
   "pipeline_health": {
-    "health_score": 0.253,
-    "signals_per_hour": 595,
-    "entry_rate": 0,
-    "cr_rejection_rate": 1,
+    "health_score": 0.5913,
+    "signals_per_hour": 603,
+    "entry_rate": 0.0021,
+    "cr_rejection_rate": 0.9979,
     "baseline_arrival": 273,
     "baseline_entry_pct": 0.061,
     "baseline_cr_pct": 0.61
@@ -324,7 +324,7 @@
   "system_analysis": {
     "enabled": true,
     "running": true,
-    "last_run_ts": 1786705292.267581,
+    "last_run_ts": 1786707995.2595856,
     "proposals_open": 11,
     "proposals_total": 11,
     "reports_total": 64,
@@ -336,68 +336,68 @@
     },
     "collectors": {
       "pipeline": {
-        "emits": 1,
-        "last_emit_age_s": 410.7,
+        "emits": 4,
+        "last_emit_age_s": 647.8,
         "last_error": null
       },
       "ai": {
-        "emits": 1,
-        "last_emit_age_s": 410.7,
+        "emits": 4,
+        "last_emit_age_s": 647.8,
         "last_error": null
       },
       "cr_engine": {
-        "emits": 1,
-        "last_emit_age_s": 410.7,
+        "emits": 4,
+        "last_emit_age_s": 647.8,
         "last_error": null
       },
       "filter": {
-        "emits": 1,
-        "last_emit_age_s": 410.7,
+        "emits": 4,
+        "last_emit_age_s": 647.8,
         "last_error": null
       },
       "safety": {
-        "emits": 1,
-        "last_emit_age_s": 410.7,
+        "emits": 4,
+        "last_emit_age_s": 647.8,
         "last_error": null
       },
       "trade": {
-        "emits": 1,
-        "last_emit_age_s": 410.7,
+        "emits": 4,
+        "last_emit_age_s": 647.8,
         "last_error": null
       },
       "db": {
-        "emits": 1,
-        "last_emit_age_s": 410.7,
+        "emits": 4,
+        "last_emit_age_s": 647.7,
         "last_error": null
       },
       "mt5": {
-        "emits": 1,
-        "last_emit_age_s": 410.7,
+        "emits": 4,
+        "last_emit_age_s": 647.7,
         "last_error": null
       },
       "system": {
-        "emits": 1,
-        "last_emit_age_s": 410.7,
+        "emits": 4,
+        "last_emit_age_s": 647.7,
         "last_error": null
       },
       "signal_pipeline": {
-        "emits": 1,
-        "last_emit_age_s": 410.7,
+        "emits": 4,
+        "last_emit_age_s": 647.7,
         "last_error": null
       },
       "outcome_quality": {
-        "emits": 1,
-        "last_emit_age_s": 410.7,
+        "emits": 4,
+        "last_emit_age_s": 647.7,
         "last_error": null
       },
       "gating_effectiveness": {
-        "emits": 1,
-        "last_emit_age_s": 410.6,
+        "emits": 4,
+        "last_emit_age_s": 647.7,
         "last_error": null
       },
       "counterfactual": {
-        "emits": 1,
-        "last_emit_age_s": 400.8,
+        "emits": 4,
+        "last_emit_age_s": 632,
         "last_error": null
       }
     }
@@ -407,12 +407,14 @@
     "next_events": []
   },
   "cr_engine_stats": {
-    "total_processed": 70,
+    "total_processed": 566,
     "total_rejected": 0,
-    "total_tradeable": 0,
+    "total_tradeable": 216,
     "by_verdict": {
-      "CAUTION": 49,
-      "LOW": 21
+      "CAUTION": 261,
+      "LOW": 89,
+      "MODERATE": 182,
+      "HIGH_CONFIDENCE": 34
     },
     "by_reject_reason": {},
     "tcip_cache_evictions": 0,
@@ -430,7 +432,7 @@
     "last_layer_health": {
       "tcip": {
         "status": "ok",
-        "score": 30,
+        "score": 51.2,
         "weight": 0.35,
         "status_history": [
           "ok",
@@ -446,7 +448,7 @@
       },
       "bar": {
         "status": "ok",
-        "score": 65,
+        "score": 95,
         "weight": 0.03,
         "status_history": [
           "ok",
@@ -478,7 +480,7 @@
       },
       "candle": {
         "status": "ok",
-        "score": 60,
+        "score": 90,
         "weight": 0.1,
         "status_history": [
           "ok",
@@ -514,8 +516,8 @@
         "weight": 0.05,
         "status_history": [
           "ok",
-          "no_context",
-          "no_context",
+          "ok",
+          "ok",
           "ok",
           "ok",
           "ok",
@@ -526,7 +528,7 @@
       },
       "history": {
         "status": "ok",
-        "score": 50,
+        "score": 57.3,
         "weight": 0.03,
         "status_history": [
           "ok",
@@ -542,7 +544,7 @@
       },
       "ml": {
         "status": "ok",
-        "score": 70,
+        "score": 100,
         "weight": 0.25,
         "status_history": [
           "ok",
@@ -565,8 +567,22 @@
     "layer_last_event_ts": {},
     "layer_cooldown_remaining": {}
   },
-  "open_positions": 0,
-  "open_details": [],
+  "open_positions": 1,
+  "open_details": [
+    {
+      "symbol": "XAUUSD",
+      "type": "BUY",
+      "entry_price": 4363.131,
+      "sl": 4341.269,
+      "tp": 4406.715,
+      "lot": 0.01,
+      "profit": 2.88,
+      "current_price": 4366.013,
+      "trail_level": 0,
+      "trail_label": "",
+      "profit_locked": 0
+    }
+  ],
   "recent_signals": [
     {
       "symbol": "TEST",
