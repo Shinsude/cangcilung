@@ -1704,7 +1704,6 @@ function esc(s) {
 }
 
 document.addEventListener("DOMContentLoaded", function() {
-  init3DEngine();
   // Static-mode build: no WebSocket / live API on cangcilung. The dashboard
   // is fed entirely from the repo's tcip-data/tcip-detail.json snapshot.
   setWSStatus('online');
@@ -1713,8 +1712,11 @@ document.addEventListener("DOMContentLoaded", function() {
   // leave the dashboard frozen on its initial skeleton state).
   setInterval(poll, 30000);
   try { poll(); } catch(e) { console.error('poll', e); setPollStatus(false); }
+  // 3D decoration is non-critical: never let it block data rendering.
+  try { init3DEngine(); } catch(e) { console.error('init3DEngine', e); }
 
-  let savedMin = localStorage.getItem('ksynth_minimal');
+  let savedMin = null;
+  try { savedMin = localStorage.getItem('ksynth_minimal'); } catch(e) {}
   if (savedMin === 'true') {
     state.minimal = true;
     document.querySelector('.app').classList.add('minimal');
@@ -1724,7 +1726,7 @@ document.addEventListener("DOMContentLoaded", function() {
     state.minimal = !state.minimal;
     document.querySelector('.app').classList.toggle('minimal', state.minimal);
     this.classList.toggle('active', state.minimal);
-    localStorage.setItem('ksynth_minimal', state.minimal ? 'true' : 'false');
+    try { localStorage.setItem('ksynth_minimal', state.minimal ? 'true' : 'false'); } catch(e) {}
   });
 
   state.m15TimerId = setInterval(function() {

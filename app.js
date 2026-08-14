@@ -1387,9 +1387,34 @@
     frame.className = 'dash-iframe';
     frame.setAttribute('src', 'sinyal-dashboard.html');
     frame.setAttribute('title', 'Dashboard Sinyal K-Synthesizer');
+    frame.addEventListener('error', function () { showSinyalFallback(body); });
     body.appendChild(frame);
     var sub = document.getElementById('sinyal-sub');
     if (sub) sub.textContent = 'Replika tcip.asia · auto-refresh 30 dtk';
+    // Jaring pengaman: jika iframe tak kunjung bisa dibuka di tab ini
+    // (cache response lama / perlindungan browser), tawarkan buka mandiri.
+    setTimeout(function () {
+      if (!body.querySelector('#sinyal-iframe')) return;
+      try {
+        var idoc = frame.contentDocument;
+        var ok = idoc && idoc.body && (idoc.body.textContent || '').trim().length > 40;
+        if (!ok) showSinyalFallback(body);
+      } catch (err) { showSinyalFallback(body); }
+    }, 6000);
+  }
+
+  function showSinyalFallback(body) {
+    if (!body || body.querySelector('#sinyal-fallback')) return;
+    var box = mk('div', 'dash-error', 'Dashboard gagal dimuat di tab ini — buka langsung di tab baru.');
+    box.id = 'sinyal-fallback';
+    var link = mk('a', 'ghost-btn', 'Buka Dashboard Sinyal ⟶');
+    link.href = 'sinyal-dashboard.html';
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.style.marginTop = '12px';
+    link.style.display = 'inline-block';
+    box.appendChild(link);
+    body.appendChild(box);
   }
 
   function detailUnavailableCard(lastcheck) {
