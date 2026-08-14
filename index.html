@@ -41,9 +41,9 @@
       <div class="modal-body">
         <label class="set-field">
           <span>Base URL Ollama</span>
-          <input type="text" id="set-baseurl" placeholder="http://localhost:11434">
+          <input type="text" id="set-baseurl" placeholder="http://localhost:8080">
         </label>
-        <p class="set-hint">Alamat server Ollama di perangkat Anda. Untuk diakses dari HP/perangkat lain, jalankan Ollama dengan <code>OLLAMA_HOST=0.0.0.0</code> lalu isi alamat LAN (mis. <code>http://192.168.1.5:11434</code>). CORS: set <code>OLLAMA_ORIGINS=*</code>.</p>
+          <p class="set-hint">Alamat server AI lokal di perangkat Anda (kompatibel dengan llama.cpp, Ollama, LM Studio, dsb. — API standar OpenAI). Untuk diakses dari HP/perangkat lain, jalankan server agar bisa dijangkau LAN (mis. bind <code>0.0.0.0</code>) dan izinkan CORS, lalu isi alamat LAN (mis. <code>http://192.168.1.5:8080</code>).</p>
         <label class="set-field">
           <span>Model</span>
           <input type="text" id="set-model" placeholder="contoh: dolphin-mixtral, llama3">

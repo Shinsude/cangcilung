@@ -7,7 +7,7 @@
   'use strict';
 
   var SYSTEM = 'Kamu adalah cangcilung, asisten AI dewasa yang ramah, terus terang, dan membantu. Jawab dalam bahasa Indonesia.';
-  var DEFAULT_BASE = 'http://localhost:11434';
+  var DEFAULT_BASE = 'http://localhost:8080';
   var HISTORY_KEY = 'cangcilung_history';
   var SETTINGS_KEY = 'cangcilung_settings';
 
@@ -224,7 +224,7 @@
         }
         bubble.classList.remove('typing');
         renderMarkdown(bubble, full || '⚠️ Gagal menghubungi model lokal.');
-        setStatus('Error: ' + (err && err.message ? err.message : err) + '. Cek apakah Ollama jalan & CORS diizinkan (OLLAMA_ORIGINS=*).', true);
+        setStatus('Error: ' + (err && err.message ? err.message : err) + '. Cek apakah server AI lokal jalan & CORS diizinkan.', true);
         busy = false;
         $('btn-send').disabled = false;
       });
@@ -256,14 +256,30 @@
     var st = $('set-status');
     st.textContent = 'Menguji koneksi...';
     st.className = 'set-status';
-    fetch(url + '/api/tags', { signal: AbortSignal.timeout(5000) })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
+    function probeModels(base) {
+      return fetch(base + '/v1/models', { signal: AbortSignal.timeout(5000) })
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function (j) {
+          var rows = j.data || [];
+          return rows.map(function (m) { return m.id; });
+        });
+    }
+    probeModels(url)
+      .catch(function () {
+        return fetch(url + '/api/tags', { signal: AbortSignal.timeout(5000) })
+          .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+          })
+          .then(function (j) {
+            return (j.models || []).map(function (m) { return m.name; });
+          });
       })
-      .then(function (j) {
-        var models = (j.models || []).map(function (m) { return m.name; });
-        st.textContent = 'Koneksi OK. Model tersedia: ' + (models.length ? models.join(', ') : 'tidak ada (jalankan ollama pull).');
+      .then(function (models) {
+        st.textContent = 'Koneksi OK. Model tersedia: ' + (models.length ? models.join(', ') : 'tidak ada. Pull/pilih model di server Anda dulu.');
         st.className = 'set-status ok';
         if (!settings.model && models.length === 1) {
           $('set-model').value = models[0];
