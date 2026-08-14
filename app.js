@@ -7,7 +7,8 @@
   'use strict';
 
   var SYSTEM = 'Kamu adalah cangcilung, asisten AI dewasa yang ramah, terus terang, dan membantu. Jawab dalam bahasa Indonesia.';
-  var DEFAULT_BASE = 'http://localhost:8080';
+  var DEFAULT_BASE = '';
+  var DEFAULT_PORT = 8080;
   var HISTORY_KEY = 'cangcilung_history';
   var SETTINGS_KEY = 'cangcilung_settings';
 
@@ -51,7 +52,7 @@
   }
 
   function baseUrl() {
-    return settings.baseUrl.replace(/\/+$/, '') || DEFAULT_BASE;
+    return settings.baseUrl.replace(/\/+$/, '');
   }
 
   function connSub() {
@@ -59,7 +60,7 @@
     if (!el) return;
     el.textContent = settings.model
       ? 'Model lokal · ' + settings.model
-      : 'Model lokal · ' + baseUrl();
+      : 'Model lokal · ' + (baseUrl() || window.location.hostname + ':' + DEFAULT_PORT);
   }
 
   function setStatus(msg, isError) {
@@ -252,7 +253,7 @@
   }
 
   function testConnection() {
-    var url = $('set-baseurl').value.trim().replace(/\/+$/, '') || DEFAULT_BASE;
+    var url = $('set-baseurl').value.trim().replace(/\/+$/, '');
     var st = $('set-status');
     st.textContent = 'Menguji koneksi...';
     st.className = 'set-status';
