@@ -1,46 +1,46 @@
 {
-  "generatedAt": 1786692166954,
+  "generatedAt": 1786702062334,
   "symbol": "XAUUSD",
   "timeframe": "M15",
   "direction": "SELL",
   "confidence": 0,
-  "grade": "BPLUS",
+  "grade": "NEUTRAL",
   "phase": "FORMING",
   "risk_level": "MODERATE",
-  "verdict": "REJECT",
+  "verdict": "CAUTION",
   "final_reco": "",
-  "regime": "TACTICAL NEUTRAL",
-  "decomp_regime": "CHOP",
+  "regime": "TACTICAL MOVE",
+  "decomp_regime": "RANGING",
   "volatility_regime": "LOW",
   "stability": "LOW",
   "is_stale": false,
-  "ts_intrinsic": 22.9,
-  "ts_snr": 0.297,
-  "weighted_alignment": 0.49634999999999996,
+  "ts_intrinsic": 56.6,
+  "ts_snr": 1.303,
+  "weighted_alignment": 0.58,
   "trend_consistency_pct": 100,
-  "composite_score": 46,
-  "confluence_score": -1,
-  "tech_score": 42.2,
+  "composite_score": 58.8,
+  "confluence_score": 44.2,
+  "tech_score": 60.3,
   "coherence_score": 50,
-  "institutional_flow_score": 49,
+  "institutional_flow_score": 56.6,
   "ml_confidence": 0,
   "layers": {
-    "tcip": 42.8,
-    "key": 62,
+    "tcip": 22.5,
+    "key": 50,
     "candle": 60,
-    "session": 43,
-    "atr": 65,
-    "ml": 39.5
+    "session": 70,
+    "atr": 35,
+    "ml": 100
   },
   "mtf": {
-    "d1_dir": "BULLISH",
-    "h4_dir": "BEARISH",
-    "h1_dir": "BEARISH",
-    "m30_dir": "BEARISH",
+    "d1_dir": "BEARISH",
+    "h4_dir": "BULLISH",
+    "h1_dir": "BULLISH",
+    "m30_dir": "BULLISH",
     "m15_dir": "SELL",
-    "d1_score": 18,
-    "h4_score": -18,
-    "h1_score": -6,
+    "d1_score": -25,
+    "h4_score": 22,
+    "h1_score": 7,
     "m30_score": 0,
     "m15_score": 0,
     "w1_d1_aligned": null,
@@ -50,43 +50,43 @@
     "m30_m15_aligned": null
   },
   "indicators": {
-    "rsi_14": 47.1,
-    "macd_line": -1.1044,
-    "macd_signal": 0.124,
-    "macd_hist": -1.2284,
-    "bb_pct_b": 0.38,
-    "cvd": 0.22,
-    "current_cvd": 0.22,
+    "rsi_14": 69.9,
+    "macd_line": 6.3125,
+    "macd_signal": 4.0031,
+    "macd_hist": 2.3094,
+    "bb_pct_b": 0.88,
+    "cvd": -0.05,
+    "current_cvd": -0.05,
     "cvd_efficiency": 0.3,
-    "net_flow": -314,
+    "net_flow": 1818,
     "flow_direction": "NEUTRAL"
   },
   "levels": {
-    "entry_price": 4409.803,
-    "support_price": 4396.098,
-    "resistance_price": 4418.49,
-    "nearest_support": 4396.098,
-    "nearest_resistance": 4418.49
+    "entry_price": 4357.555,
+    "support_price": 4310.866,
+    "resistance_price": 4364.272,
+    "nearest_support": 4310.866,
+    "nearest_resistance": 4364.272
   },
   "risk": {
-    "atr": 6.466666666666666,
-    "atr_points": 9.7,
+    "atr": 4.3999999999999995,
+    "atr_points": 6.6,
     "spread_points": 182,
-    "sl_pips": 9.7,
-    "tp_pips": 19.4,
+    "sl_pips": 6.6,
+    "tp_pips": 13.2,
     "risk_reward": 2
   },
-  "entry_strength": "CORE STRONG",
+  "entry_strength": "PARTIAL CORE",
   "signal_consistency": 0,
   "adaptive_lookback": 50,
-  "filter_reason": "NO DOMINANT SIDE",
-  "hierarchy_reason": "OVERRIDE ACTIVE",
+  "filter_reason": "OFF",
+  "hierarchy_reason": "OFF",
   "smc": {
     "warning": true,
-    "confluence": 5
+    "confluence": 3
   },
   "roll_under_reco": "HOLD",
-  "inferred_reversal": "NONE",
+  "inferred_reversal": "SELL",
   "reversal_confidence": 0,
   "safety": {
     "status": "1 VIOLATED",
@@ -94,40 +94,26 @@
     "total": 6
   },
   "primary_context": "H4+H1 MOMENTUM",
-  "primary_bias": "D1 BULLISH (H4 CONFLICT)",
+  "primary_bias": "D1 BEARISH (H4 CONFLICT)",
   "signal_age_s": 1,
-  "market_quality": "INEFFICIENT +VOL",
-  "session_name": "TOKYO (LOW-MED)",
+  "market_quality": "INEFFICIENT",
+  "session_name": "LONDON (HIGH)",
   "divergence_status": "NONE",
   "divergence_downgraded": false,
   "market_prices": {
     "XAUUSD": {
-      "bid": 4409.798,
-      "ask": 4409.98,
+      "bid": 4357.284,
+      "ask": 4357.466,
       "spread": 182,
-      "time": 1786592085,
-      "time_utc": 1786592085.979613,
+      "time": 1786702061,
+      "time_utc": 1786702062.1089857,
       "stale": false,
-      "tick_age": 1,
+      "tick_age": 1.1,
       "digits": 3,
-      "last": 4409.798,
-      "change": -0.1,
-      "daily_high": 4449.817,
-      "daily_low": 4398.86
-    },
-    "USTEC": {
-      "bid": 29790.25,
-      "ask": 29791.14,
-      "spread": 89,
-      "time": 1786592081,
-      "time_utc": 1786592085.98004,
-      "stale": false,
-      "tick_age": 5,
-      "digits": 2,
-      "last": 29790.25,
-      "change": 0.22,
-      "daily_high": 29797.5,
-      "daily_low": 29715.51
+      "last": 4357.232,
+      "change": 0.01,
+      "daily_high": 4362.237,
+      "daily_low": 4310.866
     }
   },
   "pnl_summary": {
@@ -137,23 +123,31 @@
       "win_rate": 0
     },
     "week": {
-      "pnl": -154.84,
-      "trades": 49,
-      "win_rate": 65.3
+      "pnl": -165.6,
+      "trades": 33,
+      "win_rate": 60.6
     },
     "month": {
-      "pnl": 177.08,
-      "trades": 108,
-      "win_rate": 72.2
+      "pnl": 212,
+      "trades": 117,
+      "win_rate": 71.8
     },
     "daily_breakdown": [
       {
-        "date": "2026-08-13",
+        "date": "2026-08-14",
         "trades": 0,
         "wins": 0,
         "losses": 0,
         "pnl": 0,
         "win_rate": 0
+      },
+      {
+        "date": "2026-08-13",
+        "trades": 9,
+        "wins": 6,
+        "losses": 3,
+        "pnl": 34.92000000000001,
+        "win_rate": 66.66666666666666
       },
       {
         "date": "2026-08-12",
@@ -287,90 +281,28 @@
     "loading": false
   },
   "ml_status": {
-    "trained": true,
-    "retrain_count": 24,
-    "total_outcomes": 141,
-    "accuracy": 0.7576,
+    "trained": false,
+    "retrain_count": 0,
+    "total_outcomes": 5,
+    "accuracy": 0,
     "pattern_rates": [
       {
-        "pattern": "BPLUS_SELL",
-        "wins": 1,
-        "losses": 0,
-        "total": 1,
-        "win_rate": 1
-      },
-      {
-        "pattern": "SPINNING_TOP",
-        "wins": 1,
-        "losses": 0,
-        "total": 1,
-        "win_rate": 1
-      },
-      {
-        "pattern": "INSIDE_BAR",
-        "wins": 1,
-        "losses": 0,
-        "total": 1,
-        "win_rate": 1
-      },
-      {
         "pattern": "UNKNOWN",
-        "wins": 66,
-        "losses": 34,
-        "total": 100,
-        "win_rate": 0.66
-      },
-      {
-        "pattern": "ULTIMATE_BUY",
-        "wins": 1,
-        "losses": 1,
-        "total": 2,
-        "win_rate": 0.5
-      },
-      {
-        "pattern": "RECONCILE",
-        "wins": 1,
-        "losses": 1,
-        "total": 2,
-        "win_rate": 0.5
+        "wins": 3,
+        "losses": 2,
+        "total": 5,
+        "win_rate": 0.6
       }
     ],
     "calibration": [
       {
-        "bucket": "40-49%",
-        "total": 1,
-        "wins": 1,
-        "win_rate": 1
-      },
-      {
         "bucket": "50-59%",
-        "total": 106,
-        "wins": 70,
-        "win_rate": 0.6604
+        "total": 5,
+        "wins": 3,
+        "win_rate": 0.6
       }
     ],
-    "feature_importance": [
-      {
-        "feature": "body_ratio",
-        "importance": 0.276
-      },
-      {
-        "feature": "body",
-        "importance": 0.1421
-      },
-      {
-        "feature": "lag_1",
-        "importance": 0.0773
-      },
-      {
-        "feature": "shadow_lower",
-        "importance": 0.0696
-      },
-      {
-        "feature": "shadow_upper",
-        "importance": 0.0693
-      }
-    ],
+    "feature_importance": [],
     "drift": {
       "window_size": 200,
       "current_samples": 0,
@@ -381,23 +313,23 @@
     "recent_alerts": []
   },
   "pipeline_health": {
-    "health_score": 0.3181,
-    "signals_per_hour": 175,
-    "entry_rate": 0.0631,
-    "cr_rejection_rate": 0.9369,
-    "baseline_arrival": 671,
-    "baseline_entry_pct": 26.767,
-    "baseline_cr_pct": 6.91
+    "health_score": 0.15,
+    "signals_per_hour": 32,
+    "entry_rate": 0,
+    "cr_rejection_rate": 1,
+    "baseline_arrival": 273,
+    "baseline_entry_pct": 0.061,
+    "baseline_cr_pct": 0.61
   },
   "system_analysis": {
     "enabled": true,
     "running": true,
-    "last_run_ts": 1786591550.9689224,
-    "proposals_open": 131,
-    "proposals_total": 296,
-    "reports_total": 701,
+    "last_run_ts": 1786701888.0363226,
+    "proposals_open": 11,
+    "proposals_total": 11,
+    "reports_total": 64,
     "latest_proposal": {
-      "title": "Correlation: all_filters_fail_rate ~ pipeline_health_score (r=-0.92)",
+      "title": "Correlation: signal_arrival_rate ~ pipeline_health_score (r=-0.86)",
       "target_loop": "cr_engine",
       "status": "pending",
       "priority": 2
@@ -405,121 +337,87 @@
     "collectors": {
       "pipeline": {
         "emits": 1,
-        "last_emit_age_s": 539.6,
+        "last_emit_age_s": 188.1,
         "last_error": null
       },
       "ai": {
         "emits": 1,
-        "last_emit_age_s": 539.6,
+        "last_emit_age_s": 188.1,
         "last_error": null
       },
       "cr_engine": {
         "emits": 1,
-        "last_emit_age_s": 539.6,
+        "last_emit_age_s": 188.1,
         "last_error": null
       },
       "filter": {
         "emits": 1,
-        "last_emit_age_s": 539.6,
+        "last_emit_age_s": 188.1,
         "last_error": null
       },
       "safety": {
         "emits": 1,
-        "last_emit_age_s": 539.6,
+        "last_emit_age_s": 188.1,
         "last_error": null
       },
       "trade": {
         "emits": 1,
-        "last_emit_age_s": 539.6,
+        "last_emit_age_s": 188.1,
         "last_error": null
       },
       "db": {
         "emits": 1,
-        "last_emit_age_s": 539.6,
+        "last_emit_age_s": 188,
         "last_error": null
       },
       "mt5": {
         "emits": 1,
-        "last_emit_age_s": 539.6,
+        "last_emit_age_s": 188,
         "last_error": null
       },
       "system": {
         "emits": 1,
-        "last_emit_age_s": 539.6,
+        "last_emit_age_s": 188,
         "last_error": null
       },
       "signal_pipeline": {
         "emits": 1,
-        "last_emit_age_s": 539.6,
+        "last_emit_age_s": 188,
         "last_error": null
       },
       "outcome_quality": {
         "emits": 1,
-        "last_emit_age_s": 539.6,
+        "last_emit_age_s": 188,
         "last_error": null
       },
       "gating_effectiveness": {
         "emits": 1,
-        "last_emit_age_s": 539.6,
+        "last_emit_age_s": 188,
         "last_error": null
       },
       "counterfactual": {
         "emits": 1,
-        "last_emit_age_s": 539.5,
+        "last_emit_age_s": 178.1,
         "last_error": null
       }
     }
   },
   "eco_cal": {
     "blocked": false,
-    "next_events": [
-      {
-        "name": "GDP m/m",
-        "timestamp": 1786600800,
-        "currency": "GBP",
-        "impact": "HIGH",
-        "is_high": true,
-        "is_speech": false,
-        "time_utc": "06:00",
-        "minutes_away": 145,
-        "event": "GDP m/m"
-      },
-      {
-        "name": "Prelim GDP q/q",
-        "timestamp": 1786600800,
-        "currency": "GBP",
-        "impact": "HIGH",
-        "is_high": true,
-        "is_speech": false,
-        "time_utc": "06:00",
-        "minutes_away": 145,
-        "event": "Prelim GDP q/q"
-      },
-      {
-        "name": "PPI m/m",
-        "timestamp": 1786602600,
-        "currency": "CHF",
-        "impact": "HIGH",
-        "is_high": true,
-        "is_speech": false,
-        "time_utc": "06:30",
-        "minutes_away": 175,
-        "event": "PPI m/m"
-      }
-    ]
+    "next_events": []
   },
   "cr_engine_stats": {
-    "total_processed": 175,
-    "total_rejected": 0,
-    "total_tradeable": 92,
+    "total_processed": 32,
+    "total_rejected": 1,
+    "total_tradeable": 3,
     "by_verdict": {
-      "MODERATE": 63,
-      "LOW": 77,
-      "CAUTION": 6,
-      "MAX_CONVICTION": 16,
-      "HIGH_CONFIDENCE": 13
+      "CAUTION": 20,
+      "LOW": 8,
+      "MODERATE": 3
     },
-    "by_reject_reason": {},
+    "by_reject_reason": {
+      "BAD_ENTRY_STRENGTH": 1
+    },
     "tcip_cache_evictions": 0,
     "config": {
       "tcip_weight": 0.35,
@@ -535,7 +433,7 @@
     "last_layer_health": {
       "tcip": {
         "status": "ok",
-        "score": 42.8,
+        "score": 30,
         "weight": 0.35,
         "status_history": [
           "ok",
@@ -551,7 +449,7 @@
       },
       "bar": {
         "status": "ok",
-        "score": 65,
+        "score": 25,
         "weight": 0.03,
         "status_history": [
           "ok",
@@ -567,7 +465,7 @@
       },
       "key_level": {
         "status": "ok",
-        "score": 62,
+        "score": 50,
         "weight": 0.08,
         "status_history": [
           "ok",
@@ -599,7 +497,7 @@
       },
       "session": {
         "status": "ok",
-        "score": 43,
+        "score": 70,
         "weight": 0.04,
         "status_history": [
           "ok",
@@ -615,7 +513,7 @@
       },
       "atr": {
         "status": "ok",
-        "score": 65,
+        "score": 35,
         "weight": 0.05,
         "status_history": [
           "ok",
@@ -631,23 +529,23 @@
       },
       "history": {
         "status": "ok",
-        "score": 50,
+        "score": 52.4,
         "weight": 0.03,
         "status_history": [
-          "no_context",
           "ok",
-          "no_context",
           "ok",
-          "no_context",
           "ok",
-          "no_context",
+          "ok",
+          "ok",
+          "ok",
+          "ok",
           "ok"
         ],
         "streak_started": null
       },
       "ml": {
         "status": "ok",
-        "score": 39.5,
+        "score": 100,
         "weight": 0.25,
         "status_history": [
           "ok",
@@ -673,14 +571,14 @@
   "open_positions": 1,
   "open_details": [
     {
-      "symbol": "USTEC",
+      "symbol": "XAUUSD",
       "type": "BUY",
-      "entry_price": 29795.39,
-      "sl": 29710.39,
-      "tp": 29935.39,
-      "lot": 0.06,
-      "profit": -0.31,
-      "current_price": 29790.25,
+      "entry_price": 4358.295,
+      "sl": 4351.642,
+      "tp": 4371.442,
+      "lot": 0.03,
+      "profit": -3.04,
+      "current_price": 4357.284,
       "trail_level": 0,
       "trail_label": "",
       "profit_locked": 0
@@ -695,7 +593,7 @@
       "verdict": "",
       "unified_score": 0,
       "outcome": "WIN",
-      "timestamp": 1786590001.0451198
+      "timestamp": 1786644544.1540873
     },
     {
       "symbol": "TEST",
@@ -705,7 +603,7 @@
       "verdict": "",
       "unified_score": 0,
       "outcome": "WIN",
-      "timestamp": 1786589586.0627117
+      "timestamp": 1786642036.624214
     },
     {
       "symbol": "TEST",
@@ -715,7 +613,7 @@
       "verdict": "",
       "unified_score": 0,
       "outcome": "WIN",
-      "timestamp": 1786589168.9427612
+      "timestamp": 1786639255.8138275
     },
     {
       "symbol": "TEST",
@@ -725,7 +623,7 @@
       "verdict": "",
       "unified_score": 0,
       "outcome": "WIN",
-      "timestamp": 1786560415.4319847
+      "timestamp": 1786635808.6583378
     },
     {
       "symbol": "TEST",
@@ -735,9 +633,7 @@
       "verdict": "",
       "unified_score": 0,
       "outcome": "WIN",
-      "timestamp": 1786560085.4523447
+      "timestamp": 1786634399.045688
     }
-  ],
-  "seeded_from": "tcip_probe.json (snapshot API asli sebelum offline)",
-  "seeded_at": 1786692166956
+  ]
 }
