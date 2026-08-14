@@ -1021,36 +1021,29 @@
     }
     if (data.detail) {
       var d = data.detail;
-      var i = d.insight || d;
+      var i = d.insight_data || d.insight || d;
       lines.push('Detail analisis K-Synthesizer (data lengkap):');
       lines.push('- Rezim: ' + (i.regime || 'n/a') + (i.decomp_regime ? ' / ' + i.decomp_regime : '') + (i.volatility_regime ? ' / volatilitas ' + i.volatility_regime : '') + (i.stability ? ' / stabilitas ' + i.stability : ''));
       if (i.verdict) lines.push('- Filter verdict: ' + i.verdict + (i.filter_reason ? ' (' + i.filter_reason + ')' : ''));
-      var L = d.layers || {};
-      if (L.tcip != null || L.key != null) {
-        var layerParts = [];
-        [['tcip', 'TCIP'], ['key', 'KEY'], ['candle', 'CANDLE'], ['session', 'SESN'], ['atr', 'ATR'], ['ml', 'ML']].forEach(function (k) {
-          if (L[k[0]] != null) layerParts.push(k[1] + ' ' + L[k[0]]);
-        });
-        if (layerParts.length) lines.push('- Skor lapisan: ' + layerParts.join(', '));
+      var layerMap = [['tcip_component', 'TCIP'], ['key_level_score', 'KEY'], ['candle_score', 'CANDLE'], ['bar_total_score', 'BAR'], ['session_score', 'SESN'], ['atr_score', 'ATR'], ['ml_component', 'ML'], ['composite_score', 'COMP']];
+      var L = i;
+      var layerParts = [];
+      layerMap.forEach(function (k) {
+        if (L[k[0]] != null) layerParts.push(k[1] + ' ' + L[k[0]]);
+      });
+      if (layerParts.length) lines.push('- Skor lapisan: ' + layerParts.join(', '));
+      var mtfParts = [];
+      [['d1', 'D1'], ['h4', 'H4'], ['h1', 'H1'], ['m30', 'M30'], ['m15', 'M15']].forEach(function (k) {
+        if (i['mtf_' + k[0] + '_dir']) mtfParts.push(k[1] + '=' + i['mtf_' + k[0] + '_dir']);
+      });
+      if (mtfParts.length) lines.push('- Multi-timeframe: ' + mtfParts.join(', '));
+      if (i.rsi_14 != null || i.macd_line != null) {
+        lines.push('- Indikator: ' + (i.rsi_14 != null ? 'RSI ' + i.rsi_14 : '') + (i.macd_line != null ? ' MACD ' + i.macd_line : '') + (i.bb_pct_b != null ? ' BB ' + i.bb_pct_b : '') + (i.current_cvd != null || i.cvd != null ? ' CVD ' + (i.current_cvd != null ? i.current_cvd : i.cvd) : ''));
       }
-      var mtf = d.mtf || {};
-      if (mtf.d1_dir || mtf.h4_dir) {
-        var mtfParts = [];
-        [['d1', 'D1'], ['h4', 'H4'], ['h1', 'H1'], ['m30', 'M30'], ['m15', 'M15']].forEach(function (k) {
-          if (mtf[k[0] + '_dir']) mtfParts.push(k[1] + '=' + mtf[k[0] + '_dir']);
-        });
-        lines.push('- Multi-timeframe: ' + mtfParts.join(', '));
-      }
-      var ind = d.indicators || {};
-      if (ind.rsi_14 != null || ind.macd_line != null) {
-        lines.push('- Indikator: ' + (ind.rsi_14 != null ? 'RSI ' + ind.rsi_14 : '') + (ind.macd_line != null ? ' MACD ' + ind.macd_line : '') + (ind.bb_pct_b != null ? ' BB ' + ind.bb_pct_b : '') + (ind.current_cvd != null || ind.cvd != null ? ' CVD ' + (ind.current_cvd != null ? ind.current_cvd : ind.cvd) : ''));
-      }
-      var lv = d.levels || {};
-      if (lv.entry_price != null) lines.push('- Level: entry ' + lv.entry_price + ' | support ' + (lv.support_price != null ? lv.support_price : 'n/a') + ' | resistance ' + (lv.resistance_price != null ? lv.resistance_price : 'n/a'));
-      var rk = d.risk || {};
-      if (rk.sl_pips != null || rk.risk_reward != null) lines.push('- Risiko: SL ' + (rk.sl_pips != null ? rk.sl_pips + 'p' : 'n/a') + ' | TP ' + (rk.tp_pips != null ? rk.tp_pips + 'p' : 'n/a') + ' | R:R ' + (rk.risk_reward != null ? rk.risk_reward : 'n/a'));
+      if (i.entry_price != null) lines.push('- Level: entry ' + i.entry_price + ' | support ' + (i.support_price != null ? i.support_price : 'n/a') + ' | resistance ' + (i.resistance_price != null ? i.resistance_price : 'n/a'));
+      if (i.suggested_sl_pips != null || i.risk_reward != null) lines.push('- Risiko: SL ' + (i.suggested_sl_pips != null ? i.suggested_sl_pips + 'p' : 'n/a') + ' | TP ' + (i.suggested_tp_pips != null ? i.suggested_tp_pips + 'p' : 'n/a') + ' | R:R ' + (i.risk_reward != null ? i.risk_reward : 'n/a'));
       if (i.entry_strength || i.primary_context) lines.push('- ' + (i.entry_strength ? 'Kekuatan entry: ' + i.entry_strength : '') + (i.primary_context ? ' | Konteks: ' + i.primary_context : ''));
-      if (d.smc && d.smc.warning != null) lines.push('- SMC warning: ' + (d.smc.warning ? 'ya' : 'tidak') + (d.smc.confluence != null ? ' (confluence ' + d.smc.confluence + ')' : ''));
+      if (i.smc_warning != null) lines.push('- SMC warning: ' + (i.smc_warning ? 'ya' : 'tidak') + (i.smc_confluence != null ? ' (confluence ' + i.smc_confluence + ')' : ''));
       if (d.pnl_summary) {
         var pnl = d.pnl_summary;
         lines.push('P&L riil bot: ' + (pnl.today && pnl.today.pnl != null ? 'hari ini $' + Number(pnl.today.pnl).toFixed(2) + ' (' + (pnl.today.trades || 0) + ' tr)' : '') + ' | ' + (pnl.week && pnl.week.pnl != null ? '7 hari $' + Number(pnl.week.pnl).toFixed(2) + ' (' + (pnl.week.trades || 0) + ' tr, WR ' + (pnl.week.win_rate != null ? pnl.week.win_rate + '%' : 'n/a') + ')' : '') + ' | ' + (pnl.month && pnl.month.pnl != null ? '30 hari $' + Number(pnl.month.pnl).toFixed(2) + ' (' + (pnl.month.trades || 0) + ' tr, WR ' + (pnl.month.win_rate != null ? pnl.month.win_rate + '%' : 'n/a') + ')' : ''));
@@ -1371,12 +1364,17 @@
       if (sub) sub.textContent = 'Diperbarui ' + new Date().toLocaleTimeString('id-ID') + ' · auto-refresh 2 mnt';
       body.innerHTML = '';
       body.appendChild(signalStatusCard(data));
-      body.appendChild(insightCard(data.detail));
-      body.appendChild(pnlCard(data.detail));
-      body.appendChild(mlCard(data.detail));
-      body.appendChild(marketCard(data.detail));
-      body.appendChild(pipelineCard(data.detail));
-      body.appendChild(ecoCard(data.detail));
+      if (data.detail) {
+        body.appendChild(insightCard(data.detail));
+        body.appendChild(positionsCard(data.detail));
+        body.appendChild(pnlCard(data.detail));
+        body.appendChild(mlCard(data.detail));
+        body.appendChild(marketCard(data.detail));
+        body.appendChild(pipelineCard(data.detail));
+        body.appendChild(ecoCard(data.detail));
+      } else {
+        body.appendChild(detailUnavailableCard(data.lastcheck));
+      }
       body.appendChild(learningsCard(data.learnings));
       body.appendChild(statsCard(data.stats));
       body.appendChild(pairsCard(data.stats));
@@ -1385,6 +1383,28 @@
     }).catch(function () {
       body.innerHTML = '<div class="dash-error">Gagal memuat data pantauan. Periksa koneksi lalu tekan ⟳ Muat ulang.</div>';
     });
+  }
+
+  function detailUnavailableCard(lastcheck) {
+    var card = mk('div', 'dash-card detail-empty');
+    var head = mk('div', 'dash-card-head');
+    head.appendChild(mk('h3', null, 'Galeri detail K-Synthesizer'));
+    head.appendChild(mk('span', 'st-bad', 'Belum tersedia'));
+    card.appendChild(head);
+    var lc = lastcheck || {};
+    var info = 'Monitor mencatat snapshot lengkap API (/public/dashboard) sebagai tcip-detail.json setiap berhasil mengontak tcip.asia. API sedang tidak merespons' +
+      (lc.status && lc.status !== 'online' ? ' (pantauan terakhir: ' + (lc.at ? new Date(lc.at).toLocaleString('id-ID') : 'belum pernah berhasil') + ')' : '') +
+      ', jadi kartu analisis, P&L, ML, market, pipeline, dan ekonomi belum bisa digenerate.';
+    var p = mk('p', 'dash-muted', info);
+    p.style.padding = '4px 0 8px';
+    card.appendChild(p);
+    var row = mk('div', 'detail-empty-cta');
+    var btn = mk('button', 'ghost-btn', '⟳ Muat ulang');
+    btn.setAttribute('type', 'button');
+    btn.addEventListener('click', function () { loadSinyal(); });
+    row.appendChild(btn);
+    card.appendChild(row);
+    return card;
   }
 
   function mk(tag, cls, text) {
@@ -1471,88 +1491,144 @@
 
   function insightCard(detail) {
     var d = detail || {};
-    var i = d.insight || d;
+    var i = d.insight_data || {};
     var card = mk('div', 'dash-card');
-    card.appendChild(mk('h3', null, 'Analisis K-Synthesizer'));
-    if (!d.generatedAt && !d.layers) {
-      card.appendChild(mk('p', 'dash-muted', 'Detail analisis belum tersedia (data lengkap mulai direkam monitor).'));
+    var head = mk('div', 'dash-card-head');
+    head.appendChild(mk('h3', null, 'Analisis K-Synthesizer'));
+    var mode = i.ai_available
+      ? mk('span', 'st-ok', i.ai_provider ? ('SYNTHESIZER · ' + i.ai_provider) : 'SYNTHESIZER')
+      : mk('span', 'st-bad', 'TCIP MODE');
+    head.appendChild(mode);
+    card.appendChild(head);
+    if (!i.symbol && !i.direction) {
+      card.appendChild(mk('p', 'dash-muted', 'Detail analisis belum tersedia (menunggu tcip-detail.json direkam monitor).'));
       return card;
     }
-    var verdict = mk('span', d.generatedAt ? 'st-ok' : 'st-bad');
-    verdict.textContent = 'Rezim: ' + (i.regime || 'n/a') + (i.decomp_regime ? ' · ' + i.decomp_regime : '');
-    card.appendChild(verdict);
 
-    var layers = d.layers || {};
-    var layerKeys = [['tcip', 'TCIP'], ['key', 'KEY'], ['candle', 'CANDLE'], ['session', 'SESN'], ['atr', 'ATR'], ['ml', 'ML']];
-    var hasLayers = layerKeys.some(function (k) { return layers[k[0]] != null; });
+    var sig = mk('div', 'sig-card sig-' + (i.direction === 'BUY' ? 'buy' : i.direction === 'SELL' ? 'sell' : 'hold'));
+    var sigRow = mk('div', 'sig-row');
+    sigRow.appendChild(dirBadge(i.direction));
+    var grade = mk('span', 'badge ' + (i.grade && i.grade.indexOf('A') === 0 ? 'badge-buy' : i.grade && i.grade.indexOf('C') === 0 ? 'badge-sell' : 'badge-hold'));
+    grade.textContent = i.grade || '—';
+    sigRow.appendChild(grade);
+    sig.appendChild(sigRow);
+
+    var grid = mk('div', 'dash-detail-grid');
+    grid.appendChild(dashCell('Simbol', i.symbol));
+    grid.appendChild(dashCell('Timeframe', i.timeframe));
+    grid.appendChild(dashCell('Confidence', i.confidence != null ? i.confidence + '%' : 'n/a'));
+    grid.appendChild(dashCell('Calibrated', i.calibrated_confidence != null ? i.calibrated_confidence + '%' : 'n/a'));
+    grid.appendChild(dashCell('Fase', i.phase || 'n/a'));
+    grid.appendChild(dashCell('Risiko', i.risk_level || 'n/a'));
+    grid.appendChild(dashCell('Regime', i.regime || 'n/a'));
+    grid.appendChild(dashCell('Rezim dekomp', i.decomp_regime || 'n/a'));
+    grid.appendChild(dashCell('Volatilitas', i.volatility_regime || 'n/a'));
+    grid.appendChild(dashCell('Stabilitas', i.stability || 'n/a'));
+    grid.appendChild(dashCell('Harga', i.current_price != null ? String(i.current_price) : 'n/a'));
+    grid.appendChild(dashCell('Spread', i.spread_points != null ? String(i.spread_points) + 'p' : 'n/a'));
+    sig.appendChild(grid);
+    card.appendChild(sig);
+
+    var layers = [
+      ['tcip_component', 'TCIP'], ['key_level_score', 'KEY'], ['candle_score', 'CNDL'],
+      ['bar_total_score', 'BAR'], ['session_score', 'SESN'], ['atr_score', 'ATR'],
+      ['ml_component', 'ML'], ['composite_score', 'COMP']
+    ];
+    var hasLayers = layers.some(function (k) { return i[k[0]] != null; });
     if (hasLayers) {
       card.appendChild(mk('h4', 'dash-sub', 'Skor lapisan (0–100)'));
       var tiles = mk('div', 'dash-tiles');
-      var sum = 0, cnt = 0;
-      layerKeys.forEach(function (k) {
-        var v = layers[k[0]];
+      layers.forEach(function (k) {
+        var v = i[k[0]];
         if (v == null) return;
-        sum += v; cnt++;
         tiles.appendChild(tile(k[1], String(v), v >= 60 ? 'tile-win' : v <= 40 ? 'tile-loss' : ''));
       });
-      if (cnt) tiles.appendChild(tile('RATA', (sum / cnt).toFixed(0)));
       card.appendChild(tiles);
     }
 
-    var mtf = d.mtf || {};
-    if (mtf.d1_dir || mtf.h4_dir || mtf.h1_dir) {
-      card.appendChild(mk('h4', 'dash-sub', 'Arah multi-timeframe'));
-      var mrows = [
-        ['D1', mtf.d1_dir, mtf.d1_score], ['H4', mtf.h4_dir, mtf.h4_score],
-        ['H1', mtf.h1_dir, mtf.h1_score], ['M30', mtf.m30_dir, mtf.m30_score],
-        ['M15', mtf.m15_dir, mtf.m15_score]
-      ];
-      var mtrs = mrows.map(function (m) {
-        var dir = m[1] || '—';
+    var mtf = ['d1', 'h4', 'h1', 'm30', 'm15'].filter(function (tf) { return i['mtf_' + tf + '_dir'] != null; });
+    if (mtf.length) {
+      card.appendChild(mk('h4', 'dash-sub', 'Arah multi-timeframe' + (i.weighted_alignment != null ? ' · alignment ' + (i.weighted_alignment * 100).toFixed(0) + '%' : '')));
+      var mrows = mtf.map(function (tf) {
+        var dir = i['mtf_' + tf + '_dir'];
+        var score = i['mtf_' + tf + '_score'];
         var b = mk('span', 'badge ' + (dir.indexOf('SELL') > -1 || dir.indexOf('BEAR') > -1 ? 'badge-sell' : dir.indexOf('BUY') > -1 || dir.indexOf('BULL') > -1 ? 'badge-buy' : 'badge-hold'));
         b.textContent = dir;
-        return [m[0] + ' (' + (m[2] != null ? Math.round(m[2]) : '—') + ')', b];
+        return [tf.toUpperCase() + (score != null ? ' (' + Math.round(score) + ')' : ''), b];
       });
-      mtrs.push(['Aligment', (d.weighted_alignment != null ? (d.weighted_alignment * 100).toFixed(0) + '%' : '—')]);
-      card.appendChild(dashTable(['TF', 'Arah'], mtrs));
+      card.appendChild(dashTable(['TF', 'Arah'], mrows));
     }
 
-    var ind = d.indicators || {};
-    var levels = d.levels || {};
-    var risk = d.risk || {};
-    if (ind.rsi_14 != null || levels.entry_price != null) {
+    var indFields = [
+      ['rsi_14', 'RSI (14)'], ['macd_hist', 'MACD hist'], ['bb_pct_b', '%B'],
+      ['current_cvd', 'CVD'], ['net_flow', 'Net flow'], ['entry_price', 'Entry'],
+      ['support_price', 'Support'], ['resistance_price', 'Resistance'],
+      ['suggested_sl_pips', 'SL'], ['suggested_tp_pips', 'TP'], ['risk_reward', 'R:R'],
+      ['atr', 'ATR'], ['spread_points', 'Spread'], ['entry_strength', 'Entry strength']
+    ];
+    var hasInd = indFields.some(function (k) { return i[k[0]] != null; });
+    if (hasInd) {
       card.appendChild(mk('h4', 'dash-sub', 'Indikator & level'));
       var ig = mk('div', 'dash-detail-grid');
-      if (ind.rsi_14 != null) ig.appendChild(dashCell('RSI (14)', String(ind.rsi_14)));
-      if (ind.macd_line != null) ig.appendChild(dashCell('MACD', String(ind.macd_line) + (ind.macd_hist != null ? ' (' + (ind.macd_hist >= 0 ? '+' : '') + Number(ind.macd_hist).toFixed(3) + ')' : '')));
-      if (ind.bb_pct_b != null) ig.appendChild(dashCell('%B', String(ind.bb_pct_b)));
-      if (ind.current_cvd != null || ind.cvd != null) ig.appendChild(dashCell('CVD', String(ind.current_cvd != null ? ind.current_cvd : ind.cvd)));
-      if (ind.net_flow != null) ig.appendChild(dashCell('Net flow', String(ind.net_flow)));
-      if (levels.entry_price != null) ig.appendChild(dashCell('Entry', String(levels.entry_price)));
-      if (levels.support_price != null) ig.appendChild(dashCell('Support', String(levels.support_price)));
-      if (levels.resistance_price != null) ig.appendChild(dashCell('Resistance', String(levels.resistance_price)));
-      if (risk.sl_pips != null) ig.appendChild(dashCell('SL', String(risk.sl_pips) + 'p'));
-      if (risk.tp_pips != null) ig.appendChild(dashCell('TP', String(risk.tp_pips) + 'p'));
-      if (risk.risk_reward != null) ig.appendChild(dashCell('R:R', String(risk.risk_reward)));
-      if (i.entry_strength) ig.appendChild(dashCell('Entry strength', String(i.entry_strength)));
+      indFields.forEach(function (k) {
+        var v = i[k[0]];
+        if (v == null) return;
+        ig.appendChild(dashCell(k[1], String(v)));
+      });
       card.appendChild(ig);
     }
 
-    if (i.verdict || i.filter_reason || i.hierarchy_reason || i.smc || i.safety) {
+    if (i.verdict || i.filter_reason || i.hierarchy_reason || i.smc_warning != null || i.safety_status || i.roll_under_reco || i.primary_context || i.primary_bias || i.divergence_status || i.is_counter_trend) {
       card.appendChild(mk('h4', 'dash-sub', 'Penilaian'));
       var ng = mk('div', 'dash-detail-grid');
       if (i.verdict) ng.appendChild(dashCell('Filter', String(i.verdict)));
       if (i.filter_reason) ng.appendChild(dashCell('Alasan filter', String(i.filter_reason)));
       if (i.hierarchy_reason) ng.appendChild(dashCell('Hierarki', String(i.hierarchy_reason)));
-      if (d.smc && d.smc.warning != null) ng.appendChild(dashCell('SMC warning', d.smc.warning ? 'ya' : 'tidak'));
-      if (d.smc && d.smc.confluence != null) ng.appendChild(dashCell('SMC confluence', String(d.smc.confluence)));
-      if (i.roll_under_reco) ng.appendChild(dashCell('Roll under', String(i.roll_under_reco)));
-      if (i.inferred_reversal) ng.appendChild(dashCell('Reversal', String(i.inferred_reversal) + (i.reversal_confidence != null ? ' ' + Math.round(i.reversal_confidence) + '%' : '')));
+      if (i.smc_warning != null) ng.appendChild(dashCell('SMC warning', i.smc_warning ? 'ya' : 'tidak'));
+      if (i.smc_confluence != null) ng.appendChild(dashCell('SMC confluence', String(i.smc_confluence)));
+      if (i.roll_under_reco) ng.appendChild(dashCell('Roll under', String(i.roll_under_reco) + (i.minutes_to_roll != null ? ' (' + i.minutes_to_roll + 'm)' : '')));
+      if (i.divergence_status) ng.appendChild(dashCell('Divergence', String(i.divergence_status)));
+      if (i.is_counter_trend) ng.appendChild(dashCell('Counter trend', 'ya'));
       if (i.primary_context) ng.appendChild(dashCell('Konteks', String(i.primary_context)));
       if (i.primary_bias) ng.appendChild(dashCell('Bias', String(i.primary_bias)));
-      if (d.safety && d.safety.status) ng.appendChild(dashCell('Safety', String(d.safety.status)));
+      if (i.safety_status) ng.appendChild(dashCell('Safety', String(i.safety_status)));
       if (i.signal_age_s != null) ng.appendChild(dashCell('Umur sinyal', Math.floor(i.signal_age_s / 60) + 'm' + (i.signal_age_s % 60) + 's'));
+      if (i.ml_rejected != null) ng.appendChild(dashCell('ML rejected', i.ml_rejected ? 'ya' : 'tidak'));
+      if (i.holy_grail) ng.appendChild(dashCell('Holy Grail', '*'));
+      if (i.god_mode) ng.appendChild(dashCell('God Mode', '*'));
       card.appendChild(ng);
+    }
+    return card;
+  }
+
+  function positionsCard(detail) {
+    var d = detail || {};
+    var card = mk('div', 'dash-card');
+    var head = mk('div', 'dash-card-head');
+    head.appendChild(mk('h3', null, 'Posisi & sinyal terbaru'));
+    var st = mk('span', (d.open_positions || 0) > 0 ? 'st-ok' : 'st-bad');
+    st.textContent = (d.open_positions || 0) + ' posisi terbuka';
+    head.appendChild(st);
+    card.appendChild(head);
+
+    var details = Array.isArray(d.open_details) ? d.open_details : [];
+    if (details.length) {
+      card.appendChild(mk('h4', 'dash-sub', 'Open positions'));
+      card.appendChild(dashTable(['Simbol', 'Arah', 'Entry', 'SL', 'TP', 'Lot', 'Profit'], details.map(function (p) {
+        return [p.symbol, dirBadge(p.type), p.entry_price != null ? String(p.entry_price) : '—', p.sl != null ? String(p.sl) : '—', p.tp != null ? String(p.tp) : '—', p.lot != null ? String(p.lot) : '—', (p.profit != null ? (p.profit > 0 ? '+' : '') + Number(p.profit).toFixed(2) : '—')];
+      })));
+    }
+
+    var recent = Array.isArray(d.recent_signals) ? d.recent_signals : [];
+    if (recent.length) {
+      card.appendChild(mk('h4', 'dash-sub', 'Sinyal terbaru'));
+      card.appendChild(dashTable(['Waktu', 'Simbol', 'TF', 'Arah', 'Grade', 'Hasil'], recent.slice(0, 8).map(function (s) {
+        return [fmtTime(s.timestamp && s.timestamp * 1000 ? s.timestamp * 1000 : null), s.symbol, s.timeframe, dirBadge(s.direction), s.grade || '—', resultBadge(s.outcome)];
+      })));
+    }
+
+    if (!details.length && !recent.length) {
+      card.appendChild(mk('p', 'dash-muted', 'Belum ada posisi atau sinyal terbaru.'));
     }
     return card;
   }
@@ -1605,6 +1681,30 @@
       if (drift.alert_threshold != null) g.appendChild(dashCell('Alert di', fmtPct(drift.alert_threshold)));
     }
     card.appendChild(g);
+
+    var patterns = Array.isArray(m.pattern_rates) ? m.pattern_rates : [];
+    if (patterns.length) {
+      card.appendChild(mk('h4', 'dash-sub', 'Win rate per pola'));
+      card.appendChild(dashTable(['Pola', 'Total', 'WIN', 'LOSS', 'WR'], patterns.map(function (p) {
+        return [p.pattern, String(p.total), String(p.wins), String(p.losses), fmtPct(p.win_rate)];
+      })));
+    }
+    var calib = Array.isArray(m.calibration) ? m.calibration : [];
+    if (calib.length) {
+      card.appendChild(mk('h4', 'dash-sub', 'Kalibrasi keyakinan'));
+      card.appendChild(dashTable(['Bucket', 'Total', 'WIN', 'WR'], calib.map(function (c) {
+        return [c.bucket, String(c.total), String(c.wins), fmtPct(c.win_rate)];
+      })));
+    }
+    var feats = Array.isArray(m.feature_importance) ? m.feature_importance : [];
+    if (feats.length) {
+      card.appendChild(mk('h4', 'dash-sub', 'Feature importance'));
+      var ftiles = mk('div', 'dash-tiles');
+      feats.slice(0, 6).forEach(function (f) {
+        ftiles.appendChild(tile(f.feature, (f.importance * 100).toFixed(1) + '%'));
+      });
+      card.appendChild(ftiles);
+    }
     return card;
   }
 
@@ -1652,14 +1752,26 @@
       if (ph.entry_rate != null) tiles.appendChild(tile('Entry rate', fmtPct(ph.entry_rate)));
       if (ph.cr_rejection_rate != null) tiles.appendChild(tile('Rejeksi CR', fmtPct(ph.cr_rejection_rate)));
     }
+    card.appendChild(tiles);
     if (sa && typeof sa === 'object') {
       var g = mk('div', 'dash-detail-grid');
       if (sa.proposals_open != null || sa.proposals != null) g.appendChild(dashCell('Proposal terbuka', String(sa.proposals_open != null ? sa.proposals_open : sa.proposals)));
       if (sa.reports_total != null || sa.reports != null) g.appendChild(dashCell('Laporan', String(sa.reports_total != null ? sa.reports_total : sa.reports)));
       if (sa.latest_proposal && sa.latest_proposal.title) g.appendChild(dashCell('Temuan', String(sa.latest_proposal.title)));
       card.appendChild(g);
+      var collectors = sa.collectors;
+      if (collectors && typeof collectors === 'object') {
+        card.appendChild(mk('h4', 'dash-sub', 'Kesehatan kolektor'));
+        var keys = Object.keys(collectors).sort();
+        var rows = keys.map(function (k) {
+          var c = collectors[k];
+          var status = mk('span', c.last_error ? 'badge badge-sell' : 'badge badge-buy');
+          status.textContent = c.last_error ? 'err' : 'ok';
+          return [k, String(c.emits), status];
+        });
+        card.appendChild(dashTable(['Kolektor', 'Emits', 'Status'], rows));
+      }
     }
-    card.appendChild(tiles);
     return card;
   }
 
