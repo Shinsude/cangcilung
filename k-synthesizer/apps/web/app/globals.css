@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0b1220;
+  --card: #111827;
+  --border: #1f2937;
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --primary: #3b82f6;
+  --bullish: #22c55e;
+  --bearish: #ef4444;
+  --warning: #f59e0b;
+  --gold: #fbbf24;
+}
+
+body {
+  background:
+    radial-gradient(circle at 20% 10%, rgba(59, 130, 246, 0.12), transparent 40%),
+    radial-gradient(circle at 80% 90%, rgba(139, 92, 246, 0.10), transparent 40%),
+    var(--bg);
+}
