@@ -99,8 +99,17 @@
         <p class="set-hint">Aktifkan untuk memakai endpoint OpenAI-compatible milik Anda. Tulis beberapa provider, satu per baris — urutan dari atas = prioritas. Kalau yang pertama gagal, otomatis coba berikutnya, lalu fallback ke Puter (gratis).</p>
         <label class="set-field">
           <span>Daftar provider (Nama|BaseURL|APIKey|Model)</span>
-          <textarea id="set-providers" rows="5" placeholder="contoh:&#10;OpenAI|https://api.openai.com/v1|sk-xxx|gpt-4o&#10;OpenRouter|https://openrouter.ai/api/v1|sk-or-xxx|anthropic/claude-sonnet-4&#10;Groq|https://api.groq.com/openai/v1|gsk-xxx|llama-3.3-70b-versatile"></textarea>
+          <textarea id="set-providers" rows="5" placeholder="contoh:&#10;DeepSeek|https://api.deepseek.com|sk-xxx|deepseek-chat&#10;Qwen|https://dashscope.aliyuncs.com/compatible-mode/v1|sk-xxx|qwen-plus&#10;OpenAI|https://api.openai.com/v1|sk-xxx|gpt-4o"></textarea>
         </label>
+        <div class="set-presets">
+          <span>Preset cepat:</span>
+          <button type="button" class="ghost-btn preset-btn" data-preset="deepseek">DeepSeek</button>
+          <button type="button" class="ghost-btn preset-btn" data-preset="qwen">Qwen</button>
+          <button type="button" class="ghost-btn preset-btn" data-preset="openai">OpenAI</button>
+          <button type="button" class="ghost-btn preset-btn" data-preset="openrouter">OpenRouter</button>
+          <button type="button" class="ghost-btn preset-btn" data-preset="groq">Groq</button>
+          <button type="button" class="ghost-btn preset-btn" data-preset="clear">Bersihkan</button>
+        </div>
         <p class="set-hint">Asisten berperilaku dewasa, terus terang, dan tanpa menghakimi (selalu aktif).</p>
         <div class="set-status" id="set-status"></div>
       </div>

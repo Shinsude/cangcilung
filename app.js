@@ -474,6 +474,39 @@
       }
       next();
     });
+
+    var PRESETS = {
+      deepseek: { name: 'DeepSeek', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat' },
+      qwen: { name: 'Qwen', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
+      openai: { name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o' },
+      openrouter: { name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'anthropic/claude-sonnet-4' },
+      groq: { name: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile' }
+    };
+    var presetBtns = document.querySelectorAll('.preset-btn');
+    presetBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-preset');
+        if (key === 'clear') {
+          inProviders.value = '';
+          setStatusMsg('Daftar provider dikosongkan.');
+          return;
+        }
+        var p = PRESETS[key];
+        if (!p) return;
+        var line = p.name + '|' + p.baseUrl + '|' + 'sk-ISI-KEY' + '|' + p.model;
+        if (inProviders.value.trim()) {
+          if (inProviders.value.split('\n').some(function (l) { return l.indexOf(p.baseUrl) >= 0; })) {
+            setStatusMsg(p.name + ' sudah ada di daftar — tidak digandakan.', true);
+            return;
+          }
+          inProviders.value = inProviders.value.trim() + '\n' + line;
+        } else {
+          inProviders.value = line;
+        }
+        setStatusMsg('Preset ' + p.name + ' ditambahkan. Ganti "sk-ISI-KEY" dengan API key Anda.');
+        inProviders.focus();
+      });
+    });
   }
 
   function appendMessage(role, text, typing) {
