@@ -177,43 +177,47 @@
   }
 
   function parseXlsx(file) {
-    return readFileAsText(file).then(function (text) {
-      if (typeof XLSX === 'undefined') return Promise.reject(new Error('Library Excel belum termuat. Cek koneksi internet.'));
-      var wb;
-      try {
-        wb = XLSX.read(text, { type: 'string' });
-      } catch (e) {
-        wb = null;
-      }
-      if (!wb) return Promise.reject(new Error('File Excel tidak valid.'));
-      var out = [];
-      wb.SheetNames.forEach(function (sheetName) {
-        var rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' });
-        out.push('-- Sheet: ' + sheetName + ' --');
-        rows.slice(0, 300).forEach(function (row) {
-          var cells = (row || []).map(function (c) { return c === '' || c == null ? '' : String(c); });
-          out.push(cells.join(' | '));
-        });
-      });
-      var result = out.join('\n');
-      if (!result.trim()) return Promise.reject(new Error('File Excel kosong.'));
-      return result;
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () {
+        try {
+          if (typeof XLSX === 'undefined') return reject(new Error('Library Excel belum termuat. Cek koneksi internet.'));
+          var wb = XLSX.read(r.result, { type: 'array' });
+          if (!wb || !wb.SheetNames || !wb.SheetNames.length) return reject(new Error('File Excel kosong atau tidak valid.'));
+          var out = [];
+          wb.SheetNames.forEach(function (sheetName) {
+            var rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' });
+            out.push('-- Sheet: ' + sheetName + ' --');
+            rows.slice(0, 300).forEach(function (row) {
+              var cells = (row || []).map(function (c) { return c === '' || c == null ? '' : String(c); });
+              out.push(cells.join(' | '));
+            });
+          });
+          var result = out.join('\n');
+          if (!result.trim()) return reject(new Error('File Excel kosong.'));
+          resolve(result);
+        } catch (e) { reject(new Error('File Excel tidak valid: ' + e.message)); }
+      };
+      r.onerror = function () { reject(new Error('Gagal membaca Excel.')); };
+      r.readAsArrayBuffer(file);
     });
   }
 
   function parseDocx(file) {
-    return readFileAsText(file).then(function (text) {
-      if (typeof mammoth === 'undefined') return Promise.reject(new Error('Library Word belum termuat. Cek koneksi internet.'));
-      var ab = new ArrayBuffer(text.length);
-      var view = new Uint8Array(ab);
-      for (var i = 0; i < text.length; i++) view[i] = text.charCodeAt(i) & 0xff;
-      return new Promise(function (resolve, reject) {
-        mammoth.extractRawText({ arrayBuffer: ab }).then(function (res) {
-          var result = (res.value || '').trim();
-          if (!result) return reject(new Error('File Word kosong atau tanpa teks.'));
-          resolve(result);
-        }, reject);
-      });
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () {
+        try {
+          if (typeof mammoth === 'undefined') return reject(new Error('Library Word belum termuat. Cek koneksi internet.'));
+          mammoth.extractRawText({ arrayBuffer: r.result }).then(function (res) {
+            var result = (res.value || '').trim();
+            if (!result) return reject(new Error('File Word kosong atau tanpa teks.'));
+            resolve(result);
+          }, reject);
+        } catch (e) { reject(new Error('File Word tidak valid: ' + e.message)); }
+      };
+      r.onerror = function () { reject(new Error('Gagal membaca Word.')); };
+      r.readAsArrayBuffer(file);
     });
   }
 
