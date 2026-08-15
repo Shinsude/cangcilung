@@ -152,6 +152,26 @@ body {
 .send-btn:active { transform: scale(.95); }
 .send-btn:disabled { opacity: .4; cursor: not-allowed; }
 
+.attach-btn {
+  width: 42px; height: 42px; flex-shrink: 0; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: transparent; color: var(--text-dim); font-size: 18px;
+  transition: background .15s, color .15s;
+}
+.attach-btn:hover { background: var(--card-hover, rgba(255,255,255,.06)); color: var(--text); }
+
+.attach-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(124, 58, 237, .12); border: 1px solid rgba(124, 58, 237, .35);
+  border-radius: 12px; padding: 6px 12px; margin-bottom: 8px;
+  font-size: 13px; color: var(--accent);
+}
+.attach-clear {
+  border: none; background: transparent; color: inherit;
+  cursor: pointer; font-size: 16px; line-height: 1; padding: 0 2px;
+}
+.attach-clear:hover { color: var(--err); }
+
 .chat-status {
   font-size: 12px; color: var(--text-dim);
   padding: 6px 4px 0; min-height: 18px;

@@ -78,6 +78,7 @@
   }
 
   var summarizing = false;
+  var attachedFile = null;
   function summarizeOld() {
     if (summarizing) return;
     if (history.length < 40) return;
@@ -115,6 +116,82 @@
       })
       .catch(function () {})
       .finally(function () { summarizing = false; });
+  }
+
+  function readFileAsText(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(r.result); };
+      r.onerror = function () { reject(new Error('Gagal membaca file.')); };
+      r.readAsText(file);
+    });
+  }
+
+  function parsePdf(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () {
+        try {
+          var typed = new Uint8Array(r.result);
+          var task = window.pdfjsLib.getDocument({ data: typed });
+          task.promise.then(function (doc) {
+            var pages = [];
+            var chain = Promise.resolve();
+            for (var i = 1; i <= doc.numPages; i++) {
+              (function (pageNum) {
+                chain = chain.then(function () {
+                  return doc.getPage(pageNum).then(function (page) {
+                    return page.getTextContent().then(function (tc) {
+                      var line = tc.items.map(function (it) { return it.str || ''; }).join(' ');
+                      pages.push('-- Halaman ' + pageNum + ' --\n' + line);
+                    });
+                  });
+                });
+              })(i);
+            }
+            chain.then(function () { resolve(pages.join('\n')); }, reject);
+          }, reject);
+        } catch (e) { reject(new Error('PDF tidak valid: ' + e.message)); }
+      };
+      r.onerror = function () { reject(new Error('Gagal membaca PDF.')); };
+      r.readAsArrayBuffer(file);
+    });
+  }
+
+  function parseFile(file) {
+    var name = (file.name || '').toLowerCase();
+    if (/\.(txt|md|markdown|csv|json|log)$/i.test(name)) {
+      return readFileAsText(file);
+    }
+    if (/\.pdf$/i.test(name)) {
+      return parsePdf(file);
+    }
+    if (/\.(xlsx|xls)$/i.test(name)) {
+      return readFileAsText(file).then(function () {
+        return Promise.reject(new Error('File Excel (.xlsx) belum didukung di versi ini — simpan dulu sebagai CSV.' ));
+      });
+    }
+    return Promise.reject(new Error('Jenis file tidak didukung. Gunakan .txt, .md, .csv, .json, .log, atau .pdf.'));
+  }
+
+  function attachFile(file) {
+    setStatus('Membaca ' + file.name + '...');
+    parseFile(file).then(function (text) {
+      attachedFile = { name: file.name, text: text };
+      var elName = $('attach-name');
+      var elChip = $('attach-chip');
+      if (elName) elName.textContent = '📎 ' + file.name + ' (' + (text.length / 1000).toFixed(1) + ' KB)';
+      if (elChip) elChip.hidden = false;
+      setStatus('File siap. Ketik pertanyaan lalu kirim.');
+    }).catch(function (err) {
+      setStatus('Error: ' + err.message, true);
+    });
+  }
+
+  function clearAttachment() {
+    attachedFile = null;
+    var elChip = $('attach-chip');
+    if (elChip) elChip.hidden = true;
   }
 
   function baseUrl() {
@@ -267,6 +344,12 @@
       var messages = [{ role: 'system', content: SYSTEM }];
       if (summary) {
         messages.push({ role: 'system', content: 'Ringkasan percakapan sebelumnya:\n' + summary });
+      }
+      if (attachedFile) {
+        messages.push({
+          role: 'user',
+          content: 'Saya lampirkan isi file "' + attachedFile.name + '":\n\n' + attachedFile.text.slice(0, 20000)
+        });
       }
       messages = messages.concat(history);
       var body = {
@@ -450,6 +533,12 @@
     renderHistory();
 
     $('btn-send').addEventListener('click', sendChat);
+    $('btn-attach').addEventListener('click', function () { $('file-input').click(); });
+    $('file-input').addEventListener('change', function () {
+      if (this.files && this.files[0]) attachFile(this.files[0]);
+      this.value = '';
+    });
+    $('btn-attach-clear').addEventListener('click', clearAttachment);
     $('chat-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -460,6 +549,7 @@
       if (!busy && history.length && confirm('Hapus seluruh obrolan?')) {
         history = [];
         summary = '';
+        clearAttachment();
         saveHistory();
         saveSummary();
         renderHistory();
