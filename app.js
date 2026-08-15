@@ -84,6 +84,13 @@
 
   function applyTheme(theme) {
     document.body.setAttribute('data-theme', theme || 'dark');
+    var dark = document.getElementById('hljs-dark');
+    var light = document.getElementById('hljs-light');
+    if (dark && light) {
+      var isLight = theme === 'light';
+      dark.disabled = isLight;
+      light.disabled = !isLight;
+    }
     var btn = $('btn-theme');
     if (btn) {
       btn.textContent = theme === 'light' ? '🌤️' : theme === 'violet' ? '🌈' : '🌙';
@@ -202,10 +209,10 @@
       h += '<div class="stats-title">Kata yang sering muncul</div><p class="set-hint">Belum ada data.</p>';
     }
     body.innerHTML = h;
-    $('stats-modal').hidden = false;
+    openModal('stats-modal');
   }
 
-  function closeStats() { $('stats-modal').hidden = true; }
+  function closeStats() { closeModal('stats-modal'); }
 
   var pinned = [];
 
@@ -265,8 +272,8 @@
     });
   }
 
-  function openPins() { loadPinned(); renderPins(); $('pins-modal').hidden = false; }
-  function closePins() { $('pins-modal').hidden = true; }
+  function openPins() { loadPinned(); renderPins(); openModal('pins-modal'); }
+  function closePins() { closeModal('pins-modal'); }
 
   function backupData() {
     var data = {
@@ -320,8 +327,8 @@
     r.readAsText(file);
   }
 
-  function openBackup() { $('backup-status').textContent = ''; $('backup-modal').hidden = false; }
-  function closeBackup() { $('backup-modal').hidden = true; }
+  function openBackup() { $('backup-status').textContent = ''; openModal('backup-modal'); }
+  function closeBackup() { closeModal('backup-modal'); }
 
   function updateInputCount() {
     var el = $('input-count');
@@ -466,7 +473,9 @@
       del.textContent = '🗑️';
       del.title = 'Hapus';
       del.addEventListener('click', function () {
-        if (confirm('Hapus percakapan "' + s.name + '"?')) deleteSession(s.id);
+        openConfirm('Hapus percakapan', 'Hapus percakapan "' + s.name + '" permanen?', 'Hapus', function () {
+          deleteSession(s.id);
+        });
       });
       row.appendChild(label);
       row.appendChild(rename);
@@ -477,12 +486,11 @@
 
   function openSessions() {
     renderSessionList();
-    $('sessions-modal').hidden = false;
+    openModal('sessions-modal');
   }
 
   function closeSessions() {
-    var m = $('sessions-modal');
-    if (m) m.hidden = true;
+    closeModal('sessions-modal');
   }
 
   function loadHistory() {
@@ -669,7 +677,7 @@
     if (busy || !attachedFile) return;
     var text = attachedFile.text.slice(0, 16000);
     var q = 'Ringkas isi file "' + attachedFile.name + '" dalam bahasa Indonesia. Beri poin-poin penting secara jelas dan ringkas.';
-    history.push({ role: 'user', content: q });
+    history.push({ role: 'user', content: q, t: nowTime() });
     saveHistory();
     renderHistory();
 
@@ -701,7 +709,7 @@
         return reader.read().then(function (r) {
           if (r.done) {
             bubble.classList.remove('typing');
-            history.push({ role: 'assistant', content: full });
+            history.push({ role: 'assistant', content: full, t: nowTime() });
             saveHistory();
             renderHistory();
             busy = false;
@@ -774,6 +782,8 @@
     if (!el) return;
     el.textContent = msg || '';
     el.className = 'chat-status' + (isError ? ' error' : '');
+    if (isError) el.setAttribute('role', 'alert');
+    else el.removeAttribute('role');
   }
 
   function esc(s) {
@@ -883,11 +893,11 @@
   }
 
   function openExportMenu() {
-    $('export-modal').hidden = false;
+    openModal('export-modal');
   }
 
   function closeExportMenu() {
-    $('export-modal').hidden = true;
+    closeModal('export-modal');
   }
 
   function exportChat(format) {
@@ -994,7 +1004,11 @@
       .catch(function () {});
   }
 
-  function addBubble(role, text, index) {
+  function nowTime() {
+    return new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function addBubble(role, text, index, ts) {
     var wrap = document.createElement('div');
     wrap.className = 'msg ' + role;
     if (index != null) wrap.dataset.index = index;
@@ -1006,7 +1020,7 @@
     }
     var time = document.createElement('div');
     time.className = 'msg-time';
-    time.textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    time.textContent = ts || nowTime();
     wrap.appendChild(bubble);
     wrap.appendChild(time);
     var actions = document.createElement('div');
@@ -1125,12 +1139,22 @@
     if (!history.length) {
       var welcome = document.createElement('div');
       welcome.className = 'welcome';
-      welcome.innerHTML = '<div class="welcome-avatar">A</div><p>Halo, saya cangcilung. Tanya apa saja — saya siap membantu.</p>';
+      welcome.innerHTML = '<div class="welcome-avatar">A</div><p>Halo, saya cangcilung. Tanya apa saja — saya siap membantu.</p><div class="welcome-chips"></div>';
+      ['💡 Apa itu RAG?', '📊 Jelaskan cara kerja RAM', '🧮 Hitung 15% dari 3400', '📝 Tulis surat izin sakit'].forEach(function (c) {
+        var b = document.createElement('button');
+        b.className = 'welcome-chip';
+        b.textContent = c;
+        b.addEventListener('click', function () {
+          var inp = $('chat-input');
+          if (inp) { inp.value = c; inp.focus(); updateInputCount(); }
+        });
+        welcome.querySelector('.welcome-chips').appendChild(b);
+      });
       box.appendChild(welcome);
       return;
     }
     history.forEach(function (m, i) {
-      var b = addBubble(m.role, m.content, i);
+      var b = addBubble(m.role, m.content, i, m.t);
       if (m.role === 'assistant') addRunButtons(b);
     });
     if (searchActive) runSearch();
@@ -1645,12 +1669,12 @@
     if (editingIndex >= 0) {
       var ei = editingIndex;
       editingIndex = -1;
-      history[ei] = { role: 'user', content: text };
+      history[ei] = { role: 'user', content: text, t: history[ei].t || nowTime() };
       history = history.slice(0, ei + 1);
       saveHistory();
       renderHistory();
     } else {
-      history.push({ role: 'user', content: text });
+      history.push({ role: 'user', content: text, t: nowTime() });
       autoTitle(text);
       saveHistory();
       renderHistory();
@@ -1665,7 +1689,7 @@
 
     var calc = calcAnswer(text);
     if (calc) {
-      history.push({ role: 'assistant', content: calc });
+      history.push({ role: 'assistant', content: calc, t: nowTime() });
       saveHistory();
       bubble.classList.remove('typing');
       renderMarkdown(bubble, calc);
@@ -1740,7 +1764,7 @@
             if (done) return;
             done = true;
             bubble.classList.remove('typing');
-            history.push({ role: 'assistant', content: full });
+            history.push({ role: 'assistant', content: full, t: nowTime() });
             saveHistory();
             renderHistory();
             busy = false;
@@ -1838,13 +1862,13 @@
     $('set-apikey').value = settings.apiKey || '';
     $('set-persona').value = settings.persona || 'default';
     $('set-status').textContent = '';
-    $('settings-modal').hidden = false;
+    openModal('settings-modal');
     $('set-baseurl').focus();
     populateVoices();
   }
 
   function closeSettings() {
-    $('settings-modal').hidden = true;
+    closeModal('settings-modal');
   }
 
   function saveSettingsFromModal() {
@@ -1917,6 +1941,79 @@
         st.textContent = 'Gagal: ' + (err && err.message ? err.message : err);
         st.className = 'set-status error';
       });
+  }
+
+  var modalStack = [];
+
+  function openModal(id) {
+    var el = $(id);
+    if (!el) return;
+    modalStack.push({ id: id, opener: document.activeElement });
+    closeToolsMenu();
+    el.hidden = false;
+    var f = el.querySelector('input, select, textarea, button:not(.modal-close)');
+    if (f) f.focus();
+  }
+
+  function closeModal(id) {
+    var el = $(id);
+    if (!el) return;
+    el.hidden = true;
+    for (var i = modalStack.length - 1; i >= 0; i--) {
+      if (modalStack[i].id === id) {
+        var opener = modalStack[i].opener;
+        modalStack.splice(i, 1);
+        if (opener && typeof opener.focus === 'function') opener.focus();
+        break;
+      }
+    }
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      var menu = $('tools-menu');
+      if (menu && !menu.hidden) {
+        menu.hidden = true;
+        var tb = $('btn-tools');
+        if (tb) { tb.setAttribute('aria-expanded', 'false'); tb.focus(); }
+        return;
+      }
+      var opens = document.querySelectorAll('.modal-overlay:not([hidden])');
+      if (opens.length) closeModal(opens[opens.length - 1].id);
+      return;
+    }
+    if (e.key === 'Tab') {
+      var opens = document.querySelectorAll('.modal-overlay:not([hidden])');
+      if (!opens.length) return;
+      var top = opens[opens.length - 1];
+      var focusables = top.querySelectorAll('button, [href], input, select, textarea');
+      if (!focusables.length) return;
+      var first = focusables[0], last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+
+  function closeToolsMenu() {
+    var menu = $('tools-menu');
+    if (menu) { menu.hidden = true; }
+    var tb = $('btn-tools');
+    if (tb) tb.setAttribute('aria-expanded', 'false');
+  }
+
+  var confirmCb = null;
+
+  function openConfirm(title, msg, okLabel, cb) {
+    $('#confirm-title').textContent = title || 'Konfirmasi';
+    $('#confirm-msg').textContent = msg || '';
+    $('#btn-confirm-ok').textContent = okLabel || 'OK';
+    confirmCb = cb;
+    openModal('confirm-modal');
+  }
+
+  function closeConfirm() {
+    confirmCb = null;
+    closeModal('confirm-modal');
   }
 
   function init() {
@@ -2021,7 +2118,9 @@
       }
     });
     $('btn-clear-chat').addEventListener('click', function () {
-      if (!busy && history.length && confirm('Hapus seluruh obrolan?')) {
+      if (busy || !history.length) return;
+      closeToolsMenu();
+      openConfirm('Hapus obrolan', 'Semua pesan di percakapan ini akan dihapus permanen. Lanjutkan?', 'Hapus', function () {
         history = [];
         summary = '';
         clearAttachment();
@@ -2029,7 +2128,25 @@
         saveHistory();
         saveSummary();
         renderHistory();
-      }
+      });
+    });
+    $('btn-tools').addEventListener('click', function () {
+      var m = $('tools-menu');
+      var opening = m.hidden;
+      m.hidden = !opening;
+      this.setAttribute('aria-expanded', String(opening));
+    });
+    document.addEventListener('click', function (e) {
+      var m = $('tools-menu');
+      if (m && !m.hidden && e.target.closest && !e.target.closest('.tools-wrap')) closeToolsMenu();
+    });
+    $('btn-confirm-ok').addEventListener('click', function () {
+      if (confirmCb) { var cb = confirmCb; closeConfirm(); cb(); }
+    });
+    $('btn-confirm-cancel').addEventListener('click', closeConfirm);
+    $('btn-confirm-close').addEventListener('click', closeConfirm);
+    $('confirm-modal').addEventListener('click', function (e) {
+      if (e.target === $('confirm-modal')) closeConfirm();
     });
     $('btn-settings').addEventListener('click', openSettings);
     $('btn-modal-close').addEventListener('click', closeSettings);

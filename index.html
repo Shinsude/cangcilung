@@ -8,7 +8,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#7c3aed">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/github-dark.min.css">
+  <link id="hljs-dark" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/github-dark.min.css">
+  <link id="hljs-light" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/github.min.css" disabled>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%237c3aed'/></svg>">
 </head>
 <body>
@@ -18,22 +19,27 @@
         <div>
           <h2>Chat dengan cangcilung</h2>
           <span class="pane-sub" id="conn-sub">Menghubungkan model...</span>
-  <span class="pane-sub" id="usage-sub"></span>
+          <span class="pane-sub" id="usage-sub"></span>
         </div>
         <div class="header-actions">
           <select id="quick-model" class="quick-model" title="Ganti model cepat" aria-label="Ganti model cepat"></select>
-          <button id="btn-sessions" class="ghost-btn" title="Ganti percakapan" aria-label="Ganti percakapan">💬</button>
-          <button id="btn-persona" class="ghost-btn" title="Ganti gaya cangcilung" aria-label="Ganti gaya">🎭</button>
-          <button id="btn-search" class="ghost-btn" title="Cari dalam percakapan" aria-label="Cari">🔍</button>
-          <button id="btn-pins" class="ghost-btn" title="Pesan tersemat" aria-label="Pesan tersemat">📌</button>
-          <button id="btn-stats" class="ghost-btn" title="Statistik percakapan" aria-label="Statistik">📊</button>
-          <button id="btn-export" class="ghost-btn" title="Ekspor percakapan" aria-label="Ekspor percakapan">⬇️</button>
-          <button id="btn-backup" class="ghost-btn" title="Cadangkan / pulihkan data" aria-label="Cadangkan data">💾</button>
-          <button id="btn-font" class="ghost-btn" title="Ukuran teks" aria-label="Ukuran teks">↕️</button>
-          <button id="btn-sound" class="ghost-btn" title="Bunyi saat jawaban selesai" aria-label="Bunyi selesai">🔔</button>
-          <button id="btn-clear-chat" class="ghost-btn" title="Hapus seluruh obrolan" aria-label="Hapus obrolan">🗑️ Hapus</button>
-          <button id="btn-theme" class="ghost-btn" title="Tema: gelap/terang" aria-label="Ganti tema">🌙</button>
-          <button id="btn-settings" class="settings-btn" title="Pengaturan" aria-label="Pengaturan">⚙️</button>
+          <button id="btn-sessions" class="icon-btn" title="Ganti percakapan" aria-label="Ganti percakapan">💬</button>
+          <button id="btn-persona" class="icon-btn" title="Ganti gaya cangcilung" aria-label="Ganti gaya">🎭</button>
+          <button id="btn-search" class="icon-btn" title="Cari dalam percakapan" aria-label="Cari">🔍</button>
+          <button id="btn-theme" class="icon-btn" title="Tema: gelap/terang" aria-label="Ganti tema">🌙</button>
+          <div class="tools-wrap">
+            <button id="btn-tools" class="icon-btn" title="Alat lainnya" aria-label="Alat lainnya" aria-haspopup="true" aria-expanded="false">⋯</button>
+            <div id="tools-menu" class="tools-menu" role="menu" hidden>
+              <button id="btn-pins" class="tools-item" role="menuitem">📌 Pesan tersemat</button>
+              <button id="btn-stats" class="tools-item" role="menuitem">📊 Statistik</button>
+              <button id="btn-export" class="tools-item" role="menuitem">⬇️ Ekspor percakapan</button>
+              <button id="btn-backup" class="tools-item" role="menuitem">💾 Cadangkan data</button>
+              <button id="btn-font" class="tools-item" role="menuitem">↕️ Ukuran teks</button>
+              <button id="btn-sound" class="tools-item" role="menuitem">🔔 Bunyi selesai</button>
+              <button id="btn-clear-chat" class="tools-item tools-danger" role="menuitem">🗑️ Hapus obrolan</button>
+            </div>
+          </div>
+          <button id="btn-settings" class="icon-btn" title="Pengaturan" aria-label="Pengaturan">⚙️</button>
         </div>
       </div>
       <div id="chat-messages" class="chat-messages"></div>
@@ -72,8 +78,10 @@
           <button id="btn-suggest" class="attach-btn" title="Saran pertanyaan lanjutan" aria-label="Saran pertanyaan">💡</button>
           <button id="btn-send" class="send-btn" title="Kirim pesan" aria-label="Kirim pesan">➤</button>
         </div>
-        <div class="chat-status" id="chat-status"></div>
-        <div class="input-count" id="input-count"></div>
+        <div class="status-row">
+          <div class="chat-status" id="chat-status" aria-live="polite"></div>
+          <div class="input-count" id="input-count"></div>
+        </div>
       </div>
     </main>
   </div>
@@ -207,6 +215,24 @@
           <input type="file" id="backup-file" accept=".json" hidden>
         </label>
         <div class="set-status" id="backup-status"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== KONFIRMASI ====== -->
+  <div class="modal-overlay" id="confirm-modal" hidden>
+    <div class="modal" style="max-width:360px">
+      <div class="modal-header">
+        <h3 id="confirm-title">Konfirmasi</h3>
+        <button id="btn-confirm-close" class="modal-close" aria-label="Tutup">×</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-msg" class="set-hint"></p>
+      </div>
+      <div class="modal-footer">
+        <span class="modal-spacer"></span>
+        <button id="btn-confirm-cancel" class="ghost-btn">Batal</button>
+        <button id="btn-confirm-ok" class="primary-btn">OK</button>
       </div>
     </div>
   </div>
