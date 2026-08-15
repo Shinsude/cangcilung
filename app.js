@@ -31,7 +31,7 @@
   var els = {};
   var history = [];
   var summary = '';
-  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '' };
+  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '' };
   var busy = false;
   var abortCtrl = null;
 
@@ -53,6 +53,7 @@
         settings.baseUrl = s.baseUrl || '';
         settings.model = s.model || DEFAULT_MODEL;
         settings.apiKey = s.apiKey || '';
+        settings.analyModel = s.analyModel || '';
       }
     } catch (e) {}
   }
@@ -167,11 +168,53 @@
       return parsePdf(file);
     }
     if (/\.(xlsx|xls)$/i.test(name)) {
-      return readFileAsText(file).then(function () {
-        return Promise.reject(new Error('File Excel (.xlsx) belum didukung di versi ini — simpan dulu sebagai CSV.' ));
-      });
+      return parseXlsx(file);
     }
-    return Promise.reject(new Error('Jenis file tidak didukung. Gunakan .txt, .md, .csv, .json, .log, atau .pdf.'));
+    if (/\.docx$/i.test(name)) {
+      return parseDocx(file);
+    }
+    return Promise.reject(new Error('Jenis file tidak didukung. Gunakan .txt, .md, .csv, .json, .log, .pdf, .xlsx, atau .docx.'));
+  }
+
+  function parseXlsx(file) {
+    return readFileAsText(file).then(function (text) {
+      if (typeof XLSX === 'undefined') return Promise.reject(new Error('Library Excel belum termuat. Cek koneksi internet.'));
+      var wb;
+      try {
+        wb = XLSX.read(text, { type: 'string' });
+      } catch (e) {
+        wb = null;
+      }
+      if (!wb) return Promise.reject(new Error('File Excel tidak valid.'));
+      var out = [];
+      wb.SheetNames.forEach(function (sheetName) {
+        var rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' });
+        out.push('-- Sheet: ' + sheetName + ' --');
+        rows.slice(0, 300).forEach(function (row) {
+          var cells = (row || []).map(function (c) { return c === '' || c == null ? '' : String(c); });
+          out.push(cells.join(' | '));
+        });
+      });
+      var result = out.join('\n');
+      if (!result.trim()) return Promise.reject(new Error('File Excel kosong.'));
+      return result;
+    });
+  }
+
+  function parseDocx(file) {
+    return readFileAsText(file).then(function (text) {
+      if (typeof mammoth === 'undefined') return Promise.reject(new Error('Library Word belum termuat. Cek koneksi internet.'));
+      var ab = new ArrayBuffer(text.length);
+      var view = new Uint8Array(ab);
+      for (var i = 0; i < text.length; i++) view[i] = text.charCodeAt(i) & 0xff;
+      return new Promise(function (resolve, reject) {
+        mammoth.extractRawText({ arrayBuffer: ab }).then(function (res) {
+          var result = (res.value || '').trim();
+          if (!result) return reject(new Error('File Word kosong atau tanpa teks.'));
+          resolve(result);
+        }, reject);
+      });
+    });
   }
 
   function attachFile(file) {
@@ -306,6 +349,90 @@
     });
   }
 
+  var webMode = false;
+  var webFetching = false;
+
+  function toggleWebMode() {
+    webMode = !webMode;
+    var btn = $('btn-web');
+    var chip = $('web-chip');
+    if (btn) btn.classList.toggle('active', webMode);
+    if (chip) chip.hidden = !webMode;
+    setStatus(webMode ? '🌐 Cari di web aktif — jawaban akan pakai info terkini.' : 'Mode web nonaktif.');
+  }
+
+  function searchWeb(query) {
+    var q = encodeURIComponent(query.replace(/[?""''!]/g, ' ').slice(0, 200));
+    var url = 'https://id.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + q + '&format=json&origin=*&srlimit=3';
+    return fetch(url, { signal: AbortSignal.timeout(10000) })
+      .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)); })
+      .then(function (j) {
+        var hits = (j.query && j.query.search) || [];
+        var titles = hits.map(function (h) { return h.title; }).slice(0, 3);
+        var chain = Promise.resolve();
+        var out = [];
+        titles.forEach(function (title) {
+          chain = chain.then(function () {
+            return fetch('https://id.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title), { signal: AbortSignal.timeout(10000) })
+              .then(function (r) { return r.ok ? r.json() : null; })
+              .then(function (s) {
+                if (s && s.extract) out.push('## ' + s.title + '\n' + s.extract.slice(0, 1200));
+              })
+              .catch(function () {});
+          });
+        });
+        return chain.then(function () { return out.join('\n\n').slice(0, 6000); });
+      });
+  }
+
+  var ANALYSIS_RE = /\b(hitung|hitunglah|jumlahkan|kalikan|bagikan|kurangkan|berapakah?|berapa (hasil|x|y|z)|rumus|persamaan|akar|logaritma|persen|konversi)\b|[-+*/^().]|[\d]+[.,][\d]+/i;
+  var LOGIC_RE = /\b(logika|logical|analisa|analisis|bandingkan|bandingkanlah|buktikan|deriv|turunan|integral|persamaan|soal|case\b|debug|perbaiki kode|tulis kode|buatkan kode|pseudocode|algoritma)\b/i;
+
+  function needsAnalysis(text) {
+    if (LOGIC_RE.test(text)) return true;
+    if (ANALYSIS_RE.test(text)) return true;
+    return false;
+  }
+
+  function safeEval(expr) {
+    expr = String(expr).replace(/[^\d+\-*/().^,%\s]/g, '');
+    if (!/[\d]/.test(expr) || !/[-+*/^]/.test(expr)) return null;
+    expr = expr.replace(/\s+/g, '').replace(/,/g, '.').replace(/\^/g, '**');
+    try {
+      var fn = new Function('return (' + expr + ')');
+      var result = fn();
+      if (typeof result !== 'number' || !isFinite(result)) return null;
+      return result;
+    } catch (e) { return null; }
+  }
+
+  function calcAnswer(text) {
+    var trimmed = text.trim();
+    if (/^[?]/.test(trimmed)) trimmed = trimmed.slice(1).trim();
+    if (!/^\d/.test(trimmed) && !/^[(]/.test(trimmed)) return null;
+    if (/\D{3,}/.test(trimmed)) return null;
+    var result = safeEval(trimmed);
+    if (result == null) return null;
+    return 'Hasil hitung pasti (dihitung oleh kalkulator internal): ' + trimmed + ' = ' + result;
+  }
+
+  function fileContextMessages() {
+    if (!attachedFile) return [];
+    var msg = [];
+    var text = attachedFile.text;
+    var CHUNK = 16000;
+    if (text.length <= CHUNK) {
+      msg.push({ role: 'user', content: 'Saya lampirkan isi file "' + attachedFile.name + '":\n\n' + text });
+    } else {
+      var total = Math.min(text.length, CHUNK * 4);
+      msg.push({ role: 'user', content: 'Saya lampirkan isi file "' + attachedFile.name + '" (bagian 1 dari ' + Math.ceil(total / CHUNK) + '):\n\n' + text.slice(0, CHUNK) });
+      for (var start = CHUNK; start < total; start += CHUNK) {
+        msg.push({ role: 'user', content: 'Lanjutan file "' + attachedFile.name + '" (bagian ' + (Math.floor(start / CHUNK) + 1) + '):\n\n' + text.slice(start, start + CHUNK) });
+      }
+    }
+    return msg;
+  }
+
   function sendChat() {
     if (busy) return;
     var input = $('chat-input');
@@ -330,6 +457,20 @@
     bubble.classList.add('typing');
     var full = '';
     var attempted = [];
+    var webContext = '';
+
+    var calc = calcAnswer(text);
+    if (calc) {
+      history.push({ role: 'assistant', content: calc });
+      saveHistory();
+      bubble.classList.remove('typing');
+      renderMarkdown(bubble, calc);
+      renderHistory();
+      busy = false;
+      $('btn-send').disabled = false;
+      setStatus('');
+      return;
+    }
 
     function addFallbackNote(name) {
       var note = document.createElement('div');
@@ -345,11 +486,9 @@
       if (summary) {
         messages.push({ role: 'system', content: 'Ringkasan percakapan sebelumnya:\n' + summary });
       }
-      if (attachedFile) {
-        messages.push({
-          role: 'user',
-          content: 'Saya lampirkan isi file "' + attachedFile.name + '":\n\n' + attachedFile.text.slice(0, 20000)
-        });
+      fileContextMessages().forEach(function (m) { messages.push(m); });
+      if (webContext) {
+        messages.push({ role: 'system', content: 'Info terkini dari Wikipedia (pakai ini bila relevan untuk jawaban akurat):\n' + webContext });
       }
       messages = messages.concat(history);
       var body = {
@@ -427,12 +566,29 @@
       $('btn-send').disabled = false;
     }
 
-    var pool = [settings.model];
+    var pool = [];
+    var isAnalysis = needsAnalysis(text);
+    if (isAnalysis && settings.analyModel) pool.push(settings.analyModel);
+    if (pool.indexOf(settings.model) === -1) pool.push(settings.model);
     FALLBACKS.forEach(function (f) { if (pool.indexOf(f) === -1) pool.push(f); });
 
     function next() {
       var model = pool.shift();
       if (!model) return fail(new Error('Semua model gagal.'));
+      if (webMode && !webContext && !webFetching) {
+        webFetching = true;
+        setStatus('🌐 Mencari info di web...');
+        searchWeb(text).then(function (ctx) {
+          webContext = ctx;
+          if (!ctx) setStatus('Mode web: tidak ada hasil, lanjut jawab biasa.');
+        }).catch(function () {
+          setStatus('Mode web: gagal mencari, lanjut jawab biasa.');
+        }).finally(function () {
+          webFetching = false;
+          next();
+        });
+        return;
+      }
       attemptStream(model)
         .catch(function (err) {
           if (err && err.name === 'AbortError') return fail(err);
@@ -452,6 +608,7 @@
   function openSettings() {
     $('set-baseurl').value = settings.baseUrl;
     $('set-model').value = settings.model || DEFAULT_MODEL;
+    $('set-model-analy').value = settings.analyModel || '';
     $('set-apikey').value = settings.apiKey || '';
     $('set-status').textContent = '';
     $('settings-modal').hidden = false;
@@ -465,6 +622,7 @@
   function saveSettingsFromModal() {
     settings.baseUrl = $('set-baseurl').value.trim();
     settings.model = $('set-model').value.trim();
+    settings.analyModel = $('set-model-analy').value.trim();
     settings.apiKey = $('set-apikey').value.trim();
     saveSettings();
     connSub();
@@ -539,6 +697,8 @@
       this.value = '';
     });
     $('btn-attach-clear').addEventListener('click', clearAttachment);
+    $('btn-web').addEventListener('click', toggleWebMode);
+    $('btn-web-clear').addEventListener('click', toggleWebMode);
     $('chat-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();

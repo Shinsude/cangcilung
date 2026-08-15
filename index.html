@@ -26,10 +26,15 @@
           <span id="attach-name"></span>
           <button id="btn-attach-clear" class="attach-clear" aria-label="Buang file">×</button>
         </div>
+        <div id="web-chip" class="attach-chip web-chip" hidden>
+          <span>🌐 Mode cari di web aktif</span>
+          <button id="btn-web-clear" class="attach-clear" aria-label="Nonaktifkan">×</button>
+        </div>
         <div class="chat-input-wrap">
-          <button id="btn-attach" class="attach-btn" title="Lampirkan file (txt/md/csv/json/pdf/xlsx)" aria-label="Lampirkan file">📎</button>
-          <input type="file" id="file-input" accept=".txt,.md,.csv,.json,.pdf,.xlsx" hidden>
+          <button id="btn-attach" class="attach-btn" title="Lampirkan file (txt/md/csv/json/pdf)" aria-label="Lampirkan file">📎</button>
+          <input type="file" id="file-input" accept=".txt,.md,.csv,.json,.log,.pdf,.xlsx,.xls,.docx" hidden>
           <textarea id="chat-input" rows="1" placeholder="Tulis pesan ke cangcilung... (Enter untuk kirim)"></textarea>
+          <button id="btn-web" class="attach-btn web-toggle" title="Cari di web (Wikipedia) untuk jawaban terkini" aria-label="Cari di web">🌐</button>
           <button id="btn-send" class="send-btn" title="Kirim pesan" aria-label="Kirim pesan">➤</button>
         </div>
         <div class="chat-status" id="chat-status"></div>
@@ -60,6 +65,11 @@
           <input type="text" id="set-model" placeholder="llama-3.3-70b-versatile">
         </label>
         <p class="set-hint">Default (gratis & cepat): <code>llama-3.3-70b-versatile</code>. Alternatif: <code>openai/gpt-oss-120b</code>, <code>qwen/qwen3.6-27b</code> (berpikir dulu, cocok soal analisis), <code>openai/gpt-oss-20b</code>. Catatan: model 18+/tanpa sensor tidak tersedia di Groq — pakai OpenRouter & model <code>sao10k/l3-lunaris-8b</code>.</p>
+        <label class="set-field">
+          <span>Model Analisis/Logika (otomatis untuk soal hitung/logika/kode)</span>
+          <input type="text" id="set-model-analy" placeholder="openai/gpt-oss-120b">
+        </label>
+        <p class="set-hint">Kosongkan untuk pakai model utama. Model ini dipakai otomatis saat pertanyaan butuh analisis/logika (router cerdas). Default: <code>openai/gpt-oss-120b</code>.</p>
         <div class="set-status" id="set-status"></div>
       </div>
       <div class="modal-footer">
@@ -74,6 +84,8 @@
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

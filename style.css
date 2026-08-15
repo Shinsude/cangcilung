@@ -159,6 +159,11 @@ body {
   transition: background .15s, color .15s;
 }
 .attach-btn:hover { background: var(--card-hover, rgba(255,255,255,.06)); color: var(--text); }
+.attach-btn.active {
+  background: var(--accent-grad, rgba(124, 58, 237, .35));
+  color: #fff; border-color: var(--accent);
+}
+.web-chip .attach-clear { color: var(--accent); }
 
 .attach-chip {
   display: flex; align-items: center; gap: 8px;
