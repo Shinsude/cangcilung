@@ -17,6 +17,13 @@
     '5. Jangan mengulang pertanyaan user. Langsung ke inti jawaban.',
     '6. Bahasa: gunakan Indonesia; istilah teknis boleh bahasa Inggris jika lebih tepat.'
   ].join(' ');
+  var PERSONAS = {
+    default: '',
+    guru: '\nGaya kamu sekarang: GURU. Jelaskan konsep dengan sabar dan runtut, gunakan analogi sederhana, dan akhiri dengan pertanyaan latihan kecil atau rangkuman. Bersemangat mengajar.',
+    teman: '\nGaya kamu sekarang: TEMAN. Jawab dengan santai, akrab, dan hangat seperti teman dekat. Boleh pakai bahasa gaul ringan dan emoji, tetap akurat.',
+    bos: '\nGaya kamu sekarang: BOS. Jawab singkat, langsung ke poin, tegas, tanpa basa-basi. Beri keputusan/rekomendasi yang jelas.',
+    kode: '\nGaya kamu sekarang: SPESIALIS KODE. Fokus pada solusi teknis yang efisien dan benar. Berikan kode bersih dengan penjelasan singkat. Prioritaskan kualitas kode dan praktik terbaik.'
+  };
   var DEFAULT_BASE = 'https://api.groq.com/openai/v1';
   var DEFAULT_MODEL = 'llama-3.3-70b-versatile';
   var VISION_MODEL = 'qwen/qwen3.6-27b';
@@ -29,22 +36,31 @@
   var SETTINGS_KEY = 'cangcilung_settings';
   var SUMMARY_KEY = 'cangcilung_summary';
   var USAGE_KEY = 'cangcilung_usage';
+  var SESSIONS_KEY = 'cangcilung_sessions';
 
   var els = {};
   var history = [];
   var summary = '';
-  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '' };
+  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true };
   var busy = false;
   var abortCtrl = null;
 
   function $(id) { return document.getElementById(id); }
 
   function loadSummary() {
-    try { summary = localStorage.getItem(SUMMARY_KEY) || ''; } catch (e) {}
+    try {
+      var s = currentSession();
+      if (s) { summary = s.summary || ''; return; }
+      summary = localStorage.getItem(SUMMARY_KEY) || '';
+    } catch (e) {}
   }
 
   function saveSummary() {
-    try { localStorage.setItem(SUMMARY_KEY, summary); } catch (e) {}
+    try {
+      localStorage.setItem(SUMMARY_KEY, summary);
+      var s = currentSession();
+      if (s) { s.summary = summary; saveSessions(); }
+    } catch (e) {}
   }
 
   function loadSettings() {
@@ -56,6 +72,8 @@
         settings.model = s.model || DEFAULT_MODEL;
         settings.apiKey = s.apiKey || '';
         settings.analyModel = s.analyModel || '';
+        settings.persona = s.persona || 'default';
+        settings.verifyEnabled = s.verifyEnabled !== false;
       }
     } catch (e) {}
   }
@@ -64,8 +82,137 @@
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
   }
 
+  var sessions = [];
+  var currentSessionId = null;
+
+  function loadSessions() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(SESSIONS_KEY) || 'null');
+      if (Array.isArray(raw) && raw.length) {
+        sessions = raw;
+        currentSessionId = sessions[0].id;
+        return;
+      }
+    } catch (e) {}
+    sessions = [{ id: 's1', name: 'Percakapan 1', history: [], summary: '' }];
+    currentSessionId = 's1';
+    try {
+      var legacy = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      if (Array.isArray(legacy) && legacy.length) sessions[0].history = legacy.slice(-200);
+      var legacySum = localStorage.getItem(SUMMARY_KEY) || '';
+      if (legacySum) sessions[0].summary = legacySum;
+    } catch (e) {}
+    saveSessions();
+  }
+
+  function saveSessions() {
+    try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); } catch (e) {}
+  }
+
+  function currentSession() {
+    for (var i = 0; i < sessions.length; i++) {
+      if (sessions[i].id === currentSessionId) return sessions[i];
+    }
+    return sessions[0];
+  }
+
+  function newSession() {
+    var n = sessions.length + 1;
+    var id = 's' + Date.now();
+    sessions.push({ id: id, name: 'Percakapan ' + n, history: [], summary: '' });
+    currentSessionId = id;
+    saveSessions();
+    history = [];
+    summary = '';
+    saveHistory();
+    saveSummary();
+    renderHistory();
+    connSub();
+    closeSessions();
+    return id;
+  }
+
+  function selectSession(id) {
+    currentSessionId = id;
+    saveSessions();
+    history = [];
+    summary = '';
+    var s = currentSession();
+    if (s) { history = s.history.slice(); summary = s.summary || ''; }
+    clearAttachment();
+    clearImage();
+    renderHistory();
+    connSub();
+    closeSessions();
+  }
+
+  function deleteSession(id) {
+    if (sessions.length <= 1) { setStatus('Minimal satu percakapan harus ada.', true); return; }
+    sessions = sessions.filter(function (s) { return s.id !== id; });
+    if (currentSessionId === id) currentSessionId = sessions[0].id;
+    saveSessions();
+    history = [];
+    summary = '';
+    var s = currentSession();
+    if (s) { history = s.history.slice(); summary = s.summary || ''; }
+    renderHistory();
+    connSub();
+    renderSessionList();
+  }
+
+  function renameSession(id) {
+    var s = null;
+    for (var i = 0; i < sessions.length; i++) if (sessions[i].id === id) s = sessions[i];
+    if (!s) return;
+    var name = prompt('Nama percakapan:', s.name);
+    if (name && name.trim()) { s.name = name.trim(); saveSessions(); renderSessionList(); }
+  }
+
+  function renderSessionList() {
+    var box = $('session-list');
+    if (!box) return;
+    box.innerHTML = '';
+    sessions.forEach(function (s) {
+      var row = document.createElement('div');
+      row.className = 'session-row' + (s.id === currentSessionId ? ' active' : '');
+      var label = document.createElement('span');
+      label.className = 'session-name';
+      label.textContent = s.name;
+      label.title = s.history.length + ' pesan';
+      label.addEventListener('click', function () { selectSession(s.id); });
+      var rename = document.createElement('button');
+      rename.className = 'session-act';
+      rename.textContent = '✏️';
+      rename.title = 'Ganti nama';
+      rename.addEventListener('click', function () { renameSession(s.id); });
+      var del = document.createElement('button');
+      del.className = 'session-act';
+      del.textContent = '🗑️';
+      del.title = 'Hapus';
+      del.addEventListener('click', function () {
+        if (confirm('Hapus percakapan "' + s.name + '"?')) deleteSession(s.id);
+      });
+      row.appendChild(label);
+      row.appendChild(rename);
+      row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+
+  function openSessions() {
+    renderSessionList();
+    $('sessions-modal').hidden = false;
+  }
+
+  function closeSessions() {
+    var m = $('sessions-modal');
+    if (m) m.hidden = true;
+  }
+
   function loadHistory() {
     try {
+      var s = currentSession();
+      if (s) { history = s.history.slice(); return; }
       var raw = localStorage.getItem(HISTORY_KEY);
       if (raw) {
         var arr = JSON.parse(raw);
@@ -77,6 +224,8 @@
   function saveHistory() {
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-200)));
+      var s = currentSession();
+      if (s) { s.history = history.slice(-200); saveSessions(); }
     } catch (e) {}
   }
 
@@ -293,10 +442,149 @@
       try {
         var html = marked.parse(text || '');
         el.innerHTML = DOMPurify.sanitize(html);
+        if (typeof hljs !== 'undefined') {
+          el.querySelectorAll('pre code').forEach(function (b) {
+            try { hljs.highlightElement(b); } catch (e) {}
+          });
+        }
         return;
       } catch (e) {}
     }
     el.textContent = text || '';
+  }
+
+  function getSystem() {
+    return SYSTEM + (PERSONAS[settings.persona] || '');
+  }
+
+  function addRunButtons(el) {
+    if (!el) return;
+    var blocks = el.querySelectorAll('pre code');
+    blocks.forEach(function (code) {
+      var lang = (code.className || '').match(/language-(\w+)/);
+      var langName = lang ? lang[1] : '';
+      var isJs = langName === 'js' || langName === 'javascript' || langName === 'node';
+      if (!isJs) return;
+      var pre = code.parentElement;
+      if (!pre || pre.querySelector('.run-btn')) return;
+      var btn = document.createElement('button');
+      btn.className = 'run-btn';
+      btn.textContent = '▶ Jalankan';
+      btn.addEventListener('click', function () {
+        runCode(code.textContent, pre);
+      });
+      pre.appendChild(btn);
+    });
+  }
+
+  function runCode(source, pre) {
+    var out = pre.querySelector('.run-output');
+    if (out) out.remove();
+    out = document.createElement('div');
+    out.className = 'run-output';
+    out.textContent = '⏳ Menjalankan...';
+    pre.appendChild(out);
+    var workerCode = [
+      'self.onmessage = function (e) {',
+      '  var logs = [];',
+      '  var origLog = console.log;',
+      '  console.log = function () {',
+      '    logs.push(Array.prototype.slice.call(arguments).join(" "));',
+      '  };',
+      '  try {',
+      '    var result = (function() {',
+      source,
+      '    })();',
+      '    if (result !== undefined) logs.push("=> " + JSON.stringify(result));',
+      '    self.postMessage({ ok: true, logs: logs });',
+      '  } catch (err) {',
+      '    self.postMessage({ ok: false, logs: logs, error: String(err && err.message || err) });',
+      '  }',
+      '};'
+    ].join('\n');
+    var blob;
+    try {
+      blob = new Blob([workerCode], { type: 'application/javascript' });
+    } catch (e) { out.textContent = 'Web Worker tidak didukung.'; return; }
+    var url = URL.createObjectURL(blob);
+    var worker = new Worker(url);
+    var timer = setTimeout(function () {
+      worker.terminate();
+      URL.revokeObjectURL(url);
+      out.textContent = '⏱️ Waktu habis (>5 detik).';
+    }, 5000);
+    worker.onmessage = function (e) {
+      clearTimeout(timer);
+      worker.terminate();
+      URL.revokeObjectURL(url);
+      var parts = [];
+      if (e.data.logs && e.data.logs.length) parts.push('📤 Output:\n' + e.data.logs.join('\n'));
+      if (e.data.ok) {
+        if (!parts.length) parts.push('✅ Berjalan tanpa output.');
+      } else {
+        parts.push('❌ Error: ' + e.data.error);
+      }
+      out.textContent = parts.join('\n\n');
+    };
+    worker.onerror = function (e) {
+      clearTimeout(timer);
+      worker.terminate();
+      URL.revokeObjectURL(url);
+      out.textContent = '❌ Worker error: ' + e.message;
+    };
+    worker.postMessage('run');
+  }
+
+  function exportChat() {
+    var s = currentSession();
+    var lines = [];
+    lines.push('# cangcilung — Ekspor Percakapan');
+    lines.push('Nama: ' + (s ? s.name : '') + ' | Tanggal: ' + new Date().toLocaleString('id-ID'));
+    lines.push('');
+    if (summary) { lines.push('Ringkasan konteks:'); lines.push(summary); lines.push(''); }
+    history.forEach(function (m) {
+      lines.push('## ' + (m.role === 'user' ? '🧑 Anda' : '🤖 cangcilung'));
+      lines.push(m.content);
+      lines.push('');
+    });
+    var blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'cangcilung-' + (s ? s.name.replace(/[^\w]+/g, '-').toLowerCase() : 'chat') + '.txt';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
+    setStatus('⬇️ Percakapan diekspor.');
+  }
+
+  function verifyAnswer(question, answer) {
+    if (!settings.verifyEnabled) return;
+    fetch(apiUrl('/chat/completions'), {
+      method: 'POST',
+      headers: apiHeaders(),
+      body: JSON.stringify({
+        model: settings.analyModel || settings.model,
+        stream: false,
+        max_tokens: 300,
+        messages: [
+          { role: 'system', content: 'Kamu adalah pemeriksa jawaban. Periksa kebenaran jawaban berikut terhadap pertanyaan. Jika jawaban SALAH (terutama perhitungan/logika), jawab dengan koreksi singkat. Jika BENAR, balas hanya dengan: OK' },
+          { role: 'user', content: 'Pertanyaan: ' + question + '\n\nJawaban:\n' + String(answer).slice(0, 3000) }
+        ]
+      })
+    })
+      .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)); })
+      .then(function (j) {
+        var txt = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
+        if (!txt) return;
+        if (/^ok$/i.test(txt)) return;
+        var note = document.createElement('div');
+        note.className = 'msg-note verify-note';
+        note.textContent = '🔎 Verifikasi: ' + txt.slice(0, 500);
+        var box = $('chat-messages');
+        if (box) box.appendChild(note);
+        scrollChat();
+      })
+      .catch(function () {});
   }
 
   function addBubble(role, text) {
@@ -330,7 +618,8 @@
       return;
     }
     history.forEach(function (m) {
-      addBubble(m.role, m.content);
+      var b = addBubble(m.role, m.content);
+      if (m.role === 'assistant') addRunButtons(b);
     });
   }
 
@@ -465,6 +754,11 @@
         listening = false;
         var btn = $('btn-mic');
         if (btn) btn.classList.remove('active');
+        var input = $('chat-input');
+        if (speakEnabled && input && input.value.trim()) {
+          setStatus('🎤 Mengirim otomatis...');
+          sendChat();
+        }
       };
       recognition.onerror = function (e) {
         listening = false;
@@ -506,6 +800,23 @@
     var btn = $('btn-suggest');
     if (btn) btn.classList.toggle('active', suggestEnabled);
     setStatus(suggestEnabled ? '💡 Saran pertanyaan aktif.' : 'Mode saran nonaktif.');
+  }
+
+  var PERSONA_ORDER = ['default', 'guru', 'teman', 'bos', 'kode'];
+  var PERSONA_EMOJI = { default: '✨', guru: '🎓', teman: '🤝', bos: '👔', kode: '💻' };
+  var PERSONA_LABEL = { default: 'Seimbang', guru: 'Guru', teman: 'Teman', bos: 'Bos', kode: 'Kode' };
+
+  function cyclePersona() {
+    var idx = PERSONA_ORDER.indexOf(settings.persona);
+    if (idx === -1) idx = 0;
+    settings.persona = PERSONA_ORDER[(idx + 1) % PERSONA_ORDER.length];
+    saveSettings();
+    var btn = $('btn-persona');
+    if (btn) {
+      btn.textContent = PERSONA_EMOJI[settings.persona] || '🎭';
+      btn.title = 'Gaya: ' + (PERSONA_LABEL[settings.persona] || settings.persona);
+    }
+    setStatus('🎭 Gaya cangcilung: ' + (PERSONA_LABEL[settings.persona] || settings.persona));
   }
 
   function renderSuggestions() {
@@ -704,6 +1015,7 @@
     var full = '';
     var attempted = [];
     var webContext = '';
+    var isAnalysis = needsAnalysis(text);
 
     var calc = calcAnswer(text);
     if (calc) {
@@ -728,7 +1040,7 @@
     function attemptStream(model) {
       abortCtrl = new AbortController();
       attempted.push(model);
-      var messages = [{ role: 'system', content: SYSTEM }];
+      var messages = [{ role: 'system', content: getSystem() }];
       if (summary) {
         messages.push({ role: 'system', content: 'Ringkasan percakapan sebelumnya:\n' + summary });
       }
@@ -789,6 +1101,7 @@
             setStatus('');
             trackUsage();
             speakText(full);
+            if (isAnalysis) verifyAnswer(text, full);
             loadSuggestions(model, text, full);
             summarizeOld();
           };
@@ -825,7 +1138,6 @@
     }
 
     var pool = [];
-    var isAnalysis = needsAnalysis(text);
     if (attachedImage) pool.push(VISION_MODEL);
     if (isAnalysis && settings.analyModel) pool.push(settings.analyModel);
     if (pool.indexOf(settings.model) === -1) pool.push(settings.model);
@@ -869,6 +1181,7 @@
     $('set-model').value = settings.model || DEFAULT_MODEL;
     $('set-model-analy').value = settings.analyModel || '';
     $('set-apikey').value = settings.apiKey || '';
+    $('set-persona').value = settings.persona || 'default';
     $('set-status').textContent = '';
     $('settings-modal').hidden = false;
     $('set-baseurl').focus();
@@ -883,10 +1196,20 @@
     settings.model = $('set-model').value.trim();
     settings.analyModel = $('set-model-analy').value.trim();
     settings.apiKey = $('set-apikey').value.trim();
+    settings.persona = $('set-persona').value || 'default';
     saveSettings();
+    syncPersonaButton();
     connSub();
     closeSettings();
     setStatus('Pengaturan disimpan.');
+  }
+
+  function syncPersonaButton() {
+    var btn = $('btn-persona');
+    if (btn) {
+      btn.textContent = PERSONA_EMOJI[settings.persona] || '🎭';
+      btn.title = 'Gaya: ' + (PERSONA_LABEL[settings.persona] || settings.persona);
+    }
   }
 
   function testConnection() {
@@ -941,6 +1264,7 @@
 
   function init() {
     loadSettings();
+    loadSessions();
     loadHistory();
     loadSummary();
     els.btnSend = $('btn-send');
@@ -949,6 +1273,7 @@
     connSub();
     renderHistory();
     renderUsage();
+    syncPersonaButton();
 
     $('btn-send').addEventListener('click', sendChat);
     $('btn-attach').addEventListener('click', function () { $('file-input').click(); });
@@ -967,6 +1292,14 @@
     $('btn-speak').addEventListener('click', toggleSpeak);
     $('btn-suggest').addEventListener('click', toggleSuggest);
     $('btn-mic').addEventListener('click', toggleMic);
+    $('btn-sessions').addEventListener('click', openSessions);
+    $('btn-sessions-close').addEventListener('click', closeSessions);
+    $('btn-session-new').addEventListener('click', newSession);
+    $('sessions-modal').addEventListener('click', function (e) {
+      if (e.target === $('sessions-modal')) closeSessions();
+    });
+    $('btn-export').addEventListener('click', exportChat);
+    $('btn-persona').addEventListener('click', cyclePersona);
     $('chat-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();

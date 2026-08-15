@@ -237,6 +237,56 @@ body {
 }
 .set-field input:focus { border-color: var(--accent); }
 .set-hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+
+.set-field select {
+  padding: 10px 12px; font-size: 14px; color: var(--text);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; outline: none; font-family: inherit;
+}
+.set-field select:focus { border-color: var(--accent); }
+
+.session-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.session-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 10px; cursor: pointer;
+}
+.session-row:hover { border-color: var(--accent); }
+.session-row.active { border-color: var(--accent); background: rgba(124, 58, 237, .1); }
+.session-name { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-act {
+  border: none; background: transparent; cursor: pointer;
+  font-size: 14px; padding: 2px 4px; opacity: .6;
+}
+.session-act:hover { opacity: 1; }
+
+.run-btn {
+  cursor: pointer; border: 1px solid var(--accent); color: var(--accent);
+  background: transparent; border-radius: 8px; padding: 4px 10px;
+  font-size: 12px; margin-top: 6px;
+}
+.run-btn:hover { background: rgba(124, 58, 237, .15); }
+.run-output {
+  margin-top: 8px; padding: 10px 12px; font-size: 13px;
+  font-family: 'Consolas', monospace; white-space: pre-wrap;
+  background: #0b0b16; border: 1px solid var(--border);
+  border-radius: 10px; color: #9ee6a8;
+}
+.verify-note { color: #fbbf24; }
+
+.msg-bubble pre {
+  background: #0b0b16; border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; overflow-x: auto;
+}
+.msg-bubble table {
+  border-collapse: collapse; width: 100%; margin: 8px 0;
+  font-size: 13px;
+}
+.msg-bubble th, .msg-bubble td {
+  border: 1px solid var(--border); padding: 6px 10px; text-align: left;
+}
+.msg-bubble th { background: rgba(124, 58, 237, .15); }
+.msg-bubble code { font-family: 'Consolas', monospace; }
 .set-hint code {
   background: rgba(0,0,0,.35); padding: 1px 5px; border-radius: 4px;
   font-family: Consolas, monospace; font-size: 11px;

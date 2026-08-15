@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>cangcilung - Asisten AI</title>
+  <meta name="description" content="Asisten AI gratis: chat, analisa file/gambar, web search, suara.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#7c3aed">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/github-dark.min.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%237c3aed'/></svg>">
 </head>
 <body>
@@ -17,6 +21,9 @@
   <span class="pane-sub" id="usage-sub"></span>
         </div>
         <div class="header-actions">
+          <button id="btn-sessions" class="ghost-btn" title="Ganti percakapan" aria-label="Ganti percakapan">💬</button>
+          <button id="btn-persona" class="ghost-btn" title="Ganti gaya cangcilung" aria-label="Ganti gaya">🎭</button>
+          <button id="btn-export" class="ghost-btn" title="Ekspor percakapan" aria-label="Ekspor percakapan">⬇️</button>
           <button id="btn-clear-chat" class="ghost-btn" title="Hapus seluruh obrolan" aria-label="Hapus obrolan">🗑️ Hapus</button>
           <button id="btn-settings" class="settings-btn" title="Pengaturan" aria-label="Pengaturan">⚙️</button>
         </div>
@@ -79,6 +86,17 @@
           <input type="text" id="set-model-analy" placeholder="openai/gpt-oss-120b">
         </label>
         <p class="set-hint">Kosongkan untuk pakai model utama. Model ini dipakai otomatis saat pertanyaan butuh analisis/logika (router cerdas). Default: <code>openai/gpt-oss-120b</code>.</p>
+        <label class="set-field">
+          <span>Gaya cangcilung (persona)</span>
+          <select id="set-persona">
+            <option value="default">✨ Seimbang (default)</option>
+            <option value="guru">🎓 Guru — jelas mengajar, beri latihan</option>
+            <option value="teman">🤝 Teman — santai dan akrab</option>
+            <option value="bos">👔 Bos — singkat, langsung, tegas</option>
+            <option value="kode">💻 Kode — fokus teknis, efisien</option>
+          </select>
+        </label>
+        <p class="set-hint">Ubah gaya jawaban cangcilung. Tersimpan di browser.</p>
         <p class="set-hint">✨ Tips: 📎 analisa file/gambar, 🌐 jawaban info terkini (otomatis untuk berita), 🎤 bicara, 🔊 baca jawaban, 💡 saran pertanyaan, 🗑️ mulai percakapan baru.</p>
         <div class="set-status" id="set-status"></div>
       </div>
@@ -91,11 +109,33 @@
     </div>
   </div>
 
+  <!-- ====== MODAL SESI (MULTI-OBROLAN) ====== -->
+  <div class="modal-overlay" id="sessions-modal" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Percakapan 💬</h3>
+        <button id="btn-sessions-close" class="modal-close" aria-label="Tutup">×</button>
+      </div>
+      <div class="modal-body">
+        <button id="btn-session-new" class="primary-btn" style="width:100%">＋ Percakapan baru</button>
+        <div id="session-list" class="session-list"></div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/highlight.min.js"></script>
   <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
 </body>
 </html>
