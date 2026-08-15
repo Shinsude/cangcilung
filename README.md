@@ -12,11 +12,11 @@ Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backen
 
 1. Buka `https://cangcilung.vercel.app` (atau `index.html` lokal).
 2. Klik ⚙️ → buat API Key di `https://openrouter.ai/keys` → isi **API Key**.
-3. Isi **Model** — disarankan:
-   - `nvidia/nemotron-3-nano-30b-a3b:free` — paling cepat & gratis.
-   - `google/gemma-4-26b-a4b-it:free`, `nvidia/nemotron-3-ultra-550b-a55b:free` — gratis, kualitas tinggi.
+3. Isi **Model** (default sudah 18+/dewasa):
+   - `sao10k/l3-lunaris-8b` — **default**, 18+/tanpa sensor, sangat murah (±Rp 700/juta token, butuh saldo kecil OpenRouter).
+   - `gryphe/mythomax-l2-13b` — alternatif 18+/tanpa sensor.
+   - `nvidia/nemotron-3-nano-30b-a3b:free` — gratis & cepat, tapi konten terfilter aman.
    - `openrouter/free` — auto-pilih model gratis.
-   - `sao10k/l3-lunaris-8b`, `gryphe/mythomax-l2-13b` — 18+/tanpa sensor, berbayar sangat murah (~Rp 1.000/juta token).
 4. **Tes Koneksi** → **Simpan** → chat.
 
 > Model gratis (`:free`) dibatasi sekitar 20 permintaan/menit dan bisa berubah sewaktu-waktu. Daftar model & harga: `openrouter.ai/models`. Untuk jaminan & throughput, bisa pakai model berbayar (sangat murah per juta token).

@@ -8,12 +8,13 @@
 
   var SYSTEM = 'Kamu adalah cangcilung, asisten AI dewasa yang ramah, terus terang, dan membantu. Jawab dalam bahasa Indonesia.';
   var DEFAULT_BASE = 'https://openrouter.ai/api/v1';
+  var DEFAULT_MODEL = 'sao10k/l3-lunaris-8b';
   var HISTORY_KEY = 'cangcilung_history';
   var SETTINGS_KEY = 'cangcilung_settings';
 
   var els = {};
   var history = [];
-  var settings = { baseUrl: '', model: '', apiKey: '' };
+  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '' };
   var busy = false;
   var abortCtrl = null;
 
@@ -25,7 +26,7 @@
       if (raw) {
         var s = JSON.parse(raw);
         settings.baseUrl = s.baseUrl || '';
-        settings.model = s.model || '';
+        settings.model = s.model || DEFAULT_MODEL;
         settings.apiKey = s.apiKey || '';
       }
     } catch (e) {}
@@ -169,7 +170,7 @@
     var text = input.value.trim();
     if (!text) return;
     if (!settings.model) {
-      setStatus('Atur model dulu di ⚙️ Pengaturan (contoh: openrouter/free, google/gemma-4-31b-it:free).', true);
+      setStatus('Atur model dulu di ⚙️ Pengaturan.', true);
       openSettings();
       return;
     }
@@ -254,7 +255,7 @@
 
   function openSettings() {
     $('set-baseurl').value = settings.baseUrl;
-    $('set-model').value = settings.model || '';
+    $('set-model').value = settings.model || DEFAULT_MODEL;
     $('set-apikey').value = settings.apiKey || '';
     $('set-status').textContent = '';
     $('settings-modal').hidden = false;
