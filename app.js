@@ -6,7 +6,17 @@
 (function () {
   'use strict';
 
-  var SYSTEM = 'Kamu adalah cangcilung, asisten AI dewasa yang ramah, terus terang, dan membantu. Jawab dalam bahasa Indonesia. Berikan jawaban yang akurat dan lengkap; untuk soal hitungan/analisis, tunjukkan langkahnya secara ringkas.';
+  var SYSTEM = [
+    'Kamu adalah cangcilung, asisten AI dewasa yang ramah, terus terang, dan sangat membantu.',
+    'Jawab dalam bahasa Indonesia yang natural dan sopan.',
+    'Prinsip menjawab:',
+    '1. AKURAT dulu, baru lengkap. Jangan menebak; jika tidak yakin, katakan tidak yakin.',
+    '2. Untuk hitungan/analisis/masalah bertahap, tunjukkan langkahnya secara ringkas dan rapi (pakai bullet/angka).',
+    '3. Untuk pertanyaan singkat, jawab singkat. Untuk pertanyaan kompleks, jawab terstruktur (poin, tabel, kode bila perlu).',
+    '4. Jika diminta kode, berikan kode lengkap yang bisa langsung dipakai + penjelasan singkat.',
+    '5. Jangan mengulang pertanyaan user. Langsung ke inti jawaban.',
+    '6. Bahasa: gunakan Indonesia; istilah teknis boleh bahasa Inggris jika lebih tepat.'
+  ].join(' ');
   var DEFAULT_BASE = 'https://api.groq.com/openai/v1';
   var DEFAULT_MODEL = 'llama-3.3-70b-versatile';
   var FALLBACKS = [
@@ -16,14 +26,24 @@
   ];
   var HISTORY_KEY = 'cangcilung_history';
   var SETTINGS_KEY = 'cangcilung_settings';
+  var SUMMARY_KEY = 'cangcilung_summary';
 
   var els = {};
   var history = [];
+  var summary = '';
   var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '' };
   var busy = false;
   var abortCtrl = null;
 
   function $(id) { return document.getElementById(id); }
+
+  function loadSummary() {
+    try { summary = localStorage.getItem(SUMMARY_KEY) || ''; } catch (e) {}
+  }
+
+  function saveSummary() {
+    try { localStorage.setItem(SUMMARY_KEY, summary); } catch (e) {}
+  }
 
   function loadSettings() {
     try {
@@ -46,15 +66,55 @@
       var raw = localStorage.getItem(HISTORY_KEY);
       if (raw) {
         var arr = JSON.parse(raw);
-        if (Array.isArray(arr)) history = arr.slice(-100);
+        if (Array.isArray(arr)) history = arr.slice(-200);
       }
     } catch (e) {}
   }
 
   function saveHistory() {
     try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-100)));
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-200)));
     } catch (e) {}
+  }
+
+  var summarizing = false;
+  function summarizeOld() {
+    if (summarizing) return;
+    if (history.length < 40) return;
+    var keep = history.slice(-20);
+    var old = history.slice(0, history.length - 20);
+    if (old.length < 20) return;
+    summarizing = true;
+    fetch(apiUrl('/chat/completions'), {
+      method: 'POST',
+      headers: apiHeaders(),
+      body: JSON.stringify({
+        model: settings.model,
+        stream: false,
+        max_tokens: 400,
+        messages: [{
+          role: 'system',
+          content: 'Kamu adalah pencatat ringkasan. Ringkas percakapan berikut dalam bahasa Indonesia, maksimal 250 kata, dalam bentuk poin-poin penting (topik, keputusan, fakta yang disebutkan user). Hanya hasil ringkasan, tanpa pembuka.'
+        }, {
+          role: 'user',
+          content: old.map(function (m) { return m.role + ': ' + m.content; }).join('\n').slice(-6000)
+        }]
+      })
+    })
+      .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)); })
+      .then(function (j) {
+        var txt = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
+        if (txt) {
+          summary = (summary ? summary + '\n' : '') + txt;
+          if (summary.length > 3000) summary = txt;
+          saveSummary();
+        }
+        history = keep;
+        saveHistory();
+        renderHistory();
+      })
+      .catch(function () {})
+      .finally(function () { summarizing = false; });
   }
 
   function baseUrl() {
@@ -204,10 +264,15 @@
     function attemptStream(model) {
       abortCtrl = new AbortController();
       attempted.push(model);
+      var messages = [{ role: 'system', content: SYSTEM }];
+      if (summary) {
+        messages.push({ role: 'system', content: 'Ringkasan percakapan sebelumnya:\n' + summary });
+      }
+      messages = messages.concat(history);
       var body = {
         model: model,
         stream: true,
-        messages: [{ role: 'system', content: SYSTEM }].concat(history)
+        messages: messages
       };
 
       return fetch(apiUrl('/chat/completions'), {
@@ -245,6 +310,7 @@
             busy = false;
             $('btn-send').disabled = false;
             setStatus('');
+            summarizeOld();
           };
           function pump() {
             return reader.read().then(function (r) {
@@ -376,6 +442,7 @@
   function init() {
     loadSettings();
     loadHistory();
+    loadSummary();
     els.btnSend = $('btn-send');
     els.chatInput = $('chat-input');
     els.chatMessages = $('chat-messages');
@@ -392,7 +459,9 @@
     $('btn-clear-chat').addEventListener('click', function () {
       if (!busy && history.length && confirm('Hapus seluruh obrolan?')) {
         history = [];
+        summary = '';
         saveHistory();
+        saveSummary();
         renderHistory();
       }
     });

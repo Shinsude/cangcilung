@@ -6,7 +6,8 @@ Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backen
 
 - Chat sederhana satu tab, jawaban streaming.
 - Pengaturan di ⚙️: Base URL, API Key, dan Model (tersimpan di localStorage browser).
-- Riwayat chat tersimpan otomatis di localStorage.
+- Riwayat chat tersimpan otomatis di localStorage (hingga 200 pesan).
+- **Memori panjang**: percakapan lama otomatis diringkas oleh model, jadi obrolan panjang tetap konsisten konteksnya.
 - Auto-fallback: bila model utama kena rate-limit/gagal, otomatis coba model cadangan.
 
 ## Pakai langsung (Groq — default)
