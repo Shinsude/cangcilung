@@ -23,6 +23,7 @@
         <div class="header-actions">
           <button id="btn-sessions" class="ghost-btn" title="Ganti percakapan" aria-label="Ganti percakapan">💬</button>
           <button id="btn-persona" class="ghost-btn" title="Ganti gaya cangcilung" aria-label="Ganti gaya">🎭</button>
+          <button id="btn-search" class="ghost-btn" title="Cari dalam percakapan" aria-label="Cari">🔍</button>
           <button id="btn-export" class="ghost-btn" title="Ekspor percakapan" aria-label="Ekspor percakapan">⬇️</button>
           <button id="btn-clear-chat" class="ghost-btn" title="Hapus seluruh obrolan" aria-label="Hapus obrolan">🗑️ Hapus</button>
           <button id="btn-theme" class="ghost-btn" title="Tema: gelap/terang" aria-label="Ganti tema">🌙</button>
@@ -31,6 +32,13 @@
       </div>
       <div id="chat-messages" class="chat-messages"></div>
       <div class="chat-input-area">
+        <div id="search-bar" class="search-bar" hidden>
+          <input type="text" id="search-input" placeholder="Cari kata di percakapan ini...">
+          <span id="search-count" class="search-count"></span>
+          <button id="search-prev" class="search-nav" title="Sebelumnya">▲</button>
+          <button id="search-next" class="search-nav" title="Berikutnya">▼</button>
+          <button id="search-close" class="attach-clear" aria-label="Tutup pencarian">×</button>
+        </div>
         <div id="attach-chip" class="attach-chip" hidden>
           <span id="attach-name"></span>
           <button id="btn-file-summary" class="file-summary" title="Ringkas isi file" aria-label="Ringkas file" hidden>🧾 Ringkas</button>
@@ -47,6 +55,7 @@
         </div>
         <div class="chat-input-wrap">
           <button id="btn-attach" class="attach-btn" title="Lampirkan file atau gambar (txt/md/csv/json/pdf/xlsx/docx/png/jpg)" aria-label="Lampirkan file">📎</button>
+          <button id="btn-url" class="attach-btn" title="Pahami isi URL/artikel" aria-label="Lampirkan URL">🔗</button>
           <input type="file" id="file-input" accept=".txt,.md,.csv,.json,.log,.pdf,.xlsx,.xls,.docx,.png,.jpg,.jpeg,.webp,.gif" hidden>
           <textarea id="chat-input" rows="1" placeholder="Tulis pesan ke cangcilung... (Enter untuk kirim)"></textarea>
           <button id="btn-mic" class="attach-btn" title="Bicara (voice input)" aria-label="Bicara">🎤</button>
@@ -100,7 +109,14 @@
           </select>
         </label>
         <p class="set-hint">Ubah gaya jawaban cangcilung. Tersimpan di browser.</p>
-        <p class="set-hint">✨ Tips: 📎 analisa file/gambar, 🌐 jawaban info terkini (otomatis untuk berita), 🎤 bicara, 🔊 baca jawaban, 💡 saran pertanyaan, 🗑️ mulai percakapan baru.</p>
+        <label class="set-field">
+          <span>Suara pembaca jawaban (🔊)</span>
+          <select id="set-voice">
+            <option value="">🔊 Otomatis</option>
+          </select>
+        </label>
+        <p class="set-hint">Pilih nada suara untuk membacakan jawaban. Daftar tergantung browser/OS Anda.</p>
+        <p class="set-hint">✨ Tips: 📎 analisa file/gambar, 🔗 pahami URL, 🌐 jawaban info terkini (otomatis untuk berita), 🎤 bicara, 🔊 baca jawaban, 🔄 terjemahan id↔en, 💡 saran pertanyaan, 🗑️ mulai percakapan baru.</p>
         <div class="set-status" id="set-status"></div>
       </div>
       <div class="modal-footer">
@@ -122,6 +138,22 @@
       <div class="modal-body">
         <button id="btn-session-new" class="primary-btn" style="width:100%">＋ Percakapan baru</button>
         <div id="session-list" class="session-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== MODAL EKSPOR ====== -->
+  <div class="modal-overlay" id="export-modal" hidden>
+    <div class="modal" style="max-width:380px">
+      <div class="modal-header">
+        <h3>Ekspor percakapan ⬇️</h3>
+        <button id="btn-export-close" class="modal-close" aria-label="Tutup">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="set-hint">Pilih format unduhan:</p>
+        <button id="export-txt" class="ghost-btn" style="width:100%">📄 Teks (.txt)</button>
+        <button id="export-md" class="ghost-btn" style="width:100%">📝 Markdown (.md)</button>
+        <button id="export-json" class="ghost-btn" style="width:100%">🗂️ JSON (data mentah)</button>
       </div>
     </div>
   </div>

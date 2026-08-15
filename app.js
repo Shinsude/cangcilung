@@ -41,7 +41,7 @@
   var els = {};
   var history = [];
   var summary = '';
-  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark' };
+  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '' };
   var busy = false;
   var abortCtrl = null;
 
@@ -75,6 +75,7 @@
         settings.persona = s.persona || 'default';
         settings.verifyEnabled = s.verifyEnabled !== false;
         settings.theme = s.theme || 'dark';
+        settings.voice = s.voice || '';
       }
     } catch (e) {}
   }
@@ -137,6 +138,7 @@
   }
 
   function newSession() {
+    if (busy) { abortAll(); }
     var n = sessions.length + 1;
     var id = 's' + Date.now();
     sessions.push({ id: id, name: 'Percakapan ' + n, history: [], summary: '' });
@@ -152,7 +154,18 @@
     return id;
   }
 
+  function autoTitle(text) {
+    var s = currentSession();
+    if (!s) return;
+    if (s.history.length > 1) return;
+    var clean = String(text).replace(/\s+/g, ' ').trim();
+    if (clean.length > 48) clean = clean.slice(0, 48) + '…';
+    s.name = clean || s.name;
+    saveSessions();
+  }
+
   function selectSession(id) {
+    if (busy) { abortAll(); }
     currentSessionId = id;
     saveSessions();
     history = [];
@@ -626,26 +639,86 @@
     worker.postMessage('run');
   }
 
-  function exportChat() {
+  function openExportMenu() {
+    $('export-modal').hidden = false;
+  }
+
+  function closeExportMenu() {
+    $('export-modal').hidden = true;
+  }
+
+  function exportChat(format) {
+    closeExportMenu();
     var s = currentSession();
-    var lines = [];
-    lines.push('# cangcilung — Ekspor Percakapan');
-    lines.push('Nama: ' + (s ? s.name : '') + ' | Tanggal: ' + new Date().toLocaleString('id-ID'));
-    lines.push('');
-    if (summary) { lines.push('Ringkasan konteks:'); lines.push(summary); lines.push(''); }
-    history.forEach(function (m) {
-      lines.push('## ' + (m.role === 'user' ? '🧑 Anda' : '🤖 cangcilung'));
-      lines.push(m.content);
-      lines.push('');
-    });
-    var blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    var sname = s ? s.name : 'chat';
+    var fname = 'cangcilung-' + sname.replace(/[^\w]+/g, '-').toLowerCase();
+    var blob = null;
+    if (format === 'json') {
+      var data = { app: 'cangcilung', name: sname, exported: new Date().toISOString(), summary: summary, history: history };
+      blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+      fname += '.json';
+    } else if (format === 'md') {
+      var lines = ['# ' + sname, '', 'Ekspor: ' + new Date().toLocaleString('id-ID'), ''];
+      if (summary) { lines.push('## Ringkasan konteks'); lines.push(summary); lines.push(''); }
+      history.forEach(function (m) {
+        lines.push('### ' + (m.role === 'user' ? '🧑 Anda' : '🤖 cangcilung'));
+        lines.push(m.content);
+        lines.push('');
+      });
+      blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
+      fname += '.md';
+    } else {
+      var lines2 = [];
+      lines2.push('# cangcilung — Ekspor Percakapan');
+      lines2.push('Nama: ' + (s ? s.name : '') + ' | Tanggal: ' + new Date().toLocaleString('id-ID'));
+      lines2.push('');
+      if (summary) { lines2.push('Ringkasan konteks:'); lines2.push(summary); lines2.push(''); }
+      history.forEach(function (m) {
+        lines2.push('## ' + (m.role === 'user' ? '🧑 Anda' : '🤖 cangcilung'));
+        lines2.push(m.content);
+        lines2.push('');
+      });
+      blob = new Blob([lines2.join('\n')], { type: 'text/plain;charset=utf-8' });
+      fname += '.txt';
+    }
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'cangcilung-' + (s ? s.name.replace(/[^\w]+/g, '-').toLowerCase() : 'chat') + '.txt';
+    a.download = fname;
     document.body.appendChild(a);
     a.click();
     setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
-    setStatus('⬇️ Percakapan diekspor.');
+    setStatus('⬇️ Percakapan diekspor (' + format + ').');
+  }
+
+  function attachUrl() {
+    if (busy) return;
+    var u = prompt('Tempel URL artikel yang ingin dipahami:');
+    if (!u || !u.trim()) return;
+    var url = u.trim();
+    setStatus('🔗 Mengambil ' + url + '...');
+    fetch(url, { signal: AbortSignal.timeout(15000) })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      })
+      .then(function (html) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        tmp.querySelectorAll('script,style,nav,header,footer,aside').forEach(function (el) { el.remove(); });
+        var text = (tmp.textContent || '').replace(/\s+/g, ' ').trim();
+        if (text.length < 50) throw new Error('Halaman tidak berisi teks yang bisa diambil (mungkin butuh login/JS).');
+        attachedFile = { name: url, text: text.slice(0, 50000) };
+        var elName = $('attach-name');
+        var elChip = $('attach-chip');
+        if (elName) elName.textContent = '🔗 ' + url.replace(/^https?:\/\//, '').slice(0, 60) + ' (' + (text.length / 1000).toFixed(0) + ' KB)';
+        if (elChip) elChip.hidden = false;
+        var elBtn = $('btn-file-summary');
+        if (elBtn) elBtn.hidden = false;
+        setStatus('URL diambil. Ketik pertanyaan, atau klik "🧾 Ringkas".');
+      })
+      .catch(function (err) {
+        setStatus('Error mengambil URL: ' + (err.message || err), true);
+      });
   }
 
   function verifyAnswer(question, answer) {
@@ -678,15 +751,21 @@
       .catch(function () {});
   }
 
-  function addBubble(role, text) {
+  function addBubble(role, text, index) {
     var wrap = document.createElement('div');
     wrap.className = 'msg ' + role;
+    if (index != null) wrap.dataset.index = index;
     var bubble = document.createElement('div');
     bubble.className = 'msg-bubble';
     if (text != null) {
       if (role === 'user') bubble.textContent = text;
       else { bubble.classList.add('typing'); renderMarkdown(bubble, text || '…'); }
     }
+    var time = document.createElement('div');
+    time.className = 'msg-time';
+    time.textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    wrap.appendChild(bubble);
+    wrap.appendChild(time);
     var actions = document.createElement('div');
     actions.className = 'msg-actions';
     var copyBtn = document.createElement('button');
@@ -695,6 +774,14 @@
     copyBtn.title = 'Salin';
     copyBtn.addEventListener('click', function () { copyText(text || ''); });
     actions.appendChild(copyBtn);
+    if (role === 'user' && index != null) {
+      var edBtn = document.createElement('button');
+      edBtn.className = 'bubble-act';
+      edBtn.textContent = '✏️';
+      edBtn.title = 'Edit pesan';
+      edBtn.addEventListener('click', function () { editMessage(index); });
+      actions.appendChild(edBtn);
+    }
     if (role === 'assistant' && text) {
       var reBtn = document.createElement('button');
       reBtn.className = 'bubble-act';
@@ -703,11 +790,21 @@
       reBtn.addEventListener('click', function () { regenerateLast(); });
       actions.appendChild(reBtn);
     }
-    wrap.appendChild(bubble);
     wrap.appendChild(actions);
     $('chat-messages').appendChild(wrap);
     scrollChat();
     return bubble;
+  }
+
+  var editingIndex = -1;
+
+  function editMessage(index) {
+    if (busy) return;
+    if (index < 0 || index >= history.length || history[index].role !== 'user') return;
+    editingIndex = index;
+    var input = $('chat-input');
+    if (input) { input.value = history[index].content; input.focus(); }
+    setStatus('✏️ Mengedit pesan. Kirim untuk memperbarui dan meminta jawaban ulang.');
   }
 
   function copyText(text) {
@@ -761,10 +858,79 @@
       box.appendChild(welcome);
       return;
     }
-    history.forEach(function (m) {
-      var b = addBubble(m.role, m.content);
+    history.forEach(function (m, i) {
+      var b = addBubble(m.role, m.content, i);
       if (m.role === 'assistant') addRunButtons(b);
     });
+    if (searchActive) runSearch();
+  }
+
+  var searchMatches = [];
+  var searchIdx = 0;
+  var searchActive = false;
+
+  function toggleSearch() {
+    searchActive = !searchActive;
+    var bar = $('search-bar');
+    if (bar) bar.hidden = !searchActive;
+    if (searchActive) {
+      var inp = $('search-input');
+      if (inp) { inp.value = ''; inp.focus(); }
+      renderHistory();
+    } else {
+      clearSearch();
+    }
+  }
+
+  function clearSearch() {
+    searchMatches = [];
+    searchIdx = 0;
+    var cnt = $('search-count');
+    if (cnt) cnt.textContent = '';
+    var inp = $('search-input');
+    if (inp) inp.value = '';
+    renderHistory();
+  }
+
+  function runSearch() {
+    var inp = $('search-input');
+    var q = inp ? inp.value.trim().toLowerCase() : '';
+    if (!q) { searchMatches = []; searchIdx = 0; }
+    searchMatches = [];
+    var msgs = document.querySelectorAll('#chat-messages .msg');
+    msgs.forEach(function (el, i) {
+      el.style.border = '';
+      el.style.background = '';
+      var txt = (el.textContent || '').toLowerCase();
+      if (txt.indexOf(q) !== -1) searchMatches.push(i);
+    });
+    searchIdx = searchMatches.length ? 0 : -1;
+    var cnt = $('search-count');
+    if (cnt) cnt.textContent = searchMatches.length ? (searchIdx + 1) + '/' + searchMatches.length + ' ditemukan' : 'Tidak ditemukan';
+    gotoSearch();
+  }
+
+  function gotoSearch() {
+    var msgs = document.querySelectorAll('#chat-messages .msg');
+    msgs.forEach(function (el) {
+      el.style.border = '';
+      el.style.background = '';
+    });
+    if (searchIdx < 0 || searchIdx >= searchMatches.length) return;
+    var idx = searchMatches[searchIdx];
+    var el = msgs[idx];
+    if (!el) return;
+    el.style.border = '1px solid var(--accent)';
+    el.style.background = 'rgba(124, 58, 237, .15)';
+    el.scrollIntoView({ block: 'center' });
+    var cnt = $('search-count');
+    if (cnt && searchMatches.length) cnt.textContent = (searchIdx + 1) + '/' + searchMatches.length + ' ditemukan';
+  }
+
+  function searchNav(dir) {
+    if (!searchMatches.length) return;
+    searchIdx = (searchIdx + dir + searchMatches.length) % searchMatches.length;
+    gotoSearch();
   }
 
   function parseSSEChunk(chunk, buffer, onDelta, onDone) {
@@ -936,6 +1102,22 @@
     setStatus(speakEnabled ? '🔊 Jawaban akan dibacakan.' : 'Mode suara nonaktif.');
   }
 
+  function populateVoices() {
+    var sel = $('set-voice');
+    if (!sel || !window.speechSynthesis) return;
+    var voices = window.speechSynthesis.getVoices() || [];
+    var current = settings.voice || sel.dataset.current || '';
+    sel.innerHTML = '<option value="">🔊 Otomatis</option>';
+    voices.forEach(function (v, i) {
+      var opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = v.name + ' (' + (v.lang || '?') + (v.localService ? ', lokal' : '') + ')';
+      sel.appendChild(opt);
+    });
+    sel.value = current;
+    sel.dataset.current = current;
+  }
+
   function speakText(text) {
     if (!speakEnabled || !window.speechSynthesis) return;
     try {
@@ -943,6 +1125,12 @@
       var clean = String(text).replace(/[#*`~>_|]/g, ' ').replace(/\s+/g, ' ').slice(0, 1500);
       var u = new SpeechSynthesisUtterance(clean);
       u.lang = 'id-ID';
+      if (settings.voice && window.speechSynthesis.getVoices) {
+        var voices = window.speechSynthesis.getVoices();
+        for (var i = 0; i < voices.length; i++) {
+          if (voices[i].name === settings.voice) { u.voice = voices[i]; break; }
+        }
+      }
       window.speechSynthesis.speak(u);
     } catch (e) {}
   }
@@ -1156,6 +1344,14 @@
     }
   }
 
+  function abortAll() {
+    if (abortCtrl) abortCtrl.abort();
+    abortCtrl = null;
+    busy = false;
+    setSendUI(false);
+    setStatus('');
+  }
+
   function sendChat() {
     if (busy) {
       if (abortCtrl) abortCtrl.abort();
@@ -1175,9 +1371,19 @@
     setSendUI(true);
     setStatus('Menghubungkan ke model...');
 
-    history.push({ role: 'user', content: text });
-    saveHistory();
-    renderHistory();
+    if (editingIndex >= 0) {
+      var ei = editingIndex;
+      editingIndex = -1;
+      history[ei] = { role: 'user', content: text };
+      history = history.slice(0, ei + 1);
+      saveHistory();
+      renderHistory();
+    } else {
+      history.push({ role: 'user', content: text });
+      autoTitle(text);
+      saveHistory();
+      renderHistory();
+    }
 
     var bubble = addBubble('assistant', null);
     bubble.classList.add('typing');
@@ -1362,6 +1568,7 @@
     $('set-status').textContent = '';
     $('settings-modal').hidden = false;
     $('set-baseurl').focus();
+    populateVoices();
   }
 
   function closeSettings() {
@@ -1374,6 +1581,7 @@
     settings.analyModel = $('set-model-analy').value.trim();
     settings.apiKey = $('set-apikey').value.trim();
     settings.persona = $('set-persona').value || 'default';
+    settings.voice = $('set-voice').value || '';
     saveSettings();
     syncPersonaButton();
     connSub();
@@ -1447,6 +1655,9 @@
     els.btnSend = $('btn-send');
     els.chatInput = $('chat-input');
     els.chatMessages = $('chat-messages');
+    if (window.speechSynthesis && window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = populateVoices;
+    }
     connSub();
     renderHistory();
     renderUsage();
@@ -1479,8 +1690,34 @@
     $('sessions-modal').addEventListener('click', function (e) {
       if (e.target === $('sessions-modal')) closeSessions();
     });
-    $('btn-export').addEventListener('click', exportChat);
+    $('btn-export').addEventListener('click', openExportMenu);
     $('btn-persona').addEventListener('click', cyclePersona);
+    $('btn-search').addEventListener('click', toggleSearch);
+    $('search-close').addEventListener('click', clearSearch);
+    $('search-prev').addEventListener('click', function () { searchNav(-1); });
+    $('search-next').addEventListener('click', function () { searchNav(1); });
+    $('search-input').addEventListener('input', runSearch);
+    $('search-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); searchNav(e.shiftKey ? -1 : 1); }
+    });
+    $('export-modal').addEventListener('click', function (e) { if (e.target === $('export-modal')) closeExportMenu(); });
+    $('btn-export-close').addEventListener('click', closeExportMenu);
+    $('export-txt').addEventListener('click', function () { exportChat('txt'); });
+    $('export-md').addEventListener('click', function () { exportChat('md'); });
+    $('export-json').addEventListener('click', function () { exportChat('json'); });
+    $('btn-url').addEventListener('click', attachUrl);
+    document.addEventListener('dragover', function (e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; document.body.classList.add('drag-over'); });
+    document.addEventListener('dragleave', function () { document.body.classList.remove('drag-over'); });
+    document.addEventListener('drop', function (e) {
+      e.preventDefault();
+      document.body.classList.remove('drag-over');
+      var dt = e.dataTransfer;
+      if (dt && dt.files && dt.files.length) {
+        var f = dt.files[0];
+        if (/\.(png|jpe?g|webp|gif)$/i.test(f.name || '')) attachImage(f);
+        else attachFile(f);
+      }
+    });
     $('chat-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
