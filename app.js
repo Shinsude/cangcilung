@@ -19,6 +19,7 @@
   ].join(' ');
   var DEFAULT_BASE = 'https://api.groq.com/openai/v1';
   var DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+  var VISION_MODEL = 'qwen/qwen3.6-27b';
   var FALLBACKS = [
     'openai/gpt-oss-120b',
     'qwen/qwen3.6-27b',
@@ -27,6 +28,7 @@
   var HISTORY_KEY = 'cangcilung_history';
   var SETTINGS_KEY = 'cangcilung_settings';
   var SUMMARY_KEY = 'cangcilung_summary';
+  var USAGE_KEY = 'cangcilung_usage';
 
   var els = {};
   var history = [];
@@ -80,6 +82,7 @@
 
   var summarizing = false;
   var attachedFile = null;
+  var attachedImage = null;
   function summarizeOld() {
     if (summarizing) return;
     if (history.length < 40) return;
@@ -347,11 +350,216 @@
       try {
         var j = JSON.parse(data);
         var delta = j.choices && j.choices[0] && j.choices[0].delta;
-        if (delta && delta.content) onDelta(delta.content);
+        if (delta && delta.content) {
+          var c = delta.content;
+          if (buffer.thinking) {
+            var closeIdx = c.indexOf('</think>');
+            if (closeIdx !== -1) { c = c.slice(closeIdx + 8); buffer.thinking = false; }
+            else c = '';
+          }
+          if (!buffer.thinking && c) {
+            var openIdx = c.indexOf('<think>');
+            if (openIdx !== -1) {
+              c = c.slice(openIdx + 7);
+              var endIdx = c.indexOf('</think>');
+              if (endIdx !== -1) { c = c.slice(endIdx + 8); }
+              else { buffer.thinking = true; c = ''; }
+            }
+          }
+          if (c) onDelta(c);
+        }
         if (j.choices && j.choices[0] && j.choices[0].finish_reason === 'stop') onDone();
       } catch (e) {}
     });
   }
+
+  function parseImage(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var img = new Image();
+        img.onload = function () {
+          var MAX = 1200;
+          var scale = Math.min(1, MAX / Math.max(img.width, img.height));
+          var w = Math.max(1, Math.round(img.width * scale));
+          var h = Math.max(1, Math.round(img.height * scale));
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          var dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          var sizeKB = Math.round((dataUrl.length - (dataUrl.indexOf(',') + 1)) * 3 / 4 / 1024);
+          resolve({ dataUrl: dataUrl, width: w, height: h, sizeKB: sizeKB, name: file.name });
+        };
+        img.onerror = function () { reject(new Error('Gambar tidak dapat dibaca.')); };
+        img.src = reader.result;
+      };
+      reader.onerror = function () { reject(new Error('Gagal membaca gambar.')); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function attachImage(file) {
+    setStatus('Membaca gambar...');
+    parseImage(file).then(function (img) {
+      attachedImage = img;
+      var elPreview = $('img-preview');
+      var elChip = $('img-chip');
+      var elName = $('img-name');
+      if (elPreview) elPreview.src = img.dataUrl;
+      if (elName) elName.textContent = '🖼️ ' + img.name + ' (' + img.width + '×' + img.height + ', ' + img.sizeKB + ' KB)';
+      if (elChip) elChip.hidden = false;
+      setStatus('Gambar siap. Ketik pertanyaan tentang gambar lalu kirim.');
+    }).catch(function (err) {
+      setStatus('Error: ' + err.message, true);
+    });
+  }
+
+  function clearImage() {
+    attachedImage = null;
+    var elChip = $('img-chip');
+    if (elChip) elChip.hidden = true;
+  }
+
+  function loadUsage() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(USAGE_KEY) || '{}');
+      var today = new Date().toISOString().slice(0, 10);
+      if (raw.date !== today) { raw = { date: today, requests: 0 }; localStorage.setItem(USAGE_KEY, JSON.stringify(raw)); }
+      return raw;
+    } catch (e) { return { date: '', requests: 0 }; }
+  }
+
+  function saveUsage(usage) {
+    try { localStorage.setItem(USAGE_KEY, JSON.stringify(usage)); } catch (e) {}
+  }
+
+  function trackUsage() {
+    var u = loadUsage();
+    u.requests++;
+    saveUsage(u);
+    renderUsage();
+  }
+
+  function renderUsage() {
+    var el = $('usage-sub');
+    if (!el) return;
+    var u = loadUsage();
+    el.textContent = u.requests ? '· ' + u.requests + ' permintaan hari ini' : '';
+  }
+
+  function toggleMic() {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { setStatus('Voice input tidak didukung di browser ini. Gunakan Chrome/Brave/Edge.', true); return; }
+    if (!recognition) {
+      recognition = new SR();
+      recognition.lang = 'id-ID';
+      recognition.interimResults = true;
+      recognition.continuous = false;
+      recognition.onresult = function (e) {
+        var text = '';
+        for (var i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+        var input = $('chat-input');
+        if (input) input.value = text;
+      };
+      recognition.onend = function () {
+        listening = false;
+        var btn = $('btn-mic');
+        if (btn) btn.classList.remove('active');
+      };
+      recognition.onerror = function (e) {
+        listening = false;
+        var btn = $('btn-mic');
+        if (btn) btn.classList.remove('active');
+        setStatus('Mic error: ' + (e.error || 'unknown'), true);
+      };
+    }
+    if (listening) { recognition.stop(); }
+    else { recognition.start(); listening = true; var btn = $('btn-mic'); if (btn) btn.classList.add('active'); setStatus('🎤 Mendengarkan... bicaralah.'); }
+  }
+
+  var speakEnabled = false;
+  var suggestEnabled = false;
+  var recognition = null;
+  var listening = false;
+
+  function toggleSpeak() {
+    speakEnabled = !speakEnabled;
+    var btn = $('btn-speak');
+    if (btn) btn.classList.toggle('active', speakEnabled);
+    if (!speakEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+    setStatus(speakEnabled ? '🔊 Jawaban akan dibacakan.' : 'Mode suara nonaktif.');
+  }
+
+  function speakText(text) {
+    if (!speakEnabled || !window.speechSynthesis) return;
+    try {
+      window.speechSynthesis.cancel();
+      var clean = String(text).replace(/[#*`~>_|]/g, ' ').replace(/\s+/g, ' ').slice(0, 1500);
+      var u = new SpeechSynthesisUtterance(clean);
+      u.lang = 'id-ID';
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  function toggleSuggest() {
+    suggestEnabled = !suggestEnabled;
+    var btn = $('btn-suggest');
+    if (btn) btn.classList.toggle('active', suggestEnabled);
+    setStatus(suggestEnabled ? '💡 Saran pertanyaan aktif.' : 'Mode saran nonaktif.');
+  }
+
+  function renderSuggestions() {
+    var box = $('chat-messages');
+    if (!suggestions.length) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'msg suggest';
+    var label = document.createElement('div');
+    label.className = 'msg-note';
+    label.textContent = '💡 Mau tanya lanjutan?';
+    wrap.appendChild(label);
+    suggestions.forEach(function (s) {
+      var b = document.createElement('button');
+      b.className = 'suggest-chip';
+      b.textContent = s;
+      b.addEventListener('click', function () {
+        var input = $('chat-input');
+        if (input) { input.value = s; input.focus(); }
+      });
+      wrap.appendChild(b);
+    });
+    box.appendChild(wrap);
+    scrollChat();
+  }
+
+  var suggestions = [];
+
+  function loadSuggestions(model, question, answer) {
+    if (!suggestEnabled) return;
+    fetch(apiUrl('/chat/completions'), {
+      method: 'POST',
+      headers: apiHeaders(),
+      body: JSON.stringify({
+        model: model,
+        stream: false,
+        max_tokens: 120,
+        messages: [{
+          role: 'system',
+          content: 'Kamu adalah pembuat saran pertanyaan. Berdasarkan pertanyaan dan jawaban berikut, buat 3 pertanyaan lanjutan yang menarik dalam bahasa Indonesia. Format: satu pertanyaan per baris, tanpa nomor, tanpa teks lain.'
+        }, {
+          role: 'user',
+          content: 'Pertanyaan: ' + question + '\n\nJawaban: ' + String(answer).slice(0, 2000)
+        }]
+      })
+    })
+      .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)); })
+      .then(function (j) {
+        var txt = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
+        suggestions = txt.split('\n').map(function (l) { return l.replace(/^[\d\-\*.]+\s*/, '').trim(); }).filter(function (l) { return l.length > 3; }).slice(0, 3);
+        renderSuggestions();
+      })
+      .catch(function () {});
+  }
+
 
   var webMode = false;
   var webFetching = false;
@@ -363,6 +571,12 @@
     if (btn) btn.classList.toggle('active', webMode);
     if (chip) chip.hidden = !webMode;
     setStatus(webMode ? '🌐 Cari di web aktif — jawaban akan pakai info terkini.' : 'Mode web nonaktif.');
+  }
+
+  var WEB_RE = /\b(terkini|terbaru|berita|sekarang|hari ini|tahun \d{4}|cuaca|hasil pertandingan|skor|harga|jadwal|pemenang|presiden|gubernur|pemilu|kecelakaan|gempa|bencana|ramalan|prediksi|update|berapa harga)\b/i;
+
+  function needsWeb(text) {
+    return WEB_RE.test(text);
   }
 
   function searchWeb(query) {
@@ -420,6 +634,8 @@
     return 'Hasil hitung pasti (dihitung oleh kalkulator internal): ' + trimmed + ' = ' + result;
   }
 
+  var STOPWORDS = ['yang', 'dan', 'di', 'ke', 'dari', 'untuk', 'dengan', 'pada', 'ini', 'itu', 'apa', 'bagaimana', 'berapa', 'apakah', 'kenapa', 'mengapa', 'saya', 'kamu', 'aku', 'mau', 'tolong', 'jelaskan', 'dalam', 'secara', 'akan', 'tidak', 'bisa', 'please'];
+
   function fileContextMessages() {
     if (!attachedFile) return [];
     var msg = [];
@@ -427,13 +643,39 @@
     var CHUNK = 16000;
     if (text.length <= CHUNK) {
       msg.push({ role: 'user', content: 'Saya lampirkan isi file "' + attachedFile.name + '":\n\n' + text });
-    } else {
-      var total = Math.min(text.length, CHUNK * 4);
-      msg.push({ role: 'user', content: 'Saya lampirkan isi file "' + attachedFile.name + '" (bagian 1 dari ' + Math.ceil(total / CHUNK) + '):\n\n' + text.slice(0, CHUNK) });
-      for (var start = CHUNK; start < total; start += CHUNK) {
-        msg.push({ role: 'user', content: 'Lanjutan file "' + attachedFile.name + '" (bagian ' + (Math.floor(start / CHUNK) + 1) + '):\n\n' + text.slice(start, start + CHUNK) });
-      }
+      return msg;
     }
+    // RAG pintar: pecah jadi chunk kecil, pilih yang paling relevan dengan pertanyaan terakhir
+    var question = history.length ? history[history.length - 1].content : '';
+    var keywords = (question.toLowerCase().match(/[a-z0-9]{3,}/g) || [])
+      .filter(function (w) { return STOPWORDS.indexOf(w) === -1; });
+    var chunkSize = 3000;
+    var chunks = [];
+    for (var i = 0; i < text.length; i += chunkSize) {
+      chunks.push(text.slice(i, i + chunkSize));
+    }
+    if (keywords.length) {
+      chunks.forEach(function (ch, idx) {
+        var score = 0;
+        keywords.forEach(function (k) {
+          if (ch.toLowerCase().indexOf(k) !== -1) score++;
+        });
+        ch._score = score;
+        ch._idx = idx;
+      });
+      chunks.sort(function (a, b) { return b._score - a._score || a._idx - b._idx; });
+    }
+    var budget = 20000;
+    var used = 0;
+    var picked = [];
+    chunks.forEach(function (ch) {
+      if (used + ch.length > budget) return;
+      picked.push(ch);
+      used += ch.length;
+    });
+    if (!picked.length) picked = [chunks[0]];
+    picked.sort(function (a, b) { return a._idx - b._idx; });
+    msg.push({ role: 'user', content: 'Saya lampirkan isi file "' + attachedFile.name + '" (bagian relevan yang dipilih untuk pertanyaan ini):\n\n' + picked.join('\n---\n') });
     return msg;
   }
 
@@ -491,6 +733,15 @@
         messages.push({ role: 'system', content: 'Ringkasan percakapan sebelumnya:\n' + summary });
       }
       fileContextMessages().forEach(function (m) { messages.push(m); });
+      if (attachedImage) {
+        messages.push({
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Saya lampirkan gambar ini. Analisis dan jawab pertanyaan saya tentang gambar tersebut.' },
+            { type: 'image_url', image_url: { url: attachedImage.dataUrl } }
+          ]
+        });
+      }
       if (webContext) {
         messages.push({ role: 'system', content: 'Info terkini dari Wikipedia (pakai ini bila relevan untuk jawaban akurat):\n' + webContext });
       }
@@ -524,7 +775,7 @@
           if (!res.body) throw new Error('Streaming tidak didukung di browser ini.');
           var reader = res.body.getReader();
           var decoder = new TextDecoder();
-          var buffer = { text: '' };
+          var buffer = { text: '', thinking: false };
           var done = false;
           var finish = function () {
             if (done) return;
@@ -536,6 +787,9 @@
             busy = false;
             $('btn-send').disabled = false;
             setStatus('');
+            trackUsage();
+            speakText(full);
+            loadSuggestions(model, text, full);
             summarizeOld();
           };
           function pump() {
@@ -572,6 +826,7 @@
 
     var pool = [];
     var isAnalysis = needsAnalysis(text);
+    if (attachedImage) pool.push(VISION_MODEL);
     if (isAnalysis && settings.analyModel) pool.push(settings.analyModel);
     if (pool.indexOf(settings.model) === -1) pool.push(settings.model);
     FALLBACKS.forEach(function (f) { if (pool.indexOf(f) === -1) pool.push(f); });
@@ -579,7 +834,7 @@
     function next() {
       var model = pool.shift();
       if (!model) return fail(new Error('Semua model gagal.'));
-      if (webMode && !webContext && !webFetching) {
+      if ((webMode || needsWeb(text)) && !webContext && !webFetching) {
         webFetching = true;
         setStatus('🌐 Mencari info di web...');
         searchWeb(text).then(function (ctx) {
@@ -693,16 +948,25 @@
     els.chatMessages = $('chat-messages');
     connSub();
     renderHistory();
+    renderUsage();
 
     $('btn-send').addEventListener('click', sendChat);
     $('btn-attach').addEventListener('click', function () { $('file-input').click(); });
     $('file-input').addEventListener('change', function () {
-      if (this.files && this.files[0]) attachFile(this.files[0]);
+      if (this.files && this.files[0]) {
+        var f = this.files[0];
+        if (/\.(png|jpe?g|webp|gif)$/i.test(f.name || '')) attachImage(f);
+        else attachFile(f);
+      }
       this.value = '';
     });
     $('btn-attach-clear').addEventListener('click', clearAttachment);
+    $('btn-img-clear').addEventListener('click', clearImage);
     $('btn-web').addEventListener('click', toggleWebMode);
     $('btn-web-clear').addEventListener('click', toggleWebMode);
+    $('btn-speak').addEventListener('click', toggleSpeak);
+    $('btn-suggest').addEventListener('click', toggleSuggest);
+    $('btn-mic').addEventListener('click', toggleMic);
     $('chat-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -714,6 +978,7 @@
         history = [];
         summary = '';
         clearAttachment();
+        clearImage();
         saveHistory();
         saveSummary();
         renderHistory();

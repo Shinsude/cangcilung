@@ -14,6 +14,7 @@
         <div>
           <h2>Chat dengan cangcilung</h2>
           <span class="pane-sub" id="conn-sub">Menghubungkan model...</span>
+  <span class="pane-sub" id="usage-sub"></span>
         </div>
         <div class="header-actions">
           <button id="btn-clear-chat" class="ghost-btn" title="Hapus seluruh obrolan" aria-label="Hapus obrolan">🗑️ Hapus</button>
@@ -26,15 +27,23 @@
           <span id="attach-name"></span>
           <button id="btn-attach-clear" class="attach-clear" aria-label="Buang file">×</button>
         </div>
+        <div id="img-chip" class="attach-chip" hidden>
+          <img id="img-preview" class="img-preview" alt="preview">
+          <span id="img-name"></span>
+          <button id="btn-img-clear" class="attach-clear" aria-label="Buang gambar">×</button>
+        </div>
         <div id="web-chip" class="attach-chip web-chip" hidden>
           <span>🌐 Mode cari di web aktif</span>
           <button id="btn-web-clear" class="attach-clear" aria-label="Nonaktifkan">×</button>
         </div>
         <div class="chat-input-wrap">
-          <button id="btn-attach" class="attach-btn" title="Lampirkan file (txt/md/csv/json/pdf)" aria-label="Lampirkan file">📎</button>
-          <input type="file" id="file-input" accept=".txt,.md,.csv,.json,.log,.pdf,.xlsx,.xls,.docx" hidden>
+          <button id="btn-attach" class="attach-btn" title="Lampirkan file atau gambar (txt/md/csv/json/pdf/xlsx/docx/png/jpg)" aria-label="Lampirkan file">📎</button>
+          <input type="file" id="file-input" accept=".txt,.md,.csv,.json,.log,.pdf,.xlsx,.xls,.docx,.png,.jpg,.jpeg,.webp,.gif" hidden>
           <textarea id="chat-input" rows="1" placeholder="Tulis pesan ke cangcilung... (Enter untuk kirim)"></textarea>
+          <button id="btn-mic" class="attach-btn" title="Bicara (voice input)" aria-label="Bicara">🎤</button>
           <button id="btn-web" class="attach-btn web-toggle" title="Cari di web (Wikipedia) untuk jawaban terkini" aria-label="Cari di web">🌐</button>
+          <button id="btn-speak" class="attach-btn" title="Bacakan jawaban (suara)" aria-label="Bacakan jawaban">🔊</button>
+          <button id="btn-suggest" class="attach-btn" title="Saran pertanyaan lanjutan" aria-label="Saran pertanyaan">💡</button>
           <button id="btn-send" class="send-btn" title="Kirim pesan" aria-label="Kirim pesan">➤</button>
         </div>
         <div class="chat-status" id="chat-status"></div>
