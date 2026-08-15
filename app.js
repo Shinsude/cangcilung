@@ -325,11 +325,21 @@
 
   function testConnection() {
     var url = $('set-baseurl').value.trim().replace(/\/+$/, '') || DEFAULT_BASE;
+    var key = $('set-apikey').value.trim();
     var st = $('set-status');
     st.textContent = 'Menguji koneksi...';
     st.className = 'set-status';
+    function testHeaders() {
+      var h = { 'Content-Type': 'application/json' };
+      if (key) h.Authorization = 'Bearer ' + key;
+      if (/openrouter\.ai/i.test(url)) {
+        h['HTTP-Referer'] = window.location.origin;
+        h['X-Title'] = 'cangcilung';
+      }
+      return h;
+    }
     function probeModels(base) {
-      return fetch((/\/v1$/.test(base) ? base : base + '/v1') + '/models', { signal: AbortSignal.timeout(10000), headers: apiHeaders() })
+      return fetch((/\/v1$/.test(base) ? base : base + '/v1') + '/models', { signal: AbortSignal.timeout(10000), headers: testHeaders() })
         .then(function (r) {
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.json();
