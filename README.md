@@ -8,10 +8,14 @@ Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backen
 - Pengaturan di ⚙️: Base URL, API Key, Model, dan Model Analisis (tersimpan di localStorage browser).
 - Riwayat chat tersimpan otomatis di localStorage (hingga 200 pesan).
 - **Memori panjang**: percakapan lama otomatis diringkas oleh model, jadi obrolan panjang tetap konsisten konteksnya.
-- **Lampirkan file** (📎): analisa `.txt`, `.md`, `.csv`, `.json`, `.log`, `.pdf`, `.xlsx`, `.docx` — dibaca di browser, tidak diunggah ke server.
-- **Cari di web** (🌐): ambil info terkini dari Wikipedia sebelum menjawab.
+- **Lampirkan file** (📎): analisa `.txt`, `.md`, `.csv`, `.json`, `.log`, `.pdf`, `.xlsx`, `.docx` — dibaca di browser, tidak diunggah ke server. File besar dipilah pintar (hanya bagian relevan yang dikirim).
+- **Analisa gambar** (📎 gambar): upload `.png/.jpg/.webp`, cangcilung jelaskan isinya (via model vision gratis).
+- **Cari di web** (🌐): ambil info terkini dari Wikipedia. **Otomatis** aktif untuk pertanyaan berita/terkini/pemilu/harga.
+- **Suara** (🎤): bicara untuk mengetik; **🔊** membacakan jawaban (Web Speech API browser, tanpa biaya).
+- **Saran pertanyaan** (💡): usulkan 3 pertanyaan lanjutan yang bisa diklik.
 - **Router cerdas**: soal hitung/logika/kode otomatis dikirim ke model analisis (default `openai/gpt-oss-120b`).
 - **Kalkulator internal**: ekspresi matematika (mis. `15*24+7`) dihitung pasti oleh kode.
+- **Penghitung pemakaian**: tampil jumlah permintaan hari ini di header.
 - Auto-fallback: bila model utama kena rate-limit/gagal, otomatis coba model cadangan.
 
 ## Pakai langsung (Groq — default)
