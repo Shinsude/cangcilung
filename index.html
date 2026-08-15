@@ -13,7 +13,7 @@
       <div class="chat-header">
         <div>
           <h2>Chat dengan cangcilung</h2>
-          <span class="pane-sub" id="conn-sub">Menghubungkan model lokal...</span>
+          <span class="pane-sub" id="conn-sub">Menghubungkan model...</span>
         </div>
         <div class="header-actions">
           <button id="btn-clear-chat" class="ghost-btn" title="Hapus seluruh obrolan" aria-label="Hapus obrolan">🗑️ Hapus</button>
@@ -35,20 +35,25 @@
   <div class="modal-overlay" id="settings-modal" hidden>
     <div class="modal">
       <div class="modal-header">
-        <h3>Pengaturan Model Lokal</h3>
+        <h3>Pengaturan AI</h3>
         <button id="btn-modal-close" class="modal-close" aria-label="Tutup">×</button>
       </div>
       <div class="modal-body">
         <label class="set-field">
-          <span>Base URL Ollama</span>
-          <input type="text" id="set-baseurl" placeholder="http://localhost:8080">
+          <span>Base URL</span>
+          <input type="text" id="set-baseurl" placeholder="https://openrouter.ai/api/v1">
         </label>
-          <p class="set-hint">Alamat server AI lokal di perangkat Anda (kompatibel dengan llama.cpp, Ollama, LM Studio, dsb. — API standar OpenAI). Untuk diakses dari HP/perangkat lain, jalankan server agar bisa dijangkau LAN (mis. bind <code>0.0.0.0</code>) dan izinkan CORS, lalu isi alamat LAN (mis. <code>http://192.168.1.5:8080</code>).</p>
+        <p class="set-hint">Alamat server AI (API standar OpenAI). Default: <b>OpenRouter</b> — akses banyak model gratis, tanpa kartu kredit. Bisa juga diisi server lokal sendiri (Ollama/llama.cpp, mis. <code>http://192.168.1.5:8080</code>).</p>
+        <label class="set-field">
+          <span>API Key</span>
+          <input type="password" id="set-apikey" placeholder="sk-or-v1-...">
+        </label>
+        <p class="set-hint">Untuk OpenRouter: buat di <code>openrouter.ai/keys</code>. Tersimpan hanya di browser Anda (localStorage), tidak dikirim ke server lain. Untuk server lokal tanpa autentikasi, biarkan kosong.</p>
         <label class="set-field">
           <span>Model</span>
-          <input type="text" id="set-model" placeholder="contoh: dolphin-mixtral, llama3">
+          <input type="text" id="set-model" placeholder="contoh: openrouter/free, google/gemma-4-31b-it:free">
         </label>
-        <p class="set-hint">Nama model yang sudah di-<code>ollama pull</code>. Untuk konten 18+, gunakan model tanpa sensor (mis. dolphin, uncensored).</p>
+        <p class="set-hint"><code>openrouter/free</code> = auto-pilih model gratis. Model <code>:free</code> dibatasi ~20 permintaan/menit. Untuk konten 18+, pilih model tanpa sensor (mis. <code>cognitivecomputations/dolphin-mistral-24b-venice-edition:free</code>).</p>
         <div class="set-status" id="set-status"></div>
       </div>
       <div class="modal-footer">

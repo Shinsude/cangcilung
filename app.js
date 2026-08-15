@@ -1,20 +1,19 @@
-/* cangcilung — Asisten AI gratis via model lokal (Ollama)
+/* cangcilung — Asisten AI gratis
  * Chat murni: satu tab, kirim pesan, dapat jawaban streaming.
- * Backend: Ollama endpoint OpenAI-compatible /v1/chat/completions.
+ * Backend OpenAI-compatible /v1/chat/completions: OpenRouter (cloud, gratis) atau server lokal.
  */
 
 (function () {
   'use strict';
 
   var SYSTEM = 'Kamu adalah cangcilung, asisten AI dewasa yang ramah, terus terang, dan membantu. Jawab dalam bahasa Indonesia.';
-  var DEFAULT_BASE = '';
-  var DEFAULT_PORT = 8080;
+  var DEFAULT_BASE = 'https://openrouter.ai/api/v1';
   var HISTORY_KEY = 'cangcilung_history';
   var SETTINGS_KEY = 'cangcilung_settings';
 
   var els = {};
   var history = [];
-  var settings = { baseUrl: '', model: '' };
+  var settings = { baseUrl: '', model: '', apiKey: '' };
   var busy = false;
   var abortCtrl = null;
 
@@ -27,6 +26,7 @@
         var s = JSON.parse(raw);
         settings.baseUrl = s.baseUrl || '';
         settings.model = s.model || '';
+        settings.apiKey = s.apiKey || '';
       }
     } catch (e) {}
   }
@@ -52,15 +52,36 @@
   }
 
   function baseUrl() {
-    return settings.baseUrl.replace(/\/+$/, '');
+    var b = settings.baseUrl.replace(/\/+$/, '');
+    return b || DEFAULT_BASE;
+  }
+
+  function apiUrl(path) {
+    var b = baseUrl();
+    if (path === '/api/tags') return b + '/api/tags';
+    if (/\/v1$/.test(b)) return b + path;
+    return b + '/v1' + path;
+  }
+
+  function apiHeaders() {
+    var h = { 'Content-Type': 'application/json' };
+    if (settings.apiKey) h.Authorization = 'Bearer ' + settings.apiKey;
+    if (/openrouter\.ai/i.test(baseUrl())) {
+      h['HTTP-Referer'] = window.location.origin;
+      h['X-Title'] = 'cangcilung';
+    }
+    return h;
   }
 
   function connSub() {
     var el = $('conn-sub');
     if (!el) return;
+    var where = settings.model
+      ? settings.model
+      : (baseUrl() || DEFAULT_BASE);
     el.textContent = settings.model
-      ? 'Model lokal · ' + settings.model
-      : 'Model lokal · ' + (baseUrl() || window.location.hostname + ':' + DEFAULT_PORT);
+      ? 'Model: ' + settings.model
+      : 'Base: ' + where;
   }
 
   function setStatus(msg, isError) {
@@ -148,7 +169,7 @@
     var text = input.value.trim();
     if (!text) return;
     if (!settings.model) {
-      setStatus('Atur model dulu di ⚙️ Pengaturan (contoh: llama3, dolphin-mixtral).', true);
+      setStatus('Atur model dulu di ⚙️ Pengaturan (contoh: openrouter/free, google/gemma-4-31b-it:free).', true);
       openSettings();
       return;
     }
@@ -156,7 +177,7 @@
     busy = true;
     input.value = '';
     $('btn-send').disabled = true;
-    setStatus('Menghubungkan ke model lokal...');
+    setStatus('Menghubungkan ke model...');
 
     history.push({ role: 'user', content: text });
     saveHistory();
@@ -173,9 +194,9 @@
       messages: [{ role: 'system', content: SYSTEM }].concat(history)
     };
 
-    fetch(baseUrl() + '/v1/chat/completions', {
+    fetch(apiUrl('/chat/completions'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: apiHeaders(),
       body: JSON.stringify(body),
       signal: abortCtrl.signal
     })
@@ -224,16 +245,17 @@
           return;
         }
         bubble.classList.remove('typing');
-        renderMarkdown(bubble, full || '⚠️ Gagal menghubungi model lokal.');
-        setStatus('Error: ' + (err && err.message ? err.message : err) + '. Cek apakah server AI lokal jalan & CORS diizinkan.', true);
+        renderMarkdown(bubble, full || '⚠️ Gagal menghubungi model.');
+        setStatus('Error: ' + (err && err.message ? err.message : err) + '. Cek Base URL, API key, dan koneksi internet.', true);
         busy = false;
         $('btn-send').disabled = false;
       });
   }
 
   function openSettings() {
-    $('set-baseurl').value = baseUrl();
+    $('set-baseurl').value = settings.baseUrl;
     $('set-model').value = settings.model || '';
+    $('set-apikey').value = settings.apiKey || '';
     $('set-status').textContent = '';
     $('settings-modal').hidden = false;
     $('set-baseurl').focus();
@@ -246,6 +268,7 @@
   function saveSettingsFromModal() {
     settings.baseUrl = $('set-baseurl').value.trim();
     settings.model = $('set-model').value.trim();
+    settings.apiKey = $('set-apikey').value.trim();
     saveSettings();
     connSub();
     closeSettings();
@@ -253,12 +276,12 @@
   }
 
   function testConnection() {
-    var url = $('set-baseurl').value.trim().replace(/\/+$/, '');
+    var url = $('set-baseurl').value.trim().replace(/\/+$/, '') || DEFAULT_BASE;
     var st = $('set-status');
     st.textContent = 'Menguji koneksi...';
     st.className = 'set-status';
     function probeModels(base) {
-      return fetch(base + '/v1/models', { signal: AbortSignal.timeout(5000) })
+      return fetch((/\/v1$/.test(base) ? base : base + '/v1') + '/models', { signal: AbortSignal.timeout(10000), headers: apiHeaders() })
         .then(function (r) {
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.json();
@@ -270,7 +293,7 @@
     }
     probeModels(url)
       .catch(function () {
-        return fetch(url + '/api/tags', { signal: AbortSignal.timeout(5000) })
+        return fetch(url + '/api/tags', { signal: AbortSignal.timeout(10000) })
           .then(function (r) {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();

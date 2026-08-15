@@ -1,59 +1,42 @@
-# cangcilung — Asisten AI Gratis (model lokal)
+# cangcilung — Asisten AI Gratis
 
-Chatbot AI berbasis web. Chat memakai **model lokal** lewat [llama.cpp](https://github.com/ggml-org/llama.cpp) — tanpa API key, tanpa layanan cloud, gratis, dan privat.
+Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backend memakai **OpenRouter** — satu API untuk ratusan model, banyak yang **gratis**, tanpa kartu kredit. Bisa juga diarahkan ke server AI lokal (Ollama/llama.cpp).
 
-## Arsitektur (disarankan)
+## Fitur
 
-`server.mjs` (Node, tanpa dependency) menyajikan aplikasi web **dan** meneruskan `/v1/*` ke backend AI lokal. Karena web + API dari **satu origin** (satu port), tidak ada masalah CORS maupun pemblokiran *Private Network Access* dari browser — akses dari HP pun langsung jalan.
+- Chat sederhana satu tab, jawaban streaming.
+- Pengaturan di ⚙️: Base URL, API Key, dan Model (tersimpan di localStorage browser).
+- Riwayat chat tersimpan otomatis di localStorage.
 
-```
-Browser (PC/HP) ──> http://<IP-PC>:8080  (server.mjs)
-                        ├── / , /app.js, /style.css  → file statis
-                        └── /v1/* , /api/*            → proxy ke http://127.0.0.1:11434 (llama.cpp)
-```
+## Pakai langsung (OpenRouter)
 
-## Cara menjalankan (Windows, cepat)
+1. Buka `https://cangcilung.vercel.app` (atau `index.html` lokal).
+2. Klik ⚙️ → buat API Key di `https://openrouter.ai/keys` → isi **API Key**.
+3. Isi **Model** — disarankan:
+   - `openrouter/free` — auto-pilih model gratis (paling gampang).
+   - `google/gemma-4-31b-it:free`, `nvidia/nemotron-3-ultra-550b-a55b:free` — model gratis populer.
+   - `cognitivecomputations/dolphin-mistral-24b-venice-edition:free` — 18+/tanpa sensor.
+4. **Tes Koneksi** → **Simpan** → chat.
 
-1. Pastikan `node` terinstal.
-2. Instal `llama.cpp` (menyediakan `llama-server`):
-   ```
-   winget install ggml.llamacpp
-   ```
-3. Unduh model (contoh dolphin phi-2 2.7B, ringan & tanpa sensor):
-   ```
-   https://huggingface.co/TheBloke/dolphin-2_6-phi-2-GGUF/resolve/main/dolphin-2_6-phi-2.Q4_K_M.gguf
-   ```
-   Simpan mis. di `C:\Users\HP\.ollama-models\`.
-4. Jalankan llama-server di port **11434**:
-   ```
-   llama-server --model "C:\Users\HP\.ollama-models\dolphin-2_6-phi-2.Q4_K_M.gguf" --host 0.0.0.0 --port 11434 --cors-origins * --ctx-size 4096 --threads 6
-   ```
-5. Jalankan proxy web di port **8080** (dari folder repo):
-   ```
-   set LLAMA=http://127.0.0.1:11434
-   node server.mjs
-   ```
-6. Buka `http://localhost:8080/` (atau alamat LAN PC dari HP).
+> Model gratis (`:free`) dibatasi sekitar 20 permintaan/menit dan bisa berubah sewaktu-waktu. Daftar model & harga: `openrouter.ai/models`. Untuk jaminan & throughput, bisa pakai model berbayar (sangat murah per juta token).
 
-> Ada skrip `jalankan-cangcilung.bat` yang menyalakan llama-server + proxy sekaligus lalu membuka Brave.
+## Memakai server lokal
 
-## Manual (tanpa proxy)
+1. Pasang Ollama (`winget install Ollama.Ollama`) atau llama.cpp (`winget install ggml.llamacpp`).
+2. `ollama pull dolphin-2_6-phi-2` (atau model lain).
+3. Pastikan server berjalan & CORS diizinkan (llama.cpp: `--cors-origins *`).
+4. Di ⚙️ isi **Base URL** = `http://localhost:11434` (atau alamat LAN), biarkan **API Key** kosong.
 
-Bisa juga buka `index.html` langsung dan isi **Base URL** di ⚙️ Pengaturan ke alamat server AI (mis. `http://192.168.1.5:11434`). Catatan: akses dari halaman HTTPS (deploy Vercel) ke HTTP lokal dibatasi browser (PNA) — paling praktis pakai proxy di atas.
+> Catatan: browser membatasi akses halaman HTTPS → server HTTP lokal (Private Network Access). Paling mulus: buka `index.html` langsung dari file, atau akses lewat proxy satu-origin.
 
-## Model 18+ / tanpa sensor
-
-Gunakan model keluarga `dolphin`/`uncensored` (mis. `dolphin-2_6-phi-2`) — tidak disensor untuk konten dewasa. Model yang lebih besar butuh RAM/VRAM lebih banyak. Anda bertanggung jawab atas penggunaan hasilnya.
-
-## Deploy ke Vercel (halaman statis saja)
+## Deploy ke Vercel
 
 1. Push repo ke GitHub.
 2. Di [vercel.com](https://vercel.com) → **Add New → Project** → import repo → **Deploy**.
 3. Ada workflow `.github/workflows/deploy-vercel.yml` yang otomatis deploy setiap push ke `main` (butuh secret `VERCEL_TOKEN`).
-4. Versi statis tetap membutuhkan Base URL yang bisa dijangkau browser (PNA membatasi HTTPS→HTTP lokal), jadi untuk pemakaian nyata gunakan `server.mjs` lokal.
 
 ## Catatan
 
 - Persona bot diatur lewat konstanta `SYSTEM` di `app.js`.
 - Tes koneksi mencoba `/v1/models` (standar OpenAI) lalu fallback `/api/tags` (Ollama).
-- Jika server AI mati, muncul pesan error yang jelas di chat.
+- API Key hanya disimpan di localStorage browser Anda — tidak di-log server.
