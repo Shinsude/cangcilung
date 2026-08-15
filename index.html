@@ -21,16 +21,23 @@
   <span class="pane-sub" id="usage-sub"></span>
         </div>
         <div class="header-actions">
+          <select id="quick-model" class="quick-model" title="Ganti model cepat" aria-label="Ganti model cepat"></select>
           <button id="btn-sessions" class="ghost-btn" title="Ganti percakapan" aria-label="Ganti percakapan">💬</button>
           <button id="btn-persona" class="ghost-btn" title="Ganti gaya cangcilung" aria-label="Ganti gaya">🎭</button>
           <button id="btn-search" class="ghost-btn" title="Cari dalam percakapan" aria-label="Cari">🔍</button>
+          <button id="btn-pins" class="ghost-btn" title="Pesan tersemat" aria-label="Pesan tersemat">📌</button>
+          <button id="btn-stats" class="ghost-btn" title="Statistik percakapan" aria-label="Statistik">📊</button>
           <button id="btn-export" class="ghost-btn" title="Ekspor percakapan" aria-label="Ekspor percakapan">⬇️</button>
+          <button id="btn-backup" class="ghost-btn" title="Cadangkan / pulihkan data" aria-label="Cadangkan data">💾</button>
+          <button id="btn-font" class="ghost-btn" title="Ukuran teks" aria-label="Ukuran teks">↕️</button>
+          <button id="btn-sound" class="ghost-btn" title="Bunyi saat jawaban selesai" aria-label="Bunyi selesai">🔔</button>
           <button id="btn-clear-chat" class="ghost-btn" title="Hapus seluruh obrolan" aria-label="Hapus obrolan">🗑️ Hapus</button>
           <button id="btn-theme" class="ghost-btn" title="Tema: gelap/terang" aria-label="Ganti tema">🌙</button>
           <button id="btn-settings" class="settings-btn" title="Pengaturan" aria-label="Pengaturan">⚙️</button>
         </div>
       </div>
       <div id="chat-messages" class="chat-messages"></div>
+      <button id="btn-scroll-down" class="scroll-down-btn" title="Ke pesan terbaru" aria-label="Ke bawah" hidden>⬇️</button>
       <div class="chat-input-area">
         <div id="search-bar" class="search-bar" hidden>
           <input type="text" id="search-input" placeholder="Cari kata di percakapan ini...">
@@ -66,6 +73,7 @@
           <button id="btn-send" class="send-btn" title="Kirim pesan" aria-label="Kirim pesan">➤</button>
         </div>
         <div class="chat-status" id="chat-status"></div>
+        <div class="input-count" id="input-count"></div>
       </div>
     </main>
   </div>
@@ -154,6 +162,51 @@
         <button id="export-txt" class="ghost-btn" style="width:100%">📄 Teks (.txt)</button>
         <button id="export-md" class="ghost-btn" style="width:100%">📝 Markdown (.md)</button>
         <button id="export-json" class="ghost-btn" style="width:100%">🗂️ JSON (data mentah)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== MODAL STATISTIK ====== -->
+  <div class="modal-overlay" id="stats-modal" hidden>
+    <div class="modal" style="max-width:420px">
+      <div class="modal-header">
+        <h3>Statistik 📊</h3>
+        <button id="btn-stats-close" class="modal-close" aria-label="Tutup">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="stats-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== MODAL PIN ====== -->
+  <div class="modal-overlay" id="pins-modal" hidden>
+    <div class="modal" style="max-width:420px">
+      <div class="modal-header">
+        <h3>Pesan tersemat 📌</h3>
+        <button id="btn-pins-close" class="modal-close" aria-label="Tutup">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="pins-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== MODAL BACKUP ====== -->
+  <div class="modal-overlay" id="backup-modal" hidden>
+    <div class="modal" style="max-width:420px">
+      <div class="modal-header">
+        <h3>Cadangkan & Pulihkan 💾</h3>
+        <button id="btn-backup-close" class="modal-close" aria-label="Tutup">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="set-hint">Unduh seluruh data (semua percakapan, pengaturan, tema, suara, riwayat) ke satu file. Pulihkan di perangkat lain dengan memuat file itu.</p>
+        <button id="backup-download" class="ghost-btn" style="width:100%">⬇️ Unduh cadangan (.json)</button>
+        <label class="ghost-btn" style="width:100%; text-align:center; cursor:pointer; display:inline-block">
+          ⬆️ Pulihkan dari file
+          <input type="file" id="backup-file" accept=".json" hidden>
+        </label>
+        <div class="set-status" id="backup-status"></div>
       </div>
     </div>
   </div>

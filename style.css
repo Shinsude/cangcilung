@@ -185,6 +185,10 @@ body {
   background: var(--accent-grad, rgba(124, 58, 237, .35));
   color: #fff; border-color: var(--accent);
 }
+.ghost-btn.active {
+  background: rgba(124, 58, 237, .2);
+  color: #fff; border-color: var(--accent);
+}
 .web-chip .attach-clear { color: var(--accent); }
 
 .attach-chip {
@@ -340,6 +344,50 @@ body.drag-over::after {
   background: rgba(124, 58, 237, .25); color: var(--text);
   font-size: 22px; font-weight: 600; pointer-events: none;
 }
+
+.quick-model {
+  padding: 8px 10px; font-size: 13px; color: var(--text);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; outline: none; font-family: inherit; cursor: pointer;
+  max-width: 210px;
+}
+.quick-model:focus { border-color: var(--accent); }
+.quick-model option { color: var(--text); background: var(--card); }
+
+.scroll-down-btn {
+  position: absolute; right: 28px; bottom: 150px; z-index: 20;
+  width: 40px; height: 40px; font-size: 18px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 50%;
+  background: var(--card); color: var(--text); box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.scroll-down-btn:hover { border-color: var(--accent); }
+
+.chat-input-area { position: relative; }
+.input-count {
+  font-size: 11px; color: var(--text-dim); text-align: right;
+  padding: 2px 4px 0; opacity: .8; min-height: 14px;
+}
+
+#chat-messages[data-font="small"] .msg-bubble { font-size: 12px; }
+#chat-messages[data-font="large"] .msg-bubble { font-size: 17px; }
+
+.pin-item {
+  padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 10px; margin-bottom: 8px; font-size: 13px;
+}
+.pin-item .pin-role { font-size: 11px; color: var(--accent); font-weight: 600; }
+.pin-item .pin-body { margin-top: 4px; color: var(--text); max-height: 120px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.pin-item .pin-act {
+  cursor: pointer; border: 1px solid var(--border); background: transparent;
+  color: var(--text-dim); border-radius: 7px; padding: 2px 8px;
+  font-size: 11px; margin-top: 6px; font-family: inherit;
+}
+.pin-item .pin-act:hover { color: var(--text); border-color: var(--accent); }
+
+.stats-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.stats-row:last-child { border-bottom: none; }
+.stats-row b { color: var(--accent); }
+.stats-title { font-weight: 700; margin: 12px 0 4px; font-size: 14px; }
 
 .msg-bubble pre {
   background: #0b0b16; border: 1px solid var(--border);

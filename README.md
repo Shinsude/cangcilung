@@ -29,6 +29,22 @@ Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backen
 - **Terjemahan** (🔄): mode penerjemah id↔en — ketik teks, jawabannya langsung terjemahan.
 - **Ringkas file** (🧾): setelah upload file, tombol ringkas isi file jadi poin-poin.
 - **Tema** (🌙): gelap / terang / ungu.
+- **Edit pesan** (✏️): perbaiki pesan yang sudah dikirim, jawaban dihitung ulang.
+- **Cari percakapan** (🔍): temukan & lompat ke pesan lama, dengan highlight.
+- **Judul otomatis**: sesi diberi nama dari pesan pertama.
+- **Waktu pesan**: tiap balasan diberi cap waktu.
+- **Drag & drop file**: seret file ke jendela untuk melampirkan.
+- **Lampirkan URL** (🔗): tempel URL artikel, isinya diambil & bisa diringkas.
+- **Export 3 format**: teks (.txt), Markdown (.md), JSON mentah.
+- **Pilih suara 🔊**: ganti nada suara pembaca jawaban di ⚙️.
+- **Statistik** (📊): jumlah pesan, kata paling sering, rata-rata panjang.
+- **Semat pesan** (📌): tandai pesan penting, lihat di panel terpisah.
+- **Cadangkan data** (💾): unduh/pulihkan semua percakapan & pengaturan (pindah perangkat).
+- **Ganti model cepat** (⚡): dropdown model langsung dari header.
+- **Ukuran teks** (↕️): kecil / normal / besar.
+- **Bunyi selesai** (🔔): nada saat jawaban selesai.
+- **Auto-scroll pintar**: berhenti mengikuti saat Anda menggulir ke atas, tombol ⬇️ untuk kembali ke bawah.
+- **Penghitung input**: jumlah karakter & kata di bawah kotak ketik.
 
 ## Pakai langsung (Groq — default)
 

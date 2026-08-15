@@ -41,7 +41,7 @@
   var els = {};
   var history = [];
   var summary = '';
-  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '' };
+  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true };
   var busy = false;
   var abortCtrl = null;
 
@@ -76,6 +76,8 @@
         settings.verifyEnabled = s.verifyEnabled !== false;
         settings.theme = s.theme || 'dark';
         settings.voice = s.voice || '';
+        settings.fontSize = s.fontSize || 'normal';
+        settings.soundEnabled = s.soundEnabled !== false;
       }
     } catch (e) {}
   }
@@ -87,6 +89,247 @@
       btn.textContent = theme === 'light' ? '🌤️' : theme === 'violet' ? '🌈' : '🌙';
       btn.title = 'Tema: ' + theme;
     }
+  }
+
+  var QUICK_MODELS = [
+    'llama-3.3-70b-versatile',
+    'openai/gpt-oss-120b',
+    'qwen/qwen3.6-27b',
+    'openai/gpt-oss-20b'
+  ];
+
+  function populateQuickModel() {
+    var sel = $('quick-model');
+    if (!sel) return;
+    var cur = settings.model || DEFAULT_MODEL;
+    var html = '';
+    QUICK_MODELS.forEach(function (m) {
+      html += '<option value="' + m + '"' + (m === cur ? ' selected' : '') + '>' + m + '</option>';
+    });
+    if (QUICK_MODELS.indexOf(cur) === -1) {
+      html = '<option value="' + cur + '" selected>' + cur + '</option>' + html;
+    }
+    sel.innerHTML = html;
+  }
+
+  function changeQuickModel() {
+    var sel = $('quick-model');
+    if (!sel) return;
+    var m = sel.value;
+    if (!m) return;
+    settings.model = m;
+    saveSettings();
+    connSub();
+    setStatus('⚡ Model: ' + m);
+  }
+
+  var FONT_SIZES = ['small', 'normal', 'large'];
+  function cycleFont() {
+    var idx = FONT_SIZES.indexOf(settings.fontSize);
+    if (idx === -1) idx = 1;
+    settings.fontSize = FONT_SIZES[(idx + 1) % FONT_SIZES.length];
+    saveSettings();
+    applyFont();
+    setStatus('↕️ Ukuran teks: ' + settings.fontSize);
+  }
+
+  function applyFont() {
+    var box = $('chat-messages');
+    if (box) box.setAttribute('data-font', settings.fontSize || 'normal');
+  }
+
+  function playDoneSound() {
+    if (!settings.soundEnabled) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      var ctx = new AC();
+      [0, 0.15].forEach(function (t) {
+        var o = ctx.createOscillator();
+        var g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type = 'sine'; o.frequency.value = 880;
+        g.gain.setValueAtTime(0.08, ctx.currentTime + t);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.12);
+        o.start(ctx.currentTime + t);
+        o.stop(ctx.currentTime + t + 0.14);
+      });
+      setTimeout(function () { ctx.close(); }, 600);
+    } catch (e) {}
+  }
+
+  function toggleSound() {
+    settings.soundEnabled = !settings.soundEnabled;
+    saveSettings();
+    var btn = $('btn-sound');
+    if (btn) { btn.classList.toggle('active', settings.soundEnabled); btn.title = settings.soundEnabled ? 'Bunyi saat selesai: aktif' : 'Bunyi saat selesai: nonaktif'; }
+    setStatus(settings.soundEnabled ? '🔔 Bunyi saat jawaban selesai aktif.' : '🔕 Bunyi nonaktif.');
+  }
+
+  function openStats() {
+    var body = $('stats-body');
+    if (!body) return;
+    var total = history.length;
+    var user = 0, asst = 0;
+    var words = {};
+    var STOP = /^(yang|dan|di|ke|dari|untuk|dengan|pada|ini|itu|apa|bagaimana|berapa|apakah|kenapa|mengapa|saya|kamu|aku|kita|mau|tolong|jelaskan|dalam|secara|akan|tidak|bisa|please|yang|ada|itu|dia|mereka|juga|saja|sudah|belum|masih|hanya|atau|lebih|kurang|sangat|banyak|semua|hal|nya|kah|lah|a)$/i;
+    var allText = '';
+    history.forEach(function (m) {
+      if (m.role === 'user') { user++; allText += ' ' + m.content; }
+      else asst++;
+      allText += ' ' + m.content;
+    });
+    var tokens = allText.toLowerCase().match(/[a-z0-9]{3,}/g) || [];
+    tokens.forEach(function (w) {
+      if (STOP.test(w)) return;
+      words[w] = (words[w] || 0) + 1;
+    });
+    var top = Object.keys(words).sort(function (a, b) { return words[b] - words[a]; }).slice(0, 12);
+    var chars = allText.length;
+    var avg = total ? Math.round(chars / total) : 0;
+
+    var h = '';
+    h += '<div class="stats-title">Ringkasan percakapan ini</div>';
+    h += '<div class="stats-row"><span>Total pesan</span><b>' + total + '</b></div>';
+    h += '<div class="stats-row"><span>Dari Anda</span><b>' + user + '</b></div>';
+    h += '<div class="stats-row"><span>Dari cangcilung</span><b>' + asst + '</b></div>';
+    h += '<div class="stats-row"><span>Total karakter</span><b>' + chars.toLocaleString('id-ID') + '</b></div>';
+    h += '<div class="stats-row"><span>Rata-rata panjang pesan</span><b>' + avg + ' karakter</b></div>';
+    if (top.length) {
+      h += '<div class="stats-title">Kata yang sering muncul</div>';
+      top.forEach(function (w) { h += '<div class="stats-row"><span>' + w + '</span><b>' + words[w] + '×</b></div>'; });
+    } else {
+      h += '<div class="stats-title">Kata yang sering muncul</div><p class="set-hint">Belum ada data.</p>';
+    }
+    body.innerHTML = h;
+    $('stats-modal').hidden = false;
+  }
+
+  function closeStats() { $('stats-modal').hidden = true; }
+
+  var pinned = [];
+
+  function loadPinned() {
+    pinned = [];
+    var s = currentSession();
+    if (s && Array.isArray(s.pinned)) pinned = s.pinned;
+  }
+
+  function savePinned() {
+    var s = currentSession();
+    if (s) { s.pinned = pinned; saveSessions(); }
+  }
+
+  function togglePin(index) {
+    if (index < 0 || index >= history.length) return;
+    var m = history[index];
+    var key = m.content;
+    var found = pinned.some(function (p) { return p.content === key; });
+    if (found) pinned = pinned.filter(function (p) { return p.content !== key; });
+    else pinned.unshift({ role: m.role, content: m.content });
+    savePinned();
+    renderPins();
+    setStatus(found ? '📌 Pin dilepas.' : '📌 Pesan disematkan.');
+  }
+
+  function renderPins() {
+    var list = $('pins-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!pinned.length) {
+      list.innerHTML = '<p class="set-hint">Belum ada pesan tersemat. Klik 📌 di samping pesan untuk menyemat.</p>';
+      return;
+    }
+    pinned.forEach(function (p) {
+      var item = document.createElement('div');
+      item.className = 'pin-item';
+      var role = document.createElement('div');
+      role.className = 'pin-role';
+      role.textContent = p.role === 'user' ? '🧑 Anda' : '🤖 cangcilung';
+      var body = document.createElement('div');
+      body.className = 'pin-body';
+      body.textContent = p.content.slice(0, 500);
+      var act = document.createElement('button');
+      act.className = 'pin-act';
+      act.textContent = '📌 Lepas';
+      act.addEventListener('click', function () {
+        pinned = pinned.filter(function (x) { return x.content !== p.content; });
+        savePinned();
+        renderPins();
+        renderHistory();
+      });
+      item.appendChild(role);
+      item.appendChild(body);
+      item.appendChild(act);
+      list.appendChild(item);
+    });
+  }
+
+  function openPins() { loadPinned(); renderPins(); $('pins-modal').hidden = false; }
+  function closePins() { $('pins-modal').hidden = true; }
+
+  function backupData() {
+    var data = {
+      app: 'cangcilung',
+      version: 1,
+      exported: new Date().toISOString(),
+      settings: settings,
+      sessions: sessions,
+      currentSessionId: currentSessionId,
+      usage: loadUsage()
+    };
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'cangcilung-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
+    setStatus('💾 Cadangan diunduh.');
+  }
+
+  function restoreData(file) {
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var data = JSON.parse(r.result);
+        if (!data || !data.sessions) throw new Error('File bukan cadangan cangcilung.');
+        settings = Object.assign({ baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true }, data.settings || {});
+        sessions = Array.isArray(data.sessions) && data.sessions.length ? data.sessions : [{ id: 's1', name: 'Percakapan 1', history: [], summary: '', pinned: [] }];
+        currentSessionId = data.currentSessionId && sessions.some(function (s) { return s.id === data.currentSessionId; }) ? data.currentSessionId : sessions[0].id;
+        if (data.usage) localStorage.setItem(USAGE_KEY, JSON.stringify(data.usage));
+        saveSettings();
+        saveSessions();
+        history = [];
+        summary = '';
+        var s = currentSession();
+        if (s) { history = s.history.slice(); summary = s.summary || ''; }
+        renderHistory();
+        renderUsage();
+        connSub();
+        applyTheme(settings.theme);
+        applyFont();
+        populateQuickModel();
+        syncPersonaButton();
+        setStatus('💾 Data berhasil dipulihkan.');
+      } catch (e) {
+        setStatus('Gagal memulihkan: ' + (e.message || e), true);
+      }
+      $('backup-file').value = '';
+    };
+    r.readAsText(file);
+  }
+
+  function openBackup() { $('backup-status').textContent = ''; $('backup-modal').hidden = false; }
+  function closeBackup() { $('backup-modal').hidden = true; }
+
+  function updateInputCount() {
+    var el = $('input-count');
+    if (!el) return;
+    var v = ($('chat-input').value || '').trim();
+    if (!v) { el.textContent = ''; return; }
+    var words = v.split(/\s+/).filter(function (w) { return w.length; }).length;
+    el.textContent = v.length + ' karakter · ' + words + ' kata';
   }
 
   function cycleTheme() {
@@ -790,6 +1033,14 @@
       reBtn.addEventListener('click', function () { regenerateLast(); });
       actions.appendChild(reBtn);
     }
+    if (index != null) {
+      var pinBtn = document.createElement('button');
+      pinBtn.className = 'bubble-act';
+      pinBtn.textContent = '📌';
+      pinBtn.title = 'Semat pesan';
+      pinBtn.addEventListener('click', function () { togglePin(index); });
+      actions.appendChild(pinBtn);
+    }
     wrap.appendChild(actions);
     $('chat-messages').appendChild(wrap);
     scrollChat();
@@ -845,7 +1096,27 @@
 
   function scrollChat() {
     var m = $('chat-messages');
+    if (!m) return;
+    if (!autoScrollPaused) m.scrollTop = m.scrollHeight;
+  }
+
+  var autoScrollPaused = false;
+
+  function onChatScroll() {
+    var m = $('chat-messages');
+    if (!m) return;
+    var nearBottom = m.scrollHeight - m.scrollTop - m.clientHeight < 80;
+    autoScrollPaused = !nearBottom;
+    var btn = $('btn-scroll-down');
+    if (btn) btn.hidden = nearBottom;
+  }
+
+  function scrollToBottom() {
+    autoScrollPaused = false;
+    var m = $('chat-messages');
     if (m) m.scrollTop = m.scrollHeight;
+    var btn = $('btn-scroll-down');
+    if (btn) btn.hidden = true;
   }
 
   function renderHistory() {
@@ -1477,6 +1748,7 @@
             setStatus('');
             trackUsage();
             speakText(full);
+            playDoneSound();
             if (isAnalysis) verifyAnswer(text, full);
             loadSuggestions(model, text, full);
             summarizeOld();
@@ -1663,6 +1935,30 @@
     renderUsage();
     syncPersonaButton();
     applyTheme(settings.theme);
+    applyFont();
+    populateQuickModel();
+    loadPinned();
+    var sb = $('btn-sound');
+    if (sb) { sb.classList.toggle('active', settings.soundEnabled); sb.title = settings.soundEnabled ? 'Bunyi saat selesai: aktif' : 'Bunyi saat selesai: nonaktif'; }
+    $('quick-model').addEventListener('change', changeQuickModel);
+    $('btn-stats').addEventListener('click', openStats);
+    $('btn-stats-close').addEventListener('click', closeStats);
+    $('stats-modal').addEventListener('click', function (e) { if (e.target === $('stats-modal')) closeStats(); });
+    $('btn-pins').addEventListener('click', openPins);
+    $('btn-pins-close').addEventListener('click', closePins);
+    $('pins-modal').addEventListener('click', function (e) { if (e.target === $('pins-modal')) closePins(); });
+    $('btn-backup').addEventListener('click', openBackup);
+    $('btn-backup-close').addEventListener('click', closeBackup);
+    $('backup-modal').addEventListener('click', function (e) { if (e.target === $('backup-modal')) closeBackup(); });
+    $('backup-download').addEventListener('click', backupData);
+    $('backup-file').addEventListener('change', function () {
+      if (this.files && this.files[0]) restoreData(this.files[0]);
+    });
+    $('btn-font').addEventListener('click', cycleFont);
+    $('btn-sound').addEventListener('click', toggleSound);
+    $('btn-scroll-down').addEventListener('click', scrollToBottom);
+    $('chat-messages').addEventListener('scroll', onChatScroll);
+    $('chat-input').addEventListener('input', updateInputCount);
 
     $('btn-send').addEventListener('click', sendChat);
     $('btn-attach').addEventListener('click', function () { $('file-input').click(); });
