@@ -1963,7 +1963,10 @@
       if (modalStack[i].id === id) {
         var opener = modalStack[i].opener;
         modalStack.splice(i, 1);
-        if (opener && typeof opener.focus === 'function') opener.focus();
+        if (opener && typeof opener.focus === 'function') {
+          if (opener.offsetParent !== null || opener === document.body) opener.focus();
+          else { var tb = $('btn-tools'); if (tb) tb.focus(); }
+        }
         break;
       }
     }
