@@ -9,6 +9,12 @@
   var SYSTEM = 'Kamu adalah cangcilung, asisten AI dewasa yang ramah, terus terang, dan membantu. Jawab dalam bahasa Indonesia. Berikan jawaban yang akurat dan lengkap; untuk soal hitungan/analisis, tunjukkan langkahnya secara ringkas.';
   var DEFAULT_BASE = 'https://openrouter.ai/api/v1';
   var DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
+  var FALLBACKS = [
+    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+    'openai/gpt-oss-20b:free',
+    'google/gemma-4-26b-a4b-it:free',
+    'nvidia/nemotron-3-nano-30b-a3b:free'
+  ];
   var HISTORY_KEY = 'cangcilung_history';
   var SETTINGS_KEY = 'cangcilung_settings';
 
@@ -187,70 +193,105 @@
     var bubble = addBubble('assistant', null);
     bubble.classList.add('typing');
     var full = '';
+    var attempted = [];
 
-    abortCtrl = new AbortController();
-    var body = {
-      model: settings.model,
-      stream: true,
-      messages: [{ role: 'system', content: SYSTEM }].concat(history)
-    };
+    function addFallbackNote(name) {
+      var note = document.createElement('div');
+      note.className = 'msg-note';
+      note.textContent = '→ otomatis pindah ke ' + name + ' (model sebelumnya sibuk/limit)';
+      bubble.appendChild(note);
+    }
 
-    fetch(apiUrl('/chat/completions'), {
-      method: 'POST',
-      headers: apiHeaders(),
-      body: JSON.stringify(body),
-      signal: abortCtrl.signal
-    })
-      .then(function (res) {
-        if (!res.ok) {
-          return res.text().then(function (t) {
-            throw new Error('HTTP ' + res.status + (t ? ' — ' + t.slice(0, 200) : ''));
-          });
-        }
-        if (!res.body) throw new Error('Streaming tidak didukung di browser ini.');
-        var reader = res.body.getReader();
-        var decoder = new TextDecoder();
-        var buffer = { text: '' };
-        var done = false;
-        var finish = function () {
-          if (done) return;
-          done = true;
-          bubble.classList.remove('typing');
-          history.push({ role: 'assistant', content: full });
-          saveHistory();
-          renderHistory();
-          busy = false;
-          $('btn-send').disabled = false;
-          setStatus('');
-        };
-        function pump() {
-          return reader.read().then(function (r) {
-            if (r.done) { finish(); return; }
-            var chunk = decoder.decode(r.value, { stream: true });
-            parseSSEChunk(chunk, buffer, function (d) {
-              full += d;
-              renderMarkdown(bubble, full);
-              scrollChat();
-            }, finish);
-            return pump();
-          });
-        }
-        return pump();
+    function attemptStream(model) {
+      abortCtrl = new AbortController();
+      attempted.push(model);
+      var body = {
+        model: model,
+        stream: true,
+        messages: [{ role: 'system', content: SYSTEM }].concat(history)
+      };
+
+      return fetch(apiUrl('/chat/completions'), {
+        method: 'POST',
+        headers: apiHeaders(),
+        body: JSON.stringify(body),
+        signal: abortCtrl.signal
       })
-      .catch(function (err) {
-        if (err && err.name === 'AbortError') {
-          bubble.classList.remove('typing');
-          busy = false;
-          $('btn-send').disabled = false;
-          setStatus('');
-          return;
-        }
+        .then(function (res) {
+          if (!res.ok) {
+            return res.text().then(function (t) {
+              var err = new Error('HTTP ' + res.status + (t ? ' — ' + t.slice(0, 200) : ''));
+              err.status = res.status;
+              throw err;
+            });
+          }
+          if (!res.body) throw new Error('Streaming tidak didukung di browser ini.');
+          var reader = res.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = { text: '' };
+          var done = false;
+          var finish = function () {
+            if (done) return;
+            done = true;
+            bubble.classList.remove('typing');
+            history.push({ role: 'assistant', content: full });
+            saveHistory();
+            renderHistory();
+            busy = false;
+            $('btn-send').disabled = false;
+            setStatus('');
+          };
+          function pump() {
+            return reader.read().then(function (r) {
+              if (r.done) { finish(); return; }
+              var chunk = decoder.decode(r.value, { stream: true });
+              parseSSEChunk(chunk, buffer, function (d) {
+                full += d;
+                renderMarkdown(bubble, full);
+                scrollChat();
+              }, finish);
+              return pump();
+            });
+          }
+          return pump();
+        });
+    }
+
+    function fail(err) {
+      if (err && err.name === 'AbortError') {
         bubble.classList.remove('typing');
-        renderMarkdown(bubble, full || '⚠️ Gagal menghubungi model.');
-        setStatus('Error: ' + (err && err.message ? err.message : err) + '. Cek Base URL, API key, dan koneksi internet.', true);
         busy = false;
         $('btn-send').disabled = false;
-      });
+        setStatus('');
+        return;
+      }
+      bubble.classList.remove('typing');
+      renderMarkdown(bubble, full || '⚠️ Gagal menghubungi model.');
+      setStatus('Error: ' + (err && err.message ? err.message : err) + '. Cek Base URL, API key, dan koneksi internet.', true);
+      busy = false;
+      $('btn-send').disabled = false;
+    }
+
+    var pool = [settings.model];
+    FALLBACKS.forEach(function (f) { if (pool.indexOf(f) === -1) pool.push(f); });
+
+    function next() {
+      var model = pool.shift();
+      if (!model) return fail(new Error('Semua model gagal.'));
+      attemptStream(model)
+        .catch(function (err) {
+          if (err && err.name === 'AbortError') return fail(err);
+          if (full) return fail(err);
+          var retryable = !err.status || err.status === 429 || err.status === 502 || err.status === 503 || err.status === 500;
+          if (!retryable) return fail(err);
+          if (!pool.length) return fail(err);
+          if (model !== settings.model) addFallbackNote(model);
+          setStatus('Model ' + model + ' sibuk, coba cadangan...');
+          next();
+        });
+    }
+
+    next();
   }
 
   function openSettings() {
