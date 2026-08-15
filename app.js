@@ -1728,7 +1728,7 @@
       if (webContext) {
         messages.push({ role: 'system', content: 'Info terkini dari Wikipedia (pakai ini bila relevan untuk jawaban akurat):\n' + webContext });
       }
-      messages = messages.concat(history);
+      messages = messages.concat(history.map(function (m) { return { role: m.role, content: m.content }; }));
       var body = {
         model: model,
         stream: true,
@@ -2004,9 +2004,9 @@
   var confirmCb = null;
 
   function openConfirm(title, msg, okLabel, cb) {
-    $('#confirm-title').textContent = title || 'Konfirmasi';
-    $('#confirm-msg').textContent = msg || '';
-    $('#btn-confirm-ok').textContent = okLabel || 'OK';
+    $('confirm-title').textContent = title || 'Konfirmasi';
+    $('confirm-msg').textContent = msg || '';
+    $('btn-confirm-ok').textContent = okLabel || 'OK';
     confirmCb = cb;
     openModal('confirm-modal');
   }
