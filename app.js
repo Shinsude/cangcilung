@@ -6,9 +6,9 @@
 (function () {
   'use strict';
 
-  var SYSTEM = 'Kamu adalah cangcilung, asisten AI dewasa yang ramah, terus terang, dan membantu. Jawab dalam bahasa Indonesia.';
+  var SYSTEM = 'Kamu adalah cangcilung, asisten AI dewasa yang ramah, terus terang, dan membantu. Jawab dalam bahasa Indonesia. Berikan jawaban yang akurat dan lengkap; untuk soal hitungan/analisis, tunjukkan langkahnya secara ringkas.';
   var DEFAULT_BASE = 'https://openrouter.ai/api/v1';
-  var DEFAULT_MODEL = 'sao10k/l3-lunaris-8b';
+  var DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
   var HISTORY_KEY = 'cangcilung_history';
   var SETTINGS_KEY = 'cangcilung_settings';
 
