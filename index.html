@@ -43,7 +43,7 @@
           <span>Base URL</span>
           <input type="text" id="set-baseurl" placeholder="https://openrouter.ai/api/v1">
         </label>
-        <p class="set-hint">Alamat server AI (API standar OpenAI). Default: <b>OpenRouter</b> — akses banyak model gratis, tanpa kartu kredit. Bisa juga diisi server lokal sendiri (Ollama/llama.cpp, mis. <code>http://192.168.1.5:8080</code>).</p>
+        <p class="set-hint">Default: <b>Groq</b> — gratis, sangat cepat, kuota harian besar. <code>https://api.groq.com/openai/v1</code> (bikin key di console.groq.com). Model: <code>llama-3.3-70b-versatile</code>, <code>openai/gpt-oss-120b</code>. Alternatif: OpenRouter <code>https://openrouter.ai/api/v1</code> (key di openrouter.ai/keys).</p>
         <label class="set-field">
           <span>API Key</span>
           <input type="password" id="set-apikey" placeholder="sk-or-v1-...">
@@ -51,9 +51,9 @@
         <p class="set-hint">Untuk OpenRouter: buat di <code>openrouter.ai/keys</code>. Tersimpan hanya di browser Anda (localStorage), tidak dikirim ke server lain. Untuk server lokal tanpa autentikasi, biarkan kosong.</p>
         <label class="set-field">
           <span>Model</span>
-          <input type="text" id="set-model" placeholder="nvidia/nemotron-3-ultra-550b-a55b:free">
+          <input type="text" id="set-model" placeholder="llama-3.3-70b-versatile">
         </label>
-        <p class="set-hint">Default (gratis & paling pintar): <code>nvidia/nemotron-3-ultra-550b-a55b:free</code>. Alternatif cepat: <code>nvidia/nemotron-3-nano-30b-a3b:free</code>, atau <code>openrouter/free</code> (auto-pilih). Untuk konten dewasa (18+), pakai model tanpa sensor berbayar-sangat-murah, mis. <code>sao10k/l3-lunaris-8b</code>.</p>
+        <p class="set-hint">Default (gratis & cepat): <code>llama-3.3-70b-versatile</code>. Alternatif: <code>openai/gpt-oss-120b</code> (kecil-ringkas), <code>qwen/qwen3.6-27b</code>, <code>openai/gpt-oss-20b</code>. Catatan: model 18+/tanpa sensor tidak tersedia di Groq — pakai OpenRouter & model <code>sao10k/l3-lunaris-8b</code>.</p>
         <div class="set-status" id="set-status"></div>
       </div>
       <div class="modal-footer">

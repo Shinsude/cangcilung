@@ -1,25 +1,29 @@
 # cangcilung — Asisten AI Gratis
 
-Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backend memakai **OpenRouter** — satu API untuk ratusan model, banyak yang **gratis**, tanpa kartu kredit. Bisa juga diarahkan ke server AI lokal (Ollama/llama.cpp).
+Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backend memakai **Groq** (gratis, sangat cepat, kuota harian besar) — satu API untuk model Llama/GPT-OSS/Qwen. Bisa juga diarahkan ke OpenRouter atau server AI lokal (Ollama/llama.cpp).
 
 ## Fitur
 
 - Chat sederhana satu tab, jawaban streaming.
 - Pengaturan di ⚙️: Base URL, API Key, dan Model (tersimpan di localStorage browser).
 - Riwayat chat tersimpan otomatis di localStorage.
+- Auto-fallback: bila model utama kena rate-limit/gagal, otomatis coba model cadangan.
 
-## Pakai langsung (OpenRouter)
+## Pakai langsung (Groq — default)
 
 1. Buka `https://cangcilung.vercel.app` (atau `index.html` lokal).
-2. Klik ⚙️ → buat API Key di `https://openrouter.ai/keys` → isi **API Key**.
-3. Isi **Model** (default sudah paling pintar & gratis):
-   - `nvidia/nemotron-3-ultra-550b-a55b:free` — **default**, gratis, kualitas 550B, stabil.
-   - `nvidia/nemotron-3-nano-30b-a3b:free` — gratis & cepat (≈147 tok/s).
-   - `openrouter/free` — auto-pilih model gratis.
-   - `sao10k/l3-lunaris-8b`, `gryphe/mythomax-l2-13b` — 18+/tanpa sensor, berbayar sangat murah (±Rp 700/juta token).
+2. Klik ⚙️ → buat API Key gratis di `https://console.groq.com/keys` → isi **API Key**.
+3. Isi **Model** (default sudah paling pas):
+   - `llama-3.3-70b-versatile` — **default**, gratis, cepat & cerdas.
+   - `openai/gpt-oss-120b`, `qwen/qwen3.6-27b`, `openai/gpt-oss-20b` — alternatif gratis.
 4. **Tes Koneksi** → **Simpan** → chat.
 
-> Model gratis (`:free`) dibatasi sekitar 20 permintaan/menit dan bisa berubah sewaktu-waktu. Daftar model & harga: `openrouter.ai/models`. Untuk jaminan & throughput, bisa pakai model berbayar (sangat murah per juta token).
+> Base URL Groq: `https://api.groq.com/openai/v1`. Kuota gratis Groq cukup besar (ribuan permintaan/hari). Daftar model & limit: `console.groq.com/docs/rate-limits`.
+
+## Alternatif: OpenRouter
+
+1. Base URL = `https://openrouter.ai/api/v1`, key di `https://openrouter.ai/keys`.
+2. Model `:free` gratis tapi dibatasi ±50 permintaan/hari; ada juga model 18+/tanpa sensor (mis. `sao10k/l3-lunaris-8b`) yang berbayar sangat murah (±Rp 700/juta token).
 
 ## Memakai server lokal
 

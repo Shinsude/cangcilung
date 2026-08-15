@@ -7,13 +7,12 @@
   'use strict';
 
   var SYSTEM = 'Kamu adalah cangcilung, asisten AI dewasa yang ramah, terus terang, dan membantu. Jawab dalam bahasa Indonesia. Berikan jawaban yang akurat dan lengkap; untuk soal hitungan/analisis, tunjukkan langkahnya secara ringkas.';
-  var DEFAULT_BASE = 'https://openrouter.ai/api/v1';
-  var DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
+  var DEFAULT_BASE = 'https://api.groq.com/openai/v1';
+  var DEFAULT_MODEL = 'llama-3.3-70b-versatile';
   var FALLBACKS = [
-    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-    'openai/gpt-oss-20b:free',
-    'google/gemma-4-26b-a4b-it:free',
-    'nvidia/nemotron-3-nano-30b-a3b:free'
+    'openai/gpt-oss-120b',
+    'qwen/qwen3.6-27b',
+    'openai/gpt-oss-20b'
   ];
   var HISTORY_KEY = 'cangcilung_history';
   var SETTINGS_KEY = 'cangcilung_settings';
