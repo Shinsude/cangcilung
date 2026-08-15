@@ -17,6 +17,18 @@ Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backen
 - **Kalkulator internal**: ekspresi matematika (mis. `15*24+7`) dihitung pasti oleh kode.
 - **Penghitung pemakaian**: tampil jumlah permintaan hari ini di header.
 - Auto-fallback: bila model utama kena rate-limit/gagal, otomatis coba model cadangan.
+- **Multi-obrolan** (💬): buat/ganti/rename/hapus percakapan, riwayat terpisah per sesi.
+- **Mode persona** (🎭): 5 gaya — Seimbang, Guru, Teman, Bos, Kode (bisa diganti di ⚙️).
+- **Eksekusi kode**: jawaban berisi blok JS diberi tombol ▶ Jalankan (jalan di sandbox Web Worker, tidak menyentuh komputer).
+- **Verifikasi mandiri**: jawaban soal hitung/logika dicek ulang oleh model pemeriksa; koreksi muncul otomatis bila salah.
+- **Ekspor percakapan** (⬇️): unduh riwayat sebagai file `.txt`.
+- **PWA**: bisa diinstall dari browser & berjalan saat offline (setelah halaman dibuka sekali).
+- **Syntax highlight + tabel rapi**: kode berwarna (highlight.js) dan tabel Markdown tampil rapi.
+- **Salin & ulangi** (📋/🔁): salin jawaban sekali klik, atau minta jawaban ulang bila kurang pas.
+- **Hentikan jawaban** (⏹): tombol kirim berubah jadi stop saat streaming.
+- **Terjemahan** (🔄): mode penerjemah id↔en — ketik teks, jawabannya langsung terjemahan.
+- **Ringkas file** (🧾): setelah upload file, tombol ringkas isi file jadi poin-poin.
+- **Tema** (🌙): gelap / terang / ungu.
 
 ## Pakai langsung (Groq — default)
 
@@ -51,6 +63,6 @@ Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backen
 
 ## Catatan
 
-- Persona bot diatur lewat konstanta `SYSTEM` di `app.js`.
+- Persona bot diatur lewat konstanta `SYSTEM` & `PERSONAS` di `app.js`; tema di `body[data-theme]` di `style.css`.
 - Tes koneksi mencoba `/v1/models` (standar OpenAI) lalu fallback `/api/tags` (Ollama).
 - API Key hanya disimpan di localStorage browser Anda — tidak di-log server.

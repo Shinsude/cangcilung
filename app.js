@@ -41,7 +41,7 @@
   var els = {};
   var history = [];
   var summary = '';
-  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true };
+  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark' };
   var busy = false;
   var abortCtrl = null;
 
@@ -74,8 +74,28 @@
         settings.analyModel = s.analyModel || '';
         settings.persona = s.persona || 'default';
         settings.verifyEnabled = s.verifyEnabled !== false;
+        settings.theme = s.theme || 'dark';
       }
     } catch (e) {}
+  }
+
+  function applyTheme(theme) {
+    document.body.setAttribute('data-theme', theme || 'dark');
+    var btn = $('btn-theme');
+    if (btn) {
+      btn.textContent = theme === 'light' ? '🌤️' : theme === 'violet' ? '🌈' : '🌙';
+      btn.title = 'Tema: ' + theme;
+    }
+  }
+
+  function cycleTheme() {
+    var order = ['dark', 'light', 'violet'];
+    var idx = order.indexOf(settings.theme);
+    if (idx === -1) idx = 0;
+    settings.theme = order[(idx + 1) % order.length];
+    saveSettings();
+    applyTheme(settings.theme);
+    setStatus('🎨 Tema: ' + settings.theme);
   }
 
   function saveSettings() {
@@ -379,11 +399,76 @@
       attachedFile = { name: file.name, text: text };
       var elName = $('attach-name');
       var elChip = $('attach-chip');
+      var elBtn = $('btn-file-summary');
       if (elName) elName.textContent = '📎 ' + file.name + ' (' + (text.length / 1000).toFixed(1) + ' KB)';
       if (elChip) elChip.hidden = false;
-      setStatus('File siap. Ketik pertanyaan lalu kirim.');
+      if (elBtn) elBtn.hidden = text.length < 200;
+      setStatus('File siap. Ketik pertanyaan lalu kirim, atau klik "🧾 Ringkas".');
     }).catch(function (err) {
       setStatus('Error: ' + err.message, true);
+    });
+  }
+
+  function summarizeFile() {
+    if (busy || !attachedFile) return;
+    var text = attachedFile.text.slice(0, 16000);
+    var q = 'Ringkas isi file "' + attachedFile.name + '" dalam bahasa Indonesia. Beri poin-poin penting secara jelas dan ringkas.';
+    history.push({ role: 'user', content: q });
+    saveHistory();
+    renderHistory();
+
+    busy = true;
+    setSendUI(true);
+    setStatus('🧾 Meringkas file...');
+    var bubble = addBubble('assistant', null);
+    bubble.classList.add('typing');
+    var full = '';
+    abortCtrl = new AbortController();
+    fetch(apiUrl('/chat/completions'), {
+      method: 'POST',
+      headers: apiHeaders(),
+      body: JSON.stringify({
+        model: settings.model,
+        stream: true,
+        messages: [
+          { role: 'system', content: getSystem() },
+          { role: 'user', content: q + '\n\n--- ISI FILE ---\n' + text }
+        ]
+      }),
+      signal: abortCtrl.signal
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = { text: '', thinking: false };
+      function pump() {
+        return reader.read().then(function (r) {
+          if (r.done) {
+            bubble.classList.remove('typing');
+            history.push({ role: 'assistant', content: full });
+            saveHistory();
+            renderHistory();
+            busy = false;
+            setSendUI(false);
+            setStatus('');
+            trackUsage();
+            return;
+          }
+          parseSSEChunk(decoder.decode(r.value, { stream: true }), buffer, function (d) {
+            full += d;
+            renderMarkdown(bubble, full);
+            scrollChat();
+          });
+          return pump();
+        });
+      }
+      return pump();
+    }).catch(function (err) {
+      bubble.classList.remove('typing');
+      if (err && err.name === 'AbortError') { setStatus('⏹ Dihentikan.'); }
+      else { renderMarkdown(bubble, '⚠️ ' + (err.message || 'Gagal meringkas.')); setStatus('Error: ' + (err.message || err), true); }
+      busy = false;
+      setSendUI(false);
     });
   }
 
@@ -391,6 +476,8 @@
     attachedFile = null;
     var elChip = $('attach-chip');
     if (elChip) elChip.hidden = true;
+    var elBtn = $('btn-file-summary');
+    if (elBtn) elBtn.hidden = true;
   }
 
   function baseUrl() {
@@ -454,7 +541,11 @@
   }
 
   function getSystem() {
-    return SYSTEM + (PERSONAS[settings.persona] || '');
+    var s = SYSTEM + (PERSONAS[settings.persona] || '');
+    if (translateEnabled) {
+      s += '\nMode sekarang: PENERJEMAH. Terjemahkan teks user antara bahasa Indonesia dan Inggris (deteksi bahasa sumber otomatis). Jawab HANYA dengan hasil terjemahan, tanpa penjelasan atau pembuka. Jika sudah sama kedua arah, balas dengan "OK".';
+    }
+    return s;
   }
 
   function addRunButtons(el) {
@@ -596,10 +687,63 @@
       if (role === 'user') bubble.textContent = text;
       else { bubble.classList.add('typing'); renderMarkdown(bubble, text || '…'); }
     }
+    var actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'bubble-act';
+    copyBtn.textContent = '📋';
+    copyBtn.title = 'Salin';
+    copyBtn.addEventListener('click', function () { copyText(text || ''); });
+    actions.appendChild(copyBtn);
+    if (role === 'assistant' && text) {
+      var reBtn = document.createElement('button');
+      reBtn.className = 'bubble-act';
+      reBtn.textContent = '🔁';
+      reBtn.title = 'Ulangi jawaban';
+      reBtn.addEventListener('click', function () { regenerateLast(); });
+      actions.appendChild(reBtn);
+    }
     wrap.appendChild(bubble);
+    wrap.appendChild(actions);
     $('chat-messages').appendChild(wrap);
     scrollChat();
     return bubble;
+  }
+
+  function copyText(text) {
+    var done = function () { setStatus('📋 Disalin ke clipboard.'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    } else fallbackCopy(text);
+  }
+
+  function fallbackCopy(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch (e) {}
+  }
+
+  function regenerateLast() {
+    if (busy) return;
+    var lastUser = -1;
+    for (var i = history.length - 1; i >= 0; i--) {
+      if (history[i].role === 'user') { lastUser = i; break; }
+    }
+    if (lastUser === -1) return;
+    var q = history[lastUser].content;
+    history = history.slice(0, lastUser);
+    saveHistory();
+    renderHistory();
+    var input = $('chat-input');
+    if (input) input.value = q;
+    sendChat();
   }
 
   function scrollChat() {
@@ -773,8 +917,16 @@
 
   var speakEnabled = false;
   var suggestEnabled = false;
+  var translateEnabled = false;
   var recognition = null;
   var listening = false;
+
+  function toggleTranslate() {
+    translateEnabled = !translateEnabled;
+    var btn = $('btn-translate');
+    if (btn) btn.classList.toggle('active', translateEnabled);
+    setStatus(translateEnabled ? '🔄 Mode terjemahan id↔en aktif — ketik teks apa pun, cangcilung menerjemahkannya.' : 'Mode terjemahan nonaktif.');
+  }
 
   function toggleSpeak() {
     speakEnabled = !speakEnabled;
@@ -990,8 +1142,25 @@
     return msg;
   }
 
+  function setSendUI(streaming) {
+    var btn = $('btn-send');
+    if (!btn) return;
+    if (streaming) {
+      btn.textContent = '⏹';
+      btn.title = 'Hentikan jawaban';
+      btn.disabled = false;
+    } else {
+      btn.textContent = '➤';
+      btn.title = 'Kirim pesan';
+      btn.disabled = false;
+    }
+  }
+
   function sendChat() {
-    if (busy) return;
+    if (busy) {
+      if (abortCtrl) abortCtrl.abort();
+      return;
+    }
     var input = $('chat-input');
     var text = input.value.trim();
     if (!text) return;
@@ -1003,7 +1172,7 @@
 
     busy = true;
     input.value = '';
-    $('btn-send').disabled = true;
+    setSendUI(true);
     setStatus('Menghubungkan ke model...');
 
     history.push({ role: 'user', content: text });
@@ -1025,7 +1194,7 @@
       renderMarkdown(bubble, calc);
       renderHistory();
       busy = false;
-      $('btn-send').disabled = false;
+      setSendUI(false);
       setStatus('');
       return;
     }
@@ -1040,6 +1209,7 @@
     function attemptStream(model) {
       abortCtrl = new AbortController();
       attempted.push(model);
+      setStatus(isAnalysis ? '🔍 Menganalisis pertanyaan...' : '💬 Menyusun jawaban...');
       var messages = [{ role: 'system', content: getSystem() }];
       if (summary) {
         messages.push({ role: 'system', content: 'Ringkasan percakapan sebelumnya:\n' + summary });
@@ -1097,7 +1267,7 @@
             saveHistory();
             renderHistory();
             busy = false;
-            $('btn-send').disabled = false;
+            setSendUI(false);
             setStatus('');
             trackUsage();
             speakText(full);
@@ -1111,12 +1281,19 @@
               var chunk = decoder.decode(r.value, { stream: true });
               parseSSEChunk(chunk, buffer, function (d) {
                 full += d;
-                renderMarkdown(bubble, full);
-                scrollChat();
+                if (!renderQueued) {
+                  renderQueued = true;
+                  requestAnimationFrame(function () {
+                    renderQueued = false;
+                    renderMarkdown(bubble, full);
+                    scrollChat();
+                  });
+                }
               }, finish);
               return pump();
             });
           }
+          var renderQueued = false;
           return pump();
         });
     }
@@ -1125,8 +1302,8 @@
       if (err && err.name === 'AbortError') {
         bubble.classList.remove('typing');
         busy = false;
-        $('btn-send').disabled = false;
-        setStatus('');
+        setSendUI(false);
+        setStatus('⏹ Dihentikan.');
         return;
       }
       bubble.classList.remove('typing');
@@ -1134,7 +1311,7 @@
       else renderMarkdown(bubble, '⚠️ ' + (err && err.message ? err.message : 'Gagal menghubungi model.'));
       setStatus('Error: ' + (err && err.message ? err.message : err) + '. Cek Base URL, API key, dan koneksi internet.', true);
       busy = false;
-      $('btn-send').disabled = false;
+      setSendUI(false);
     }
 
     var pool = [];
@@ -1274,6 +1451,7 @@
     renderHistory();
     renderUsage();
     syncPersonaButton();
+    applyTheme(settings.theme);
 
     $('btn-send').addEventListener('click', sendChat);
     $('btn-attach').addEventListener('click', function () { $('file-input').click(); });
@@ -1285,12 +1463,15 @@
       }
       this.value = '';
     });
+    $('btn-file-summary').addEventListener('click', summarizeFile);
     $('btn-attach-clear').addEventListener('click', clearAttachment);
     $('btn-img-clear').addEventListener('click', clearImage);
     $('btn-web').addEventListener('click', toggleWebMode);
     $('btn-web-clear').addEventListener('click', toggleWebMode);
     $('btn-speak').addEventListener('click', toggleSpeak);
     $('btn-suggest').addEventListener('click', toggleSuggest);
+    $('btn-translate').addEventListener('click', toggleTranslate);
+    $('btn-theme').addEventListener('click', cycleTheme);
     $('btn-mic').addEventListener('click', toggleMic);
     $('btn-sessions').addEventListener('click', openSessions);
     $('btn-sessions-close').addEventListener('click', closeSessions);
