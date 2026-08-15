@@ -220,7 +220,13 @@
         .then(function (res) {
           if (!res.ok) {
             return res.text().then(function (t) {
-              var err = new Error('HTTP ' + res.status + (t ? ' — ' + t.slice(0, 200) : ''));
+              var msg = 'HTTP ' + res.status;
+              try {
+                var j = JSON.parse(t);
+                if (j.error && j.error.message) msg += ' — ' + j.error.message;
+              } catch (e) {}
+              if (msg === 'HTTP ' + res.status && t) msg += ' — ' + t.slice(0, 200);
+              var err = new Error(msg);
               err.status = res.status;
               throw err;
             });
@@ -266,7 +272,8 @@
         return;
       }
       bubble.classList.remove('typing');
-      renderMarkdown(bubble, full || '⚠️ Gagal menghubungi model.');
+      if (full) renderMarkdown(bubble, full);
+      else renderMarkdown(bubble, '⚠️ ' + (err && err.message ? err.message : 'Gagal menghubungi model.'));
       setStatus('Error: ' + (err && err.message ? err.message : err) + '. Cek Base URL, API key, dan koneksi internet.', true);
       busy = false;
       $('btn-send').disabled = false;
