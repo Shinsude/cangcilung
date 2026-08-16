@@ -9,6 +9,7 @@
   --accent-grad: linear-gradient(135deg, #7c3aed, #5e5ce6);
   --ok: #34d399;
   --err: #f87171;
+  --warn: #fbbf24;
   --radius: 14px;
   --card-hover: rgba(255, 255, 255, .06);
   --code-bg: #0d1117;
@@ -27,6 +28,7 @@ body[data-theme="light"] {
   --card-hover: rgba(20, 30, 60, .06);
   --code-bg: #f0f3f9;
   --code-text: #1f2a37;
+  --warn: #b45309;
   color-scheme: light;
 }
 
@@ -41,6 +43,7 @@ body[data-theme="violet"] {
   --card-hover: rgba(255, 255, 255, .07);
   --code-bg: #150a26;
   --code-text: #b9f7d0;
+  --warn: #fbbf24;
   color-scheme: dark;
 }
 
@@ -79,8 +82,9 @@ html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
   padding-bottom: 14px; border-bottom: 1px solid var(--border);
   margin-bottom: 12px;
 }
-.chat-header h2 { font-size: 20px; font-weight: 600; }
-.pane-sub { color: var(--text-dim); font-size: 12px; margin-top: 2px; display: block; }
+.chat-header > div:first-child { min-width: 0; flex: 1 1 auto; }
+.chat-header h2 { font-size: 20px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pane-sub { color: var(--text-dim); font-size: 12px; margin-top: 2px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .header-actions { display: flex; align-items: center; gap: 8px; }
 
 .ghost-btn {
@@ -102,7 +106,7 @@ html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 .icon-btn:hover { background: var(--card-hover); color: var(--text); }
 .icon-btn:active { transform: scale(.96); }
 .icon-btn.active {
-  background: rgba(124, 58, 237, .2); color: #fff; border-color: var(--accent);
+  background: var(--accent-grad, rgba(124, 58, 237, .35)); color: #fff; border-color: var(--accent);
 }
 
 .tools-wrap { position: relative; }
@@ -241,7 +245,7 @@ html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
   color: #fff; border-color: var(--accent);
 }
 .ghost-btn.active {
-  background: rgba(124, 58, 237, .2);
+  background: var(--accent-grad, rgba(124, 58, 237, .35));
   color: #fff; border-color: var(--accent);
 }
 .web-chip .attach-clear { color: var(--accent); }
@@ -372,7 +376,7 @@ html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
   background: var(--code-bg); border: 1px solid var(--border);
   border-radius: 10px; color: var(--code-text);
 }
-.verify-note { color: #fbbf24; }
+.verify-note { color: var(--warn); }
 
 .file-summary {
   cursor: pointer; border: 1px solid var(--accent); color: var(--accent);

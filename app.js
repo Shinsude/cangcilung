@@ -180,7 +180,7 @@
     var total = history.length;
     var user = 0, asst = 0;
     var words = {};
-    var STOP = /^(yang|dan|di|ke|dari|untuk|dengan|pada|ini|itu|apa|bagaimana|berapa|apakah|kenapa|mengapa|saya|kamu|aku|kita|mau|tolong|jelaskan|dalam|secara|akan|tidak|bisa|please|yang|ada|itu|dia|mereka|juga|saja|sudah|belum|masih|hanya|atau|lebih|kurang|sangat|banyak|semua|hal|nya|kah|lah|a)$/i;
+    var STOP = /^(yang|dan|di|ke|dari|untuk|dengan|pada|ini|itu|apa|bagaimana|berapa|apakah|kenapa|mengapa|saya|kamu|aku|kita|mau|tolong|jelaskan|dalam|secara|akan|tidak|bisa|please|ada|dia|mereka|juga|saja|sudah|belum|masih|hanya|atau|lebih|kurang|sangat|banyak|semua|hal|nya|kah|lah|a)$/i;
     var allText = '';
     history.forEach(function (m) {
       if (m.role === 'user') { user++; allText += ' ' + m.content; }
@@ -2262,8 +2262,9 @@
       }
     });
     $('btn-clear-chat').addEventListener('click', function () {
-      if (busy || !history.length) return;
+      if (busy) { closeToolsMenu(); setStatus('Tunggu jawaban selesai sebelum menghapus.', true); return; }
       closeToolsMenu();
+      if (!history.length) { setStatus('Belum ada pesan untuk dihapus.'); return; }
       openConfirm('Hapus obrolan', 'Semua pesan di percakapan ini akan dihapus permanen. Lanjutkan?', 'Hapus', function () {
         history = [];
         summary = '';
