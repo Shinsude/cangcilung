@@ -95,6 +95,7 @@
     if (btn) {
       btn.textContent = theme === 'light' ? '🌤️' : theme === 'violet' ? '🌈' : '🌙';
       btn.title = 'Tema: ' + theme;
+      btn.setAttribute('aria-pressed', String(theme !== 'dark'));
     }
   }
 
@@ -169,7 +170,7 @@
     settings.soundEnabled = !settings.soundEnabled;
     saveSettings();
     var btn = $('btn-sound');
-    if (btn) { btn.classList.toggle('active', settings.soundEnabled); btn.title = settings.soundEnabled ? 'Bunyi saat selesai: aktif' : 'Bunyi saat selesai: nonaktif'; }
+    if (btn) { btn.classList.toggle('active', settings.soundEnabled); btn.title = settings.soundEnabled ? 'Bunyi saat selesai: aktif' : 'Bunyi saat selesai: nonaktif'; btn.setAttribute('aria-pressed', String(settings.soundEnabled)); }
     setStatus(settings.soundEnabled ? '🔔 Bunyi saat jawaban selesai aktif.' : '🔕 Bunyi nonaktif.');
   }
 
@@ -953,12 +954,32 @@
     setStatus('⬇️ Percakapan diekspor (' + format + ').');
   }
 
-  function attachUrl() {
+  function openUrlModal() {
     if (busy) return;
-    var u = prompt('Tempel URL artikel yang ingin dipahami:');
-    if (!u || !u.trim()) return;
-    var url = u.trim();
-    setStatus('🔗 Mengambil ' + url + '...');
+    $('url-input').value = '';
+    $('url-status').textContent = '';
+    $('url-status').className = 'set-status';
+    openModal('url-modal');
+    $('url-input').focus();
+  }
+
+  function closeUrlModal() {
+    closeModal('url-modal');
+  }
+
+  function submitUrl() {
+    if (busy) return;
+    var u = $('url-input').value.trim();
+    if (!u) { $('url-status').textContent = 'Tempel URL dulu.'; $('url-status').className = 'set-status error'; return; }
+    var st = $('url-status');
+    st.textContent = '🔗 Mengambil ' + u + '...';
+    st.className = 'set-status';
+    closeUrlModal();
+    setStatus('🔗 Mengambil ' + u + '...');
+    fetchUrl(u);
+  }
+
+  function fetchUrl(url) {
     fetch(url, { signal: AbortSignal.timeout(15000) })
       .then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -1049,7 +1070,7 @@
       edBtn.addEventListener('click', function () { editMessage(index); });
       actions.appendChild(edBtn);
     }
-    if (role === 'assistant' && text) {
+    if (role === 'assistant' && text && index === history.length - 1) {
       var reBtn = document.createElement('button');
       reBtn.className = 'bubble-act';
       reBtn.textContent = '🔁';
@@ -1405,7 +1426,7 @@
   function toggleTranslate() {
     translateEnabled = !translateEnabled;
     var btn = $('btn-translate');
-    if (btn) btn.classList.toggle('active', translateEnabled);
+    if (btn) { btn.classList.toggle('active', translateEnabled); btn.setAttribute('aria-pressed', String(translateEnabled)); }
     updateInputMore();
     setStatus(translateEnabled ? '🔄 Mode terjemahan id↔en aktif — ketik teks apa pun, cangcilung menerjemahkannya.' : 'Mode terjemahan nonaktif.');
   }
@@ -1413,7 +1434,7 @@
   function toggleSpeak() {
     speakEnabled = !speakEnabled;
     var btn = $('btn-speak');
-    if (btn) btn.classList.toggle('active', speakEnabled);
+    if (btn) { btn.classList.toggle('active', speakEnabled); btn.setAttribute('aria-pressed', String(speakEnabled)); }
     if (!speakEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
     updateInputMore();
     setStatus(speakEnabled ? '🔊 Jawaban akan dibacakan.' : 'Mode suara nonaktif.');
@@ -1455,7 +1476,7 @@
   function toggleSuggest() {
     suggestEnabled = !suggestEnabled;
     var btn = $('btn-suggest');
-    if (btn) btn.classList.toggle('active', suggestEnabled);
+    if (btn) { btn.classList.toggle('active', suggestEnabled); btn.setAttribute('aria-pressed', String(suggestEnabled)); }
     updateInputMore();
     setStatus(suggestEnabled ? '💡 Saran pertanyaan aktif.' : 'Mode saran nonaktif.');
   }
@@ -1537,7 +1558,7 @@
     webMode = !webMode;
     var btn = $('btn-web');
     var chip = $('web-chip');
-    if (btn) btn.classList.toggle('active', webMode);
+    if (btn) { btn.classList.toggle('active', webMode); btn.setAttribute('aria-pressed', String(webMode)); }
     if (chip) chip.hidden = !webMode;
     updateInputMore();
     setStatus(webMode ? '🌐 Cari di web aktif — jawaban akan pakai info terkini.' : 'Mode web nonaktif.');
@@ -2040,6 +2061,7 @@
     $('btn-confirm-ok').textContent = okLabel || 'OK';
     confirmCb = cb;
     openModal('confirm-modal');
+    $('btn-confirm-ok').focus();
   }
 
   function closeConfirm() {
@@ -2067,7 +2089,7 @@
     populateQuickModel();
     loadPinned();
     var sb = $('btn-sound');
-    if (sb) { sb.classList.toggle('active', settings.soundEnabled); sb.title = settings.soundEnabled ? 'Bunyi saat selesai: aktif' : 'Bunyi saat selesai: nonaktif'; }
+    if (sb) { sb.classList.toggle('active', settings.soundEnabled); sb.title = settings.soundEnabled ? 'Bunyi saat selesai: aktif' : 'Bunyi saat selesai: nonaktif'; sb.setAttribute('aria-pressed', String(settings.soundEnabled)); }
     $('quick-model').addEventListener('change', changeQuickModel);
     $('btn-stats').addEventListener('click', openStats);
     $('btn-stats-close').addEventListener('click', closeStats);
@@ -2129,7 +2151,12 @@
     $('export-txt').addEventListener('click', function () { exportChat('txt'); });
     $('export-md').addEventListener('click', function () { exportChat('md'); });
     $('export-json').addEventListener('click', function () { exportChat('json'); });
-    $('btn-url').addEventListener('click', attachUrl);
+    $('btn-url').addEventListener('click', openUrlModal);
+    $('btn-url-ok').addEventListener('click', submitUrl);
+    $('btn-url-cancel').addEventListener('click', closeUrlModal);
+    $('btn-url-close').addEventListener('click', closeUrlModal);
+    $('url-modal').addEventListener('click', function (e) { if (e.target === $('url-modal')) closeUrlModal(); });
+    $('url-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submitUrl(); } });
     document.addEventListener('dragover', function (e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; document.body.classList.add('drag-over'); });
     document.addEventListener('dragleave', function () { document.body.classList.remove('drag-over'); });
     document.addEventListener('drop', function (e) {

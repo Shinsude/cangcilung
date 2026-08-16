@@ -57,6 +57,12 @@ body {
   overflow: hidden;
 }
 
+html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
 .app { display: flex; height: 100vh; height: 100dvh; }
 
 .main {
@@ -101,7 +107,7 @@ body {
 
 .tools-wrap { position: relative; }
 .input-more-wrap { position: relative; flex-shrink: 0; }
-.input-more-menu { min-width: 200px; }
+.input-more-menu { min-width: 200px; top: auto; bottom: calc(100% + 8px); }
 .tools-menu {
   position: absolute; right: 0; top: calc(100% + 8px); z-index: 40;
   min-width: 220px; padding: 6px;
@@ -200,7 +206,7 @@ body {
 .welcome-chip:hover { color: var(--text); border-color: var(--accent); background: rgba(124, 58, 237, .1); }
 
 /* ===== INPUT ===== */
-.chat-input-area { padding-top: 10px; }
+.chat-input-area { padding-top: 10px; position: relative; }
 .chat-input-wrap {
   display: flex; align-items: flex-end; gap: 8px;
   background: var(--card); border: 1px solid var(--border);
@@ -494,6 +500,14 @@ body.drag-over::after {
 }
 .primary-btn:hover { opacity: .9; }
 .primary-btn:active { transform: scale(.97); }
+
+.danger-btn {
+  background: var(--err); color: #fff; border: none;
+  padding: 10px 18px; border-radius: 10px; font-size: 14px;
+  cursor: pointer; font-family: inherit;
+}
+.danger-btn:hover { opacity: .9; }
+.danger-btn:active { transform: scale(.97); }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 640px) {
