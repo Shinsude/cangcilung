@@ -129,6 +129,10 @@ html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 }
 .tools-item:hover { background: var(--card-hover); }
 .tools-item:active { transform: scale(.98); }
+.tools-item.active {
+  background: var(--accent-grad, rgba(124, 58, 237, .35));
+  color: #fff;
+}
 .tools-danger { color: var(--err); }
 .tools-danger:hover { background: rgba(248, 113, 113, .12); }
 
