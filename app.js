@@ -979,30 +979,85 @@
     fetchUrl(u);
   }
 
-  function fetchUrl(url) {
-    fetch(url, { signal: AbortSignal.timeout(15000) })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.text();
-      })
-      .then(function (html) {
+  function wikiPage(url) {
+    var m = /^https?:\/\/(?:www\.|m\.)?(?:([a-z]{2,3})\.)?wikipedia\.org\/wiki\/(.+)$/i.exec(url);
+    if (!m) return null;
+    var lang = (m[1] || 'id').toLowerCase();
+    return {
+      lang: lang,
+      title: m[2],
+      api: 'https://' + lang + '.wikipedia.org/w/api.php?action=parse&page=' + encodeURIComponent(m[2]) + '&format=json&prop=text&origin=*&redirects=1'
+    };
+  }
+
+  function fetchUrlText(url, ok, fail) {
+    fetch(url, { signal: AbortSignal.timeout(20000) })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (j) {
+        var html = (j && j.parse && j.parse.text && j.parse.text['*']) || '';
         var tmp = document.createElement('div');
         tmp.innerHTML = html;
-        tmp.querySelectorAll('script,style,nav,header,footer,aside').forEach(function (el) { el.remove(); });
+        tmp.querySelectorAll('script,style,nav,header,footer,aside,table,.mw-editsection,.mw-empty-elt,.reference,sup').forEach(function (el) { el.remove(); });
         var text = (tmp.textContent || '').replace(/\s+/g, ' ').trim();
-        if (text.length < 50) throw new Error('Halaman tidak berisi teks yang bisa diambil (mungkin butuh login/JS).');
-        attachedFile = { name: url, text: text.slice(0, 50000) };
-        var elName = $('attach-name');
-        var elChip = $('attach-chip');
-        if (elName) elName.textContent = '🔗 ' + url.replace(/^https?:\/\//, '').slice(0, 60) + ' (' + (text.length / 1000).toFixed(0) + ' KB)';
-        if (elChip) elChip.hidden = false;
-        var elBtn = $('btn-file-summary');
-        if (elBtn) elBtn.hidden = false;
-        setStatus('URL diambil. Ketik pertanyaan, atau klik "🧾 Ringkas".');
+        if (text.length < 50) throw new Error('halaman tidak punya teks');
+        ok(text);
       })
-      .catch(function (err) {
-        setStatus('Error mengambil URL: ' + (err.message || err), true);
+      .catch(fail);
+  }
+
+  var URL_PROXIES = [
+    function (u) { return u; },
+    function (u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
+    function (u) { return 'https://corsproxy.io/?url=' + encodeURIComponent(u); }
+  ];
+
+  function fetchWithFallback(url, ok, fail) {
+    var i = 0;
+    function next() {
+      if (i >= URL_PROXIES.length) return fail(new Error('diblokir CORS/network bahkan lewat proxy'));
+      var target = URL_PROXIES[i++](url);
+      fetch(target, { signal: AbortSignal.timeout(15000) })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+        .then(function (html) {
+          var tmp = document.createElement('div');
+          tmp.innerHTML = html;
+          tmp.querySelectorAll('script,style,nav,header,footer,aside').forEach(function (el) { el.remove(); });
+          var text = (tmp.textContent || '').replace(/\s+/g, ' ').trim();
+          if (text.length < 50) throw new Error('halaman kosong');
+          ok(text);
+        })
+        .catch(function () { next(); });
+    }
+    next();
+  }
+
+  function attachUrlText(label, url, text) {
+    attachedFile = { name: url, text: text.slice(0, 50000) };
+    var elName = $('attach-name');
+    var elChip = $('attach-chip');
+    if (elName) elName.textContent = label + ' (' + (text.length / 1000).toFixed(0) + ' KB)';
+    if (elChip) elChip.hidden = false;
+    var elBtn = $('btn-file-summary');
+    if (elBtn) elBtn.hidden = false;
+    setStatus('URL diambil. Ketik pertanyaan, atau klik "🧾 Ringkas".');
+  }
+
+  function fetchUrl(url) {
+    var wiki = wikiPage(url);
+    if (wiki) {
+      setStatus('🌐 Mengambil artikel Wikipedia (' + wiki.lang + ')...');
+      fetchUrlText(wiki.api, function (text) {
+        attachUrlText('🌐 ' + wiki.title.split('_').join(' '), wiki.api, text);
+      }, function (err) {
+        setStatus('Error Wikipedia: ' + (err.message || err), true);
       });
+      return;
+    }
+    fetchWithFallback(url, function (text) {
+      attachUrlText('🔗 ' + url.replace(/^https?:\/\//, '').slice(0, 60), url, text);
+    }, function (err) {
+      setStatus('Error mengambil URL: ' + (err.message || err) + '. Situs itu memblokir akses langsung/proxy.', true);
+    });
   }
 
   function verifyAnswer(question, answer) {
