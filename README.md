@@ -77,6 +77,20 @@ Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backen
 2. Di [vercel.com](https://vercel.com) → **Add New → Project** → import repo → **Deploy**.
 3. Ada workflow `.github/workflows/deploy-vercel.yml` yang otomatis deploy setiap push ke `main` (butuh secret `VERCEL_TOKEN`).
 
+## Sinkronisasi cloud (opsional, Supabase)
+
+Tanpa konfigurasi, cangcilung berjalan 100% lokal (data di localStorage). Untuk menyinkronkan riwayat lintas perangkat, hubungkan Supabase:
+
+1. Buat proyek di [supabase.com](https://supabase.com) (gratis).
+2. **SQL Editor → New query** → jalankan isi `supabase/schema.sql` (membuat tabel `sessions`, `settings`, `usage` + Row Level Security).
+3. **Auth → Sign In / Providers** → aktifkan **Anonymous sign-ins** (dan pastikan **Email** aktif bila mau menghubungkan email).
+4. **Database → Realtime** → pastikan tabel `sessions` masuk publikasi realtime (sudah di-set di skema).
+5. Salin **Project URL** dan **anon public key** dari **Settings → API**.
+6. Di Vercel → proyek `cangcilung` → **Settings → Environment Variables**: isi `SUPABASE_URL` dan `SUPABASE_ANON_KEY`, lalu **redeploy**.
+7. Buka aplikasi → ikon ☁️ di header menampilkan status sinkron. Klik untuk melihat status / menghubungkan email.
+
+Setelah aktif: pengguna tersambung **anonim** otomatis, data lokal diunggah saat pertama kali. Menghubungkan email membuat akun tetap tersedia di perangkat lain. **API Key model tidak pernah dikirim ke cloud** (khususnya Groq key tetap di perangkat Anda).
+
 ## Catatan
 
 - Persona bot diatur lewat konstanta `SYSTEM` & `PERSONAS` di `app.js`; tema di `body[data-theme]` di `style.css`.
