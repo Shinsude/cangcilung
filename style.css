@@ -107,7 +107,6 @@ html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 
 .tools-wrap { position: relative; }
 .input-more-wrap { position: relative; flex-shrink: 0; }
-.input-more-menu { min-width: 200px; top: auto; bottom: calc(100% + 8px); }
 .tools-menu {
   position: absolute; right: 0; top: calc(100% + 8px); z-index: 40;
   min-width: 220px; padding: 6px;
@@ -115,6 +114,7 @@ html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
   border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.4);
   display: flex; flex-direction: column; gap: 2px;
 }
+.input-more-menu { min-width: 200px; top: auto; bottom: calc(100% + 8px); }
 .tools-menu[hidden] { display: none; }
 .tools-item {
   display: flex; align-items: center; gap: 10px; width: 100%;
