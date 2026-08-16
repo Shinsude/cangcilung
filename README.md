@@ -34,7 +34,7 @@ Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backen
 - **Judul otomatis**: sesi diberi nama dari pesan pertama.
 - **Waktu pesan**: tiap balasan diberi cap waktu.
 - **Drag & drop file**: seret file ke jendela untuk melampirkan.
-- **Lampirkan URL** (🔗): tempel URL artikel, isinya diambil & bisa diringkas.
+- **Lampirkan URL** (🔗): tempel URL artikel, isinya diambil & bisa diringkas. URL Wikipedia diproses lewat API resminya (anti-CORS); situs lain dicoba langsung lalu lewat proxy bila diblokir browser.
 - **Export 3 format**: teks (.txt), Markdown (.md), JSON mentah.
 - **Pilih suara 🔊**: ganti nada suara pembaca jawaban di ⚙️.
 - **Statistik** (📊): jumlah pesan, kata paling sering, rata-rata panjang.
