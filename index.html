@@ -163,6 +163,28 @@
     </div>
   </div>
 
+  <!-- ====== MODAL GANTI NAMA PERCAKAPAN ====== -->
+  <div class="modal-overlay" id="rename-modal" hidden>
+    <div class="modal" style="max-width:380px">
+      <div class="modal-header">
+        <h3>Ganti nama percakapan ✏️</h3>
+        <button id="btn-rename-close" class="modal-close" aria-label="Tutup">×</button>
+      </div>
+      <div class="modal-body">
+        <label class="set-field">
+          <span>Nama baru</span>
+          <input type="text" id="rename-input" maxlength="48" spellcheck="false">
+        </label>
+        <div class="set-status" id="rename-status"></div>
+      </div>
+      <div class="modal-footer">
+        <span class="modal-spacer"></span>
+        <button id="btn-rename-cancel" class="ghost-btn">Batal</button>
+        <button id="btn-rename-ok" class="primary-btn">Simpan</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ====== MODAL EKSPOR ====== -->
   <div class="modal-overlay" id="export-modal" hidden>
     <div class="modal" style="max-width:380px">

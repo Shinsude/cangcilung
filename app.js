@@ -444,12 +444,39 @@
     renderSessionList();
   }
 
+  var renameSessionId = null;
+
   function renameSession(id) {
     var s = null;
     for (var i = 0; i < sessions.length; i++) if (sessions[i].id === id) s = sessions[i];
     if (!s) return;
-    var name = prompt('Nama percakapan:', s.name);
-    if (name && name.trim()) { s.name = name.trim(); saveSessions(); renderSessionList(); }
+    renameSessionId = id;
+    $('rename-input').value = s.name;
+    $('rename-status').textContent = '';
+    $('rename-status').className = 'set-status';
+    openModal('rename-modal');
+    var inp = $('rename-input');
+    inp.focus();
+    inp.select();
+  }
+
+  function closeRename() {
+    renameSessionId = null;
+    closeModal('rename-modal');
+  }
+
+  function submitRename() {
+    if (renameSessionId == null) return;
+    var name = $('rename-input').value.trim();
+    if (!name) { $('rename-status').textContent = 'Nama tidak boleh kosong.'; $('rename-status').className = 'set-status error'; return; }
+    var s = null;
+    for (var i = 0; i < sessions.length; i++) if (sessions[i].id === renameSessionId) s = sessions[i];
+    if (!s) { closeRename(); return; }
+    s.name = name;
+    saveSessions();
+    renderSessionList();
+    closeRename();
+    setStatus('Percakapan diganti nama.');
   }
 
   function renderSessionList() {
@@ -2187,6 +2214,11 @@
     $('btn-sessions').addEventListener('click', openSessions);
     $('btn-sessions-close').addEventListener('click', closeSessions);
     $('btn-session-new').addEventListener('click', newSession);
+    $('btn-rename-ok').addEventListener('click', submitRename);
+    $('btn-rename-cancel').addEventListener('click', closeRename);
+    $('btn-rename-close').addEventListener('click', closeRename);
+    $('rename-modal').addEventListener('click', function (e) { if (e.target === $('rename-modal')) closeRename(); });
+    $('rename-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submitRename(); } });
     $('sessions-modal').addEventListener('click', function (e) {
       if (e.target === $('sessions-modal')) closeSessions();
     });
