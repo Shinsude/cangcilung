@@ -1698,30 +1698,29 @@
     var chunkSize = 3000;
     var chunks = [];
     for (var i = 0; i < text.length; i += chunkSize) {
-      chunks.push(text.slice(i, i + chunkSize));
+      chunks.push({ text: text.slice(i, i + chunkSize), idx: i });
     }
     if (keywords.length) {
-      chunks.forEach(function (ch, idx) {
+      chunks.forEach(function (ch) {
         var score = 0;
         keywords.forEach(function (k) {
-          if (ch.toLowerCase().indexOf(k) !== -1) score++;
+          if (ch.text.toLowerCase().indexOf(k) !== -1) score++;
         });
         ch._score = score;
-        ch._idx = idx;
       });
-      chunks.sort(function (a, b) { return b._score - a._score || a._idx - b._idx; });
+      chunks.sort(function (a, b) { return b._score - a._score || a.idx - b.idx; });
     }
     var budget = 20000;
     var used = 0;
     var picked = [];
     chunks.forEach(function (ch) {
-      if (used + ch.length > budget) return;
+      if (used + ch.text.length > budget) return;
       picked.push(ch);
-      used += ch.length;
+      used += ch.text.length;
     });
     if (!picked.length) picked = [chunks[0]];
-    picked.sort(function (a, b) { return a._idx - b._idx; });
-    msg.push({ role: 'user', content: 'Saya lampirkan isi file "' + attachedFile.name + '" (bagian relevan yang dipilih untuk pertanyaan ini):\n\n' + picked.join('\n---\n') });
+    picked.sort(function (a, b) { return a.idx - b.idx; });
+    msg.push({ role: 'user', content: 'Saya lampirkan isi file "' + attachedFile.name + '" (bagian relevan yang dipilih untuk pertanyaan ini):\n\n' + picked.map(function (c) { return c.text; }).join('\n---\n') });
     return msg;
   }
 
