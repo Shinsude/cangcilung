@@ -47,6 +47,14 @@
 
   function $(id) { return document.getElementById(id); }
 
+  var cloudNotify = null;
+  window.__setCloudHook = function (fn) { cloudNotify = fn; };
+
+  function touchSession() {
+    var s = currentSession();
+    if (s) s.updatedAt = Date.now();
+  }
+
   function loadSummary() {
     try {
       var s = currentSession();
@@ -59,7 +67,7 @@
     try {
       localStorage.setItem(SUMMARY_KEY, summary);
       var s = currentSession();
-      if (s) { s.summary = summary; saveSessions(); }
+      if (s) { s.summary = summary; touchSession(); saveSessions(); }
     } catch (e) {}
   }
 
@@ -225,7 +233,7 @@
 
   function savePinned() {
     var s = currentSession();
-    if (s) { s.pinned = pinned; saveSessions(); }
+    if (s) { s.pinned = pinned; touchSession(); saveSessions(); }
   }
 
   function togglePin(index) {
@@ -352,6 +360,7 @@
 
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+    if (cloudNotify) cloudNotify('settings');
   }
 
   var sessions = [];
@@ -379,6 +388,7 @@
 
   function saveSessions() {
     try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); } catch (e) {}
+    if (cloudNotify) cloudNotify('sessions');
   }
 
   function currentSession() {
@@ -392,7 +402,7 @@
     if (busy) { abortAll(); }
     var n = sessions.length + 1;
     var id = 's' + Date.now();
-    sessions.push({ id: id, name: 'Percakapan ' + n, history: [], summary: '' });
+    sessions.push({ id: id, name: 'Percakapan ' + n, history: [], summary: '', updatedAt: Date.now() });
     currentSessionId = id;
     saveSessions();
     history = [];
@@ -412,6 +422,7 @@
     var clean = String(text).replace(/\s+/g, ' ').trim();
     if (clean.length > 48) clean = clean.slice(0, 48) + '…';
     s.name = clean || s.name;
+    touchSession();
     saveSessions();
   }
 
@@ -433,6 +444,7 @@
   function deleteSession(id) {
     if (sessions.length <= 1) { setStatus('Minimal satu percakapan harus ada.', true); return; }
     sessions = sessions.filter(function (s) { return s.id !== id; });
+    if (cloudNotify) cloudNotify('deleteSession', id);
     if (currentSessionId === id) currentSessionId = sessions[0].id;
     saveSessions();
     history = [];
@@ -473,6 +485,7 @@
     for (var i = 0; i < sessions.length; i++) if (sessions[i].id === renameSessionId) s = sessions[i];
     if (!s) { closeRename(); return; }
     s.name = name;
+    touchSession();
     saveSessions();
     renderSessionList();
     closeRename();
@@ -537,7 +550,7 @@
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-200)));
       var s = currentSession();
-      if (s) { s.history = history.slice(-200); saveSessions(); }
+      if (s) { s.history = history.slice(-200); touchSession(); saveSessions(); }
     } catch (e) {}
   }
 
@@ -1438,6 +1451,7 @@
 
   function saveUsage(usage) {
     try { localStorage.setItem(USAGE_KEY, JSON.stringify(usage)); } catch (e) {}
+    if (cloudNotify) cloudNotify('usage');
   }
 
   function trackUsage() {
@@ -2310,6 +2324,52 @@
       if (e.target === $('settings-modal')) closeSettings();
     });
   }
+
+  /* API untuk lapisan cloud (cloud.js) */
+  window.cangcilung = {
+    getSessions: function () { return sessions.slice(); },
+    getSettings: function () { return settings; },
+    getUsage: loadUsage,
+    openModal: openModal,
+    closeModal: closeModal,
+    applyCloudSessions: function (arr) {
+      if (!Array.isArray(arr)) return;
+      sessions = arr;
+      if (!sessions.some(function (s) { return s.id === currentSessionId; })) currentSessionId = sessions.length ? sessions[0].id : null;
+      saveSessions();
+      history = [];
+      summary = '';
+      var s = currentSession();
+      if (s) { history = s.history.slice(); summary = s.summary || ''; }
+      renderHistory();
+      renderSessionList();
+      renderPins();
+      connSub();
+    },
+    applyCloudSettings: function (s) {
+      if (!s) return;
+      if (s.baseUrl !== undefined) settings.baseUrl = s.baseUrl;
+      if (s.model) settings.model = s.model;
+      if (s.analyModel) settings.analyModel = s.analyModel;
+      if (s.persona) settings.persona = s.persona;
+      if (s.verifyEnabled !== undefined) settings.verifyEnabled = s.verifyEnabled;
+      if (s.theme) settings.theme = s.theme;
+      if (s.voice) settings.voice = s.voice;
+      if (s.fontSize) settings.fontSize = s.fontSize;
+      if (s.soundEnabled !== undefined) settings.soundEnabled = s.soundEnabled;
+      saveSettings();
+      applyTheme(settings.theme);
+      applyFont();
+      populateQuickModel();
+      renderUsage();
+    },
+    applyCloudUsage: function (u) {
+      if (u && u.requests) {
+        try { localStorage.setItem(USAGE_KEY, JSON.stringify({ date: u.date, requests: u.requests })); } catch (e) {}
+        renderUsage();
+      }
+    }
+  };
 
   document.addEventListener('DOMContentLoaded', init);
 })();

@@ -22,6 +22,7 @@
           <span class="pane-sub" id="usage-sub"></span>
         </div>
         <div class="header-actions">
+          <button id="cloud-ind" class="icon-btn" title="Sinkronisasi cloud" aria-label="Sinkronisasi cloud" hidden>☁️</button>
           <select id="quick-model" class="quick-model" title="Ganti model cepat" aria-label="Ganti model cepat"></select>
           <button id="btn-sessions" class="icon-btn" title="Ganti percakapan" aria-label="Ganti percakapan">💬</button>
           <button id="btn-persona" class="icon-btn" title="Ganti gaya cangcilung" aria-label="Ganti gaya">🎭</button>
@@ -271,6 +272,30 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
+  <!-- ====== MODAL CLOUD ====== -->
+  <div class="modal-overlay" id="cloud-modal" hidden>
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <h3>Sinkronisasi cloud ☁️</h3>
+        <button class="modal-close" data-cloud-close aria-label="Tutup">×</button>
+      </div>
+      <div class="modal-body">
+        <p id="cloud-msg" class="set-hint"></p>
+        <label class="set-field" id="cloud-email-wrap">
+          <span>Email (opsional)</span>
+          <input type="email" id="cloud-email" placeholder="nama@email.com" autocomplete="email" spellcheck="false">
+        </label>
+        <p class="set-hint" id="cloud-email-note">Hubungkan email agar riwayat tetap tersedia di perangkat lain.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cloud-out" class="ghost-btn tools-danger" hidden>Keluar</button>
+        <span class="modal-spacer"></span>
+        <button id="btn-cloud-link" class="primary-btn" hidden>Hubungkan email</button>
+        <button class="ghost-btn" data-cloud-close>Tutup</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ====== KONFIRMASI ====== -->
   <div class="modal-overlay" id="confirm-modal" hidden>
     <div class="modal" style="max-width:360px">
@@ -295,7 +320,9 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
+  <script src="cloud.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
