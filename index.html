@@ -72,10 +72,15 @@
           <input type="file" id="file-input" accept=".txt,.md,.csv,.json,.log,.pdf,.xlsx,.xls,.docx,.png,.jpg,.jpeg,.webp,.gif" hidden>
           <textarea id="chat-input" rows="1" placeholder="Tulis pesan ke cangcilung... (Enter untuk kirim)"></textarea>
           <button id="btn-mic" class="attach-btn" title="Bicara (voice input)" aria-label="Bicara">🎤</button>
-          <button id="btn-web" class="attach-btn web-toggle" title="Cari di web (Wikipedia) untuk jawaban terkini" aria-label="Cari di web">🌐</button>
-          <button id="btn-speak" class="attach-btn" title="Bacakan jawaban (suara)" aria-label="Bacakan jawaban">🔊</button>
-          <button id="btn-translate" class="attach-btn" title="Mode terjemahan id↔en" aria-label="Terjemahan">🔄</button>
-          <button id="btn-suggest" class="attach-btn" title="Saran pertanyaan lanjutan" aria-label="Saran pertanyaan">💡</button>
+          <div class="input-more-wrap">
+            <button id="btn-input-more" class="attach-btn" title="Mode tambahan" aria-label="Mode tambahan" aria-haspopup="true" aria-expanded="false">⋯</button>
+            <div id="input-more-menu" class="tools-menu input-more-menu" role="menu" hidden>
+              <button id="btn-web" class="tools-item web-toggle" role="menuitem">🌐 Cari di web</button>
+              <button id="btn-speak" class="tools-item" role="menuitem">🔊 Baca jawaban</button>
+              <button id="btn-translate" class="tools-item" role="menuitem">🔄 Terjemahan id↔en</button>
+              <button id="btn-suggest" class="tools-item" role="menuitem">💡 Saran pertanyaan</button>
+            </div>
+          </div>
           <button id="btn-send" class="send-btn" title="Kirim pesan" aria-label="Kirim pesan">➤</button>
         </div>
         <div class="status-row">
@@ -218,6 +223,8 @@
       </div>
     </div>
   </div>
+
+  <div id="toast" class="toast" hidden></div>
 
   <!-- ====== KONFIRMASI ====== -->
   <div class="modal-overlay" id="confirm-modal" hidden>

@@ -786,6 +786,16 @@
     else el.removeAttribute('role');
   }
 
+  function showToast(msg, isError) {
+    var el = $('toast');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = 'toast' + (isError ? ' error' : '');
+    el.hidden = false;
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.hidden = true; }, 2400);
+  }
+
   function esc(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
@@ -1073,7 +1083,7 @@
   }
 
   function copyText(text) {
-    var done = function () { setStatus('📋 Disalin ke clipboard.'); };
+    var done = function () { showToast('📋 Disalin ke clipboard.'); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
     } else fallbackCopy(text);
@@ -1382,10 +1392,21 @@
   var recognition = null;
   var listening = false;
 
+  function updateInputMore() {
+    var btn = $('btn-input-more');
+    if (!btn) return;
+    var active = ['btn-web', 'btn-speak', 'btn-translate', 'btn-suggest'].some(function (id) {
+      var b = $(id);
+      return b && b.classList.contains('active');
+    });
+    btn.classList.toggle('active', active);
+  }
+
   function toggleTranslate() {
     translateEnabled = !translateEnabled;
     var btn = $('btn-translate');
     if (btn) btn.classList.toggle('active', translateEnabled);
+    updateInputMore();
     setStatus(translateEnabled ? '🔄 Mode terjemahan id↔en aktif — ketik teks apa pun, cangcilung menerjemahkannya.' : 'Mode terjemahan nonaktif.');
   }
 
@@ -1394,6 +1415,7 @@
     var btn = $('btn-speak');
     if (btn) btn.classList.toggle('active', speakEnabled);
     if (!speakEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+    updateInputMore();
     setStatus(speakEnabled ? '🔊 Jawaban akan dibacakan.' : 'Mode suara nonaktif.');
   }
 
@@ -1434,6 +1456,7 @@
     suggestEnabled = !suggestEnabled;
     var btn = $('btn-suggest');
     if (btn) btn.classList.toggle('active', suggestEnabled);
+    updateInputMore();
     setStatus(suggestEnabled ? '💡 Saran pertanyaan aktif.' : 'Mode saran nonaktif.');
   }
 
@@ -1516,6 +1539,7 @@
     var chip = $('web-chip');
     if (btn) btn.classList.toggle('active', webMode);
     if (chip) chip.hidden = !webMode;
+    updateInputMore();
     setStatus(webMode ? '🌐 Cari di web aktif — jawaban akan pakai info terkini.' : 'Mode web nonaktif.');
   }
 
@@ -1974,13 +1998,10 @@
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
+      var im = $('input-more-menu');
+      if (im && !im.hidden) { closeInputMore(); return; }
       var menu = $('tools-menu');
-      if (menu && !menu.hidden) {
-        menu.hidden = true;
-        var tb = $('btn-tools');
-        if (tb) { tb.setAttribute('aria-expanded', 'false'); tb.focus(); }
-        return;
-      }
+      if (menu && !menu.hidden) { closeToolsMenu(); return; }
       var opens = document.querySelectorAll('.modal-overlay:not([hidden])');
       if (opens.length) closeModal(opens[opens.length - 1].id);
       return;
@@ -2002,6 +2023,13 @@
     if (menu) { menu.hidden = true; }
     var tb = $('btn-tools');
     if (tb) tb.setAttribute('aria-expanded', 'false');
+  }
+
+  function closeInputMore() {
+    var m = $('input-more-menu');
+    if (m) { m.hidden = true; }
+    var imb = $('btn-input-more');
+    if (imb) imb.setAttribute('aria-expanded', 'false');
   }
 
   var confirmCb = null;
@@ -2073,11 +2101,11 @@
     $('btn-file-summary').addEventListener('click', summarizeFile);
     $('btn-attach-clear').addEventListener('click', clearAttachment);
     $('btn-img-clear').addEventListener('click', clearImage);
-    $('btn-web').addEventListener('click', toggleWebMode);
+    $('btn-web').addEventListener('click', function () { toggleWebMode(); closeInputMore(); });
     $('btn-web-clear').addEventListener('click', toggleWebMode);
-    $('btn-speak').addEventListener('click', toggleSpeak);
-    $('btn-suggest').addEventListener('click', toggleSuggest);
-    $('btn-translate').addEventListener('click', toggleTranslate);
+    $('btn-speak').addEventListener('click', function () { toggleSpeak(); closeInputMore(); });
+    $('btn-suggest').addEventListener('click', function () { toggleSuggest(); closeInputMore(); });
+    $('btn-translate').addEventListener('click', function () { toggleTranslate(); closeInputMore(); });
     $('btn-theme').addEventListener('click', cycleTheme);
     $('btn-mic').addEventListener('click', toggleMic);
     $('btn-sessions').addEventListener('click', openSessions);
@@ -2142,6 +2170,14 @@
     document.addEventListener('click', function (e) {
       var m = $('tools-menu');
       if (m && !m.hidden && e.target.closest && !e.target.closest('.tools-wrap')) closeToolsMenu();
+      var im = $('input-more-menu');
+      if (im && !im.hidden && e.target.closest && !e.target.closest('.input-more-wrap')) closeInputMore();
+    });
+    $('btn-input-more').addEventListener('click', function () {
+      var m = $('input-more-menu');
+      var opening = m.hidden;
+      m.hidden = !opening;
+      this.setAttribute('aria-expanded', String(opening));
     });
     $('btn-confirm-ok').addEventListener('click', function () {
       if (confirmCb) { var cb = confirmCb; closeConfirm(); cb(); }
