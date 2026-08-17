@@ -67,8 +67,9 @@
     var chunks = chunkText(text);
     if (!chunks.length) return Promise.reject(new Error('Teks terlalu pendek untuk disimpan.'));
     var docId = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    var rows;
     return embedTexts(chunks).then(function (vecs) {
-      var rows = chunks.map(function (c, i) {
+      rows = chunks.map(function (c, i) {
         return { user_id: state.user.id, id: 'c' + docId + '-' + i, document_id: docId, idx: i, content: c, embedding: toVec(vecs[i]) };
       });
       return state.client.from('documents').upsert({
