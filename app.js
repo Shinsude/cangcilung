@@ -26,6 +26,8 @@
   };
   var DEFAULT_BASE = 'https://api.groq.com/openai/v1';
   var DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+  var DEFAULT_EMBED_BASE = 'https://api.jina.ai/v1';
+  var DEFAULT_EMBED_MODEL = 'jina-embeddings-v3';
   var VISION_MODEL = 'qwen/qwen3.6-27b';
   var FALLBACKS = [
     'openai/gpt-oss-120b',
@@ -41,13 +43,14 @@
   var els = {};
   var history = [];
   var summary = '';
-  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true };
+  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true, embedBaseUrl: DEFAULT_EMBED_BASE, embedKey: '', embedModel: DEFAULT_EMBED_MODEL };
   var busy = false;
   var abortCtrl = null;
 
   function $(id) { return document.getElementById(id); }
 
   var cloudNotify = null;
+  var kbCancel = false;
   window.__setCloudHook = function (fn) { cloudNotify = fn; };
 
   function touchSession() {
@@ -86,6 +89,9 @@
         settings.voice = s.voice || '';
         settings.fontSize = s.fontSize || 'normal';
         settings.soundEnabled = s.soundEnabled !== false;
+        settings.embedBaseUrl = s.embedBaseUrl || DEFAULT_EMBED_BASE;
+        settings.embedKey = s.embedKey || '';
+        settings.embedModel = s.embedModel || DEFAULT_EMBED_MODEL;
       }
     } catch (e) {}
   }
@@ -708,6 +714,7 @@
       if (elName) elName.textContent = '📎 ' + file.name + ' (' + (text.length / 1000).toFixed(1) + ' KB)';
       if (elChip) elChip.hidden = false;
       if (elBtn) elBtn.hidden = text.length < 200;
+      if (window.cangcilung && window.cangcilung.refreshChip) window.cangcilung.refreshChip();
       setStatus('File siap. Ketik pertanyaan lalu kirim, atau klik "🧾 Ringkas".');
     }).catch(function (err) {
       setStatus('Error: ' + err.message, true);
@@ -783,6 +790,7 @@
     if (elChip) elChip.hidden = true;
     var elBtn = $('btn-file-summary');
     if (elBtn) elBtn.hidden = true;
+    if (window.cangcilung && window.cangcilung.refreshChip) window.cangcilung.refreshChip();
   }
 
   function baseUrl() {
@@ -1079,6 +1087,7 @@
     if (elChip) elChip.hidden = false;
     var elBtn = $('btn-file-summary');
     if (elBtn) elBtn.hidden = false;
+    if (window.cangcilung && window.cangcilung.refreshChip) window.cangcilung.refreshChip();
     setStatus('URL diambil. Ketik pertanyaan, atau klik "🧾 Ringkas".');
   }
 
@@ -1789,9 +1798,12 @@
 
   function sendChat() {
     if (busy) {
+      kbCancel = true;
       if (abortCtrl) abortCtrl.abort();
+      else { busy = false; setSendUI(false); setStatus('⏹ Dihentikan.'); }
       return;
     }
+    kbCancel = false;
     var input = $('chat-input');
     var text = input.value.trim();
     if (!text) return;
@@ -1825,6 +1837,7 @@
     var full = '';
     var attempted = [];
     var webContext = '';
+    var kbContext = '';
     var isAnalysis = needsAnalysis(text);
 
     var calc = calcAnswer(text);
@@ -1864,6 +1877,9 @@
             { type: 'image_url', image_url: { url: attachedImage.dataUrl } }
           ]
         });
+      }
+      if (kbContext) {
+        messages.push({ role: 'system', content: 'Pengetahuan tersimpan Anda (gunakan bila relevan untuk menjawab dengan akurat):\n' + kbContext });
       }
       if (webContext) {
         messages.push({ role: 'system', content: 'Info terkini dari Wikipedia (pakai ini bila relevan untuk jawaban akurat):\n' + webContext });
@@ -1992,7 +2008,16 @@
         });
     }
 
-    next();
+    if (window.__kb && window.__kb.canRetrieve && window.__kb.canRetrieve()) {
+      setStatus('📚 Mencari di pengetahuan tersimpan...');
+      window.__kb.retrieve(text).then(function (c) {
+        if (kbCancel) return;
+        kbContext = c || '';
+        next();
+      }).catch(function () { if (!kbCancel) next(); });
+    } else {
+      next();
+    }
   }
 
   function openSettings() {
@@ -2001,6 +2026,9 @@
     $('set-model-analy').value = settings.analyModel || '';
     $('set-apikey').value = settings.apiKey || '';
     $('set-persona').value = settings.persona || 'default';
+    $('set-embed-baseurl').value = settings.embedBaseUrl || DEFAULT_EMBED_BASE;
+    $('set-embed-key').value = settings.embedKey || '';
+    $('set-embed-model').value = settings.embedModel || DEFAULT_EMBED_MODEL;
     $('set-status').textContent = '';
     openModal('settings-modal');
     $('set-baseurl').focus();
@@ -2018,6 +2046,9 @@
     settings.apiKey = $('set-apikey').value.trim();
     settings.persona = $('set-persona').value || 'default';
     settings.voice = $('set-voice').value || '';
+    settings.embedBaseUrl = $('set-embed-baseurl').value.trim() || DEFAULT_EMBED_BASE;
+    settings.embedKey = $('set-embed-key').value.trim();
+    settings.embedModel = $('set-embed-model').value.trim() || DEFAULT_EMBED_MODEL;
     saveSettings();
     syncPersonaButton();
     connSub();
@@ -2357,6 +2388,8 @@
       if (s.voice) settings.voice = s.voice;
       if (s.fontSize) settings.fontSize = s.fontSize;
       if (s.soundEnabled !== undefined) settings.soundEnabled = s.soundEnabled;
+      if (s.embedBaseUrl) settings.embedBaseUrl = s.embedBaseUrl;
+      if (s.embedModel) settings.embedModel = s.embedModel;
       saveSettings();
       applyTheme(settings.theme);
       applyFont();
@@ -2368,6 +2401,16 @@
         try { localStorage.setItem(USAGE_KEY, JSON.stringify({ date: u.date, requests: u.requests })); } catch (e) {}
         renderUsage();
       }
+    },
+    setStatus: setStatus,
+    confirm: openConfirm,
+    hasAttachment: function () { return !!attachedFile; },
+    getAttachment: function () { return attachedFile ? { name: attachedFile.name, text: attachedFile.text } : null; },
+    refreshChip: function () {
+      var btn = $('btn-save-kb');
+      if (!btn) return;
+      var show = !!(attachedFile && window.__kb && window.__kb.canEmbed && window.__kb.canEmbed());
+      btn.hidden = !show;
     }
   };
 

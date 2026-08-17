@@ -31,6 +31,16 @@
   }
   function todayStr() { return new Date().toISOString().slice(0, 10); }
 
+  var readyListeners = [];
+  function fireReady() {
+    readyListeners.forEach(function (fn) { try { fn(state.client, state.user); } catch (e) { log(e); } });
+    readyListeners = [];
+  }
+  window.__onCloudReady = function (fn) {
+    if (state.enabled && state.ready && state.user && state.client) { try { fn(state.client, state.user); } catch (e) {} }
+    else readyListeners.push(fn);
+  };
+
   function app() { return window.cangcilung || null; }
 
   function setInd(mode, title) {
@@ -58,7 +68,7 @@
   /* ---------- sanitasi: jangan pernah mengirim apiKey ke cloud ---------- */
   function cloudSettings(s) {
     var c = {};
-    ['baseUrl', 'model', 'analyModel', 'persona', 'verifyEnabled', 'theme', 'voice', 'fontSize', 'soundEnabled']
+    ['baseUrl', 'model', 'analyModel', 'persona', 'verifyEnabled', 'theme', 'voice', 'fontSize', 'soundEnabled', 'embedBaseUrl', 'embedModel']
       .forEach(function (k) { if (s[k] !== undefined) c[k] = s[k]; });
     return c;
   }
@@ -251,6 +261,7 @@
       setInd('sync', 'Menyinkronkan...');
       pullAll();
       subscribeRealtime();
+      fireReady();
     } else {
       state.ready = false;
       setInd('err', 'Tidak terautentikasi');

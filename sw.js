@@ -1,9 +1,10 @@
-const CACHE = 'cangcilung-v3';
+const CACHE = 'cangcilung-v4';
 const CORE = [
   '/',
   '/index.html',
   '/style.css',
   '/app.js',
+  '/kb.js',
   '/cloud.js',
   '/manifest.webmanifest',
   'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js',

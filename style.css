@@ -396,6 +396,7 @@ html { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
   font-size: 12px; font-family: inherit;
 }
 .file-summary:hover { background: rgba(124, 58, 237, .15); }
+.kb-count { opacity:.6; font-size:12px; }
 
 .msg-actions {
   display: flex; gap: 6px; margin-top: 4px; opacity: 0;

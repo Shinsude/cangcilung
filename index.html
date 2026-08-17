@@ -37,6 +37,7 @@
               <button id="btn-backup" class="tools-item" role="menuitem">💾 Cadangkan data</button>
               <button id="btn-font" class="tools-item" role="menuitem">↕️ Ukuran teks</button>
               <button id="btn-sound" class="tools-item" role="menuitem" aria-pressed="false">🔔 Bunyi selesai</button>
+              <button id="btn-kb" class="tools-item" role="menuitem">📚 Pengetahuan</button>
               <button id="btn-clear-chat" class="tools-item tools-danger" role="menuitem">🗑️ Hapus obrolan</button>
             </div>
           </div>
@@ -56,6 +57,7 @@
         <div id="attach-chip" class="attach-chip" hidden>
           <span id="attach-name"></span>
           <button id="btn-file-summary" class="file-summary" title="Ringkas isi file" aria-label="Ringkas file" hidden>🧾 Ringkas</button>
+          <button id="btn-save-kb" class="file-summary" title="Simpan ke basis pengetahuan" aria-label="Simpan ke pengetahuan" hidden>💾 Simpan</button>
           <button id="btn-attach-clear" class="attach-clear" aria-label="Buang file">×</button>
         </div>
         <div id="img-chip" class="attach-chip" hidden>
@@ -131,6 +133,24 @@
           </select>
         </label>
         <p class="set-hint">Ubah gaya jawaban cangcilung. Tersimpan di browser.</p>
+        <div style="border-top:1px solid var(--border); margin:10px 0; padding-top:14px">
+          <p class="set-hint" style="margin:0 0 6px; font-weight:600; color:var(--text)">Basis pengetahuan (RAG permanen)</p>
+          <label class="set-field">
+            <span>Embedding Base URL</span>
+            <input type="text" id="set-embed-baseurl" placeholder="https://api.jina.ai/v1">
+          </label>
+          <p class="set-hint">Default: <code>https://api.jina.ai/v1</code> (Jina, 1M token gratis, multilingual). Bisa pakai OpenAI-compatible endpoint lain.</p>
+          <label class="set-field">
+            <span>Embedding API Key</span>
+            <input type="password" id="set-embed-key" placeholder="jina_...">
+          </label>
+          <p class="set-hint">Kunci API provider embedding. Buat gratis di <code>jina.ai</code> (bagian API Keys). Tersimpan di browser saja, tidak dikirim ke cloud.</p>
+          <label class="set-field">
+            <span>Embedding Model</span>
+            <input type="text" id="set-embed-model" placeholder="jina-embeddings-v3">
+          </label>
+          <p class="set-hint">Default: <code>jina-embeddings-v3</code> (1024 dim, multilingual). Harus menghasilkan embedding ≤ 1024 dimensi.</p>
+        </div>
         <label class="set-field">
           <span>Suara pembaca jawaban (🔊)</span>
           <select id="set-voice">
@@ -272,6 +292,25 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
+  <!-- ====== MODAL PENGETAHUAN ====== -->
+  <div class="modal-overlay" id="kb-modal" hidden>
+    <div class="modal" style="max-width:440px">
+      <div class="modal-header">
+        <h3>Pengetahuan tersimpan 📚</h3>
+        <button id="btn-kb-close" class="modal-close" aria-label="Tutup">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="set-hint">Dokumen/file yang disimpan jadi pengetahuan permanen — cangcilung otomatis mencarinya saat Anda bertanya.</p>
+        <div id="kb-list" class="session-list"></div>
+        <div class="set-status" id="kb-status"></div>
+      </div>
+      <div class="modal-footer">
+        <span class="modal-spacer"></span>
+        <button id="btn-kb-close2" class="ghost-btn">Tutup</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ====== MODAL CLOUD ====== -->
   <div class="modal-overlay" id="cloud-modal" hidden>
     <div class="modal" style="max-width:400px">
@@ -322,6 +361,7 @@
   <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/highlight.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3/dist/umd/supabase.min.js" defer></script>
   <script src="app.js"></script>
+  <script src="kb.js"></script>
   <script src="cloud.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
