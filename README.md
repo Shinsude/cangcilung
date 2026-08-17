@@ -45,6 +45,7 @@ Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backen
 - **Bunyi selesai** (🔔): nada saat jawaban selesai.
 - **Auto-scroll pintar**: berhenti mengikuti saat Anda menggulir ke atas, tombol ⬇️ untuk kembali ke bawah.
 - **Penghitung input**: jumlah karakter & kata di bawah kotak ketik.
+- **Basis pengetahuan** (📚): simpan dokumen teks ke cloud, otomatis di-embed & di-chunk. Saat chat, cangcilung mengambil potongan relevan (RAG) dari dokumen tersimpan untuk jawaban lebih akurat.
 
 ## Pakai langsung (Groq — default)
 
@@ -90,6 +91,34 @@ Tanpa konfigurasi, cangcilung berjalan 100% lokal (data di localStorage). Untuk 
 7. Buka aplikasi → ikon ☁️ di header menampilkan status sinkron. Klik untuk melihat status / menghubungkan email.
 
 Setelah aktif: pengguna tersambung **anonim** otomatis, data lokal diunggah saat pertama kali. Menghubungkan email membuat akun tetap tersedia di perangkat lain. **API Key model tidak pernah dikirim ke cloud** (khususnya Groq key tetap di perangkat Anda).
+
+## Basis pengetahuan (opsional, RAG via pgvector)
+
+Fitur menyimpan dokumen teks ke cloud Supabase, di-embed menjadi vektor, lalu diambil secara otomatis saat chat (Retrieval-Augmented Generation).
+
+### Syarat
+
+1. **Supabase project** harus sudah aktif (lihat bagian "Sinkronisasi cloud" di atas), termasuk env vars `SUPABASE_URL` + `SUPABASE_ANON_KEY` di Vercel.
+2. Jalankan `supabase/schema.sql` — skema ini membuat tabel `documents`, `chunks` (dengan kolom `vector(1024)`), fungsi RPC `match_chunks`, dan indeks HNSW.
+3. **Provider embedding**: cangcilung menggunakan API standar OpenAI-compatible (`/v1/embeddings`). Default: [Jina AI](https://jina.ai/embeddings/) (`jina-embeddings-v3`, 1024-dim, multilingual, ada paket gratis).
+
+### Setup embedding
+
+1. Daftar gratis di [jina.ai](https://jina.ai) → buat API key.
+2. Buka cangcilung → ⚙️ **Pengaturan** → scroll ke bagian **Basis pengetahuan**.
+3. Isi:
+   - **Embed Base URL** = `https://api.jina.ai/v1` (default sudah benar)
+   - **Embed Key** = API key Jina Anda (hanya disimpan lokal, tidak dikirim ke cloud)
+   - **Embed Model** = `jina-embeddings-v3` (default)
+4. **Simpan**.
+
+> Provider lain yang kompatibel (OpenAI, Cohere, dll) juga bisa — isi URL base + key + nama model yang mendukung `/v1/embeddings`. Dimensi harus ≤ 1024.
+
+### Cara pakai
+
+1. Lampirkan file teks (📎) → tombol **💾 Simpan** muncul di chip lampiran → klik untuk menyimpan ke basis pengetahuan.
+2. Setelah tersimpan, cangcilung otomatis mengambil potongan relevan dari dokumen saat Anda bertanya tentang isinya.
+3. Buka modal pengetahuan (📚 di menu tools) untuk melihat daftar dokumen tersimpan atau menghapus dokumen.
 
 ## Catatan
 
