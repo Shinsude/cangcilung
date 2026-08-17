@@ -63,7 +63,8 @@ create table if not exists public.documents (
 create table if not exists public.chunks (
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   id text not null,
-  document_id text not null references public.documents (user_id, id) on delete cascade,
+  document_id text not null,
+  foreign key (user_id, document_id) references public.documents (user_id, id) on delete cascade,
   idx integer not null default 0,
   content text not null,
   embedding vector(1024),
