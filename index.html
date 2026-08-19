@@ -23,10 +23,15 @@
         </div>
         <div class="header-actions">
           <button id="cloud-ind" class="icon-btn" title="Sinkronisasi cloud" aria-label="Sinkronisasi cloud" hidden>☁️</button>
-          <select id="quick-model" class="quick-model" title="Ganti model cepat" aria-label="Ganti model cepat"></select>
+          <div class="model-dropdown" id="quick-model">
+            <button class="model-dropdown-btn" id="quick-model-btn" title="Ganti model cepat" aria-label="Ganti model cepat" aria-haspopup="true" aria-expanded="false">
+              <span class="model-name">model</span><span class="model-arrow">▾</span>
+            </button>
+            <div class="model-dropdown-list" id="quick-model-list" role="menu"></div>
+          </div>
           <button id="btn-sessions" class="icon-btn" title="Ganti percakapan" aria-label="Ganti percakapan">💬</button>
           <button id="btn-persona" class="icon-btn" title="Ganti gaya cangcilung" aria-label="Ganti gaya">🎭</button>
-          <button id="btn-search" class="icon-btn" title="Cari dalam percakapan" aria-label="Cari">🔍</button>
+          <button id="btn-search" class="icon-btn" title="Cari dalam percakapan (Ctrl+F)" aria-label="Cari">🔍</button>
           <button id="btn-theme" class="icon-btn" title="Tema: gelap/terang" aria-label="Ganti tema" aria-pressed="false">🌙</button>
             <div class="tools-wrap">
             <button id="btn-tools" class="icon-btn" title="Alat lainnya" aria-label="Alat lainnya" aria-haspopup="true" aria-expanded="false">⋮</button>
@@ -102,63 +107,76 @@
         <button id="btn-modal-close" class="modal-close" aria-label="Tutup">×</button>
       </div>
       <div class="modal-body">
-        <label class="set-field">
-          <span>Base URL</span>
-          <input type="text" id="set-baseurl" placeholder="https://openrouter.ai/api/v1">
-        </label>
-        <p class="set-hint">Default: <b>Groq</b> — gratis, sangat cepat, kuota harian besar. <code>https://api.groq.com/openai/v1</code> (bikin key di console.groq.com). Model: <code>llama-3.3-70b-versatile</code>, <code>openai/gpt-oss-120b</code>. Alternatif: OpenRouter <code>https://openrouter.ai/api/v1</code> (key di openrouter.ai/keys).</p>
-        <label class="set-field">
-          <span>API Key</span>
-          <input type="password" id="set-apikey" placeholder="sk-or-v1-...">
-        </label>
-        <p class="set-hint">Untuk OpenRouter: buat di <code>openrouter.ai/keys</code>. Tersimpan hanya di browser Anda (localStorage), tidak dikirim ke server lain. Untuk server lokal tanpa autentikasi, biarkan kosong.</p>
-        <label class="set-field">
-          <span>Model</span>
-          <input type="text" id="set-model" placeholder="llama-3.3-70b-versatile">
-        </label>
-        <p class="set-hint">Default (gratis & cepat): <code>llama-3.3-70b-versatile</code>. Alternatif: <code>openai/gpt-oss-120b</code>, <code>qwen/qwen3.6-27b</code> (berpikir dulu, cocok soal analisis), <code>openai/gpt-oss-20b</code>. Catatan: model 18+/tanpa sensor tidak tersedia di Groq — pakai OpenRouter & model <code>sao10k/l3-lunaris-8b</code>.</p>
-        <label class="set-field">
-          <span>Model Analisis/Logika (otomatis untuk soal hitung/logika/kode)</span>
-          <input type="text" id="set-model-analy" placeholder="openai/gpt-oss-120b">
-        </label>
-        <p class="set-hint">Kosongkan untuk pakai model utama. Model ini dipakai otomatis saat pertanyaan butuh analisis/logika (router cerdas). Default: <code>openai/gpt-oss-120b</code>.</p>
-        <label class="set-field">
-          <span>Gaya cangcilung (persona)</span>
-          <select id="set-persona">
-            <option value="default">✨ Seimbang (default)</option>
-            <option value="guru">🎓 Guru — jelas mengajar, beri latihan</option>
-            <option value="teman">🤝 Teman — santai dan akrab</option>
-            <option value="bos">👔 Bos — singkat, langsung, tegas</option>
-            <option value="kode">💻 Kode — fokus teknis, efisien</option>
-          </select>
-        </label>
-        <p class="set-hint">Ubah gaya jawaban cangcilung. Tersimpan di browser.</p>
-        <div style="border-top:1px solid var(--border); margin:10px 0; padding-top:14px">
-          <p class="set-hint" style="margin:0 0 6px; font-weight:600; color:var(--text)">Basis pengetahuan (RAG permanen)</p>
+        <div class="settings-tabs" role="tablist">
+          <button class="settings-tab active" role="tab" data-tab="ai">🤖 AI</button>
+          <button class="settings-tab" role="tab" data-tab="kb">📚 Pengetahuan</button>
+          <button class="settings-tab" role="tab" data-tab="ui">🎨 Tampilan</button>
+        </div>
+
+        <div class="settings-panel active" data-panel="ai">
+          <label class="set-field">
+            <span>Base URL</span>
+            <input type="text" id="set-baseurl" placeholder="https://openrouter.ai/api/v1">
+          </label>
+          <p class="set-hint">Default: <b>Groq</b> — gratis, sangat cepat, kuota harian besar. <code>https://api.groq.com/openai/v1</code> (bikin key di console.groq.com).</p>
+          <label class="set-field">
+            <span>API Key</span>
+            <input type="password" id="set-apikey" placeholder="sk-or-v1-...">
+          </label>
+          <p class="set-hint">Tersimpan hanya di browser Anda (localStorage). Untuk server lokal tanpa autentikasi, biarkan kosong.</p>
+          <label class="set-field">
+            <span>Model</span>
+            <input type="text" id="set-model" placeholder="openai/gpt-oss-120b">
+          </label>
+          <p class="set-hint">Default: <code>openai/gpt-oss-120b</code>. Alternatif: <code>qwen/qwen3.6-27b</code>, <code>openai/gpt-oss-20b</code>.</p>
+          <label class="set-field">
+            <span>Model Analisis/Logika</span>
+            <input type="text" id="set-model-analy" placeholder="openai/gpt-oss-120b">
+          </label>
+          <p class="set-hint">Kosongkan untuk pakai model utama. Dipakai otomatis untuk soal hitung/logika/kode.</p>
+          <label class="set-field">
+            <span>Gaya cangcilung (persona)</span>
+            <select id="set-persona">
+              <option value="default">✨ Seimbang (default)</option>
+              <option value="guru">🎓 Guru — jelas mengajar, beri latihan</option>
+              <option value="teman">🤝 Teman — santai dan akrab</option>
+              <option value="bos">👔 Bos — singkat, langsung, tegas</option>
+              <option value="kode">💻 Kode — fokus teknis, efisien</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="settings-panel" data-panel="kb">
+          <div class="set-hint" style="font-weight:600;color:var(--text)">Basis pengetahuan (RAG permanen)</div>
           <label class="set-field">
             <span>Embedding Base URL</span>
             <input type="text" id="set-embed-baseurl" placeholder="https://api.jina.ai/v1">
           </label>
-          <p class="set-hint">Default: <code>https://api.jina.ai/v1</code> (Jina, 1M token gratis, multilingual). Bisa pakai OpenAI-compatible endpoint lain.</p>
+          <p class="set-hint">Default: <code>https://api.jina.ai/v1</code> (Jina, 1M token gratis, multilingual).</p>
           <label class="set-field">
             <span>Embedding API Key</span>
             <input type="password" id="set-embed-key" placeholder="jina_...">
           </label>
-          <p class="set-hint">Kunci API provider embedding. Buat gratis di <code>jina.ai</code> (bagian API Keys). Tersimpan di browser saja, tidak dikirim ke cloud.</p>
+          <p class="set-hint">Buat gratis di <code>jina.ai</code>. Tersimpan di browser saja, tidak dikirim ke cloud.</p>
           <label class="set-field">
             <span>Embedding Model</span>
             <input type="text" id="set-embed-model" placeholder="jina-embeddings-v3">
           </label>
-          <p class="set-hint">Default: <code>jina-embeddings-v3</code> (1024 dim, multilingual). Harus menghasilkan embedding ≤ 1024 dimensi.</p>
+          <p class="set-hint">Default: <code>jina-embeddings-v3</code> (1024 dim, multilingual).</p>
         </div>
-        <label class="set-field">
-          <span>Suara pembaca jawaban (🔊)</span>
-          <select id="set-voice">
-            <option value="">🔊 Otomatis</option>
-          </select>
-        </label>
-        <p class="set-hint">Pilih nada suara untuk membacakan jawaban. Daftar tergantung browser/OS Anda.</p>
-        <p class="set-hint">✨ Tips: 📎 analisa file/gambar, 🔗 pahami URL, 🌐 jawaban info terkini (otomatis untuk berita), 🎤 bicara, 🔊 baca jawaban, 🔄 terjemahan id↔en, 💡 saran pertanyaan, 🗑️ mulai percakapan baru.</p>
+
+        <div class="settings-panel" data-panel="ui">
+          <label class="set-field">
+            <span>Suara pembaca jawaban (🔊)</span>
+            <select id="set-voice">
+              <option value="">🔊 Otomatis</option>
+            </select>
+          </label>
+          <p class="set-hint">Pilih nada suara untuk membacakan jawaban.</p>
+          <p class="set-hint" style="margin-top:8px;font-weight:600;color:var(--text)">Tips singkat:</p>
+          <p class="set-hint">📎 File & gambar • 🔗 URL • 🌐 Web search • 🎤 Voice input • 🔊 Baca jawaban • 🔄 Terjemahan • 💡 Saran pertanyaan</p>
+        </div>
+
         <div class="set-status" id="set-status"></div>
       </div>
       <div class="modal-footer">
@@ -301,6 +319,12 @@
       </div>
       <div class="modal-body">
         <p class="set-hint">Dokumen/file yang disimpan jadi pengetahuan permanen — cangcilung otomatis mencarinya saat Anda bertanya.</p>
+        <div id="kb-empty" class="kb-empty" hidden>
+          <div class="kb-empty-icon">📚</div>
+          <p>Belum ada dokumen tersimpan.</p>
+          <p>Simpan file teks untuk mulai:</p>
+          <div class="kb-empty-steps">1. 📎 Lampirkan file teks (txt, md, csv, dll)<br>2. 💾 Klik "Simpan" di chip lampiran<br>3. Selesai — cangcilung akan mengingat isinya</div>
+        </div>
         <div id="kb-list" class="session-list"></div>
         <div class="set-status" id="kb-status"></div>
       </div>
@@ -343,6 +367,7 @@
         <button id="btn-confirm-close" class="modal-close" aria-label="Tutup">×</button>
       </div>
       <div class="modal-body">
+        <div class="confirm-icon" id="confirm-icon">⚠️</div>
         <p id="confirm-msg" class="set-hint"></p>
       </div>
       <div class="modal-footer">

@@ -25,7 +25,7 @@
     kode: '\nGaya kamu sekarang: SPESIALIS KODE. Fokus pada solusi teknis yang efisien dan benar. Berikan kode bersih dengan penjelasan singkat. Prioritaskan kualitas kode dan praktik terbaik.'
   };
   var DEFAULT_BASE = 'https://api.groq.com/openai/v1';
-  var DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+  var DEFAULT_MODEL = 'openai/gpt-oss-120b';
   var DEFAULT_EMBED_BASE = 'https://api.jina.ai/v1';
   var DEFAULT_EMBED_MODEL = 'jina-embeddings-v3';
   var VISION_MODEL = 'qwen/qwen3.6-27b';
@@ -114,36 +114,56 @@
   }
 
   var QUICK_MODELS = [
-    'llama-3.3-70b-versatile',
     'openai/gpt-oss-120b',
     'qwen/qwen3.6-27b',
     'openai/gpt-oss-20b'
   ];
+  var MODEL_LABELS = {
+    'openai/gpt-oss-120b': '⚡ GPT-OSS 120B (Cepat & Cerdas)',
+    'qwen/qwen3.6-27b': '🧠 Qwen 3.6 27B (Analisis)',
+    'openai/gpt-oss-20b': '🚀 GPT-OSS 20B (Ringan)'
+  };
 
   function populateQuickModel() {
-    var sel = $('quick-model');
-    if (!sel) return;
+    var list = $('quick-model-list');
+    var btn = $('quick-model-btn');
+    if (!list || !btn) return;
     var cur = settings.model || DEFAULT_MODEL;
-    var html = '';
-    QUICK_MODELS.forEach(function (m) {
-      html += '<option value="' + m + '"' + (m === cur ? ' selected' : '') + '>' + m + '</option>';
+    var models = QUICK_MODELS.slice();
+    if (models.indexOf(cur) === -1) models.unshift(cur);
+    list.innerHTML = '';
+    models.forEach(function (m) {
+      var b = document.createElement('button');
+      b.className = 'model-dropdown-item' + (m === cur ? ' selected' : '');
+      var label = MODEL_LABELS[m] || m;
+      b.innerHTML = '<span class="model-item-label">' + label + '</span><span class="model-item-sub">' + m + '</span>';
+      b.dataset.model = m;
+      b.addEventListener('click', function () {
+        settings.model = m;
+        saveSettings();
+        connSub();
+        populateQuickModel();
+        list.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+        setStatus('⚡ Model: ' + m);
+      });
+      list.appendChild(b);
     });
-    if (QUICK_MODELS.indexOf(cur) === -1) {
-      html = '<option value="' + cur + '" selected>' + cur + '</option>' + html;
-    }
-    sel.innerHTML = html;
+    btn.querySelector('.model-name').textContent = MODEL_LABELS[cur] || cur;
+    btn.addEventListener('click', function () {
+      var opening = !list.classList.contains('open');
+      list.classList.toggle('open', opening);
+      btn.setAttribute('aria-expanded', String(opening));
+    });
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('.model-dropdown')) {
+        list.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
   }
 
-  function changeQuickModel() {
-    var sel = $('quick-model');
-    if (!sel) return;
-    var m = sel.value;
-    if (!m) return;
-    settings.model = m;
-    saveSettings();
-    connSub();
-    setStatus('⚡ Model: ' + m);
-  }
+  function changeQuickModel() { }
 
   var FONT_SIZES = ['small', 'normal', 'large'];
   function cycleFont() {
@@ -520,9 +540,10 @@
       del.textContent = '🗑️';
       del.title = 'Hapus';
       del.addEventListener('click', function () {
-        openConfirm('Hapus percakapan', 'Hapus percakapan "' + s.name + '" permanen?', 'Hapus', function () {
+        openConfirm('Hapus percakapan', 'Hapus percakapan "' + s.name + '" permanen?', '🗑️ Hapus', function () {
           deleteSession(s.id);
-        });
+          showToast('🗑️ Percakapan dihapus.');
+        }, '🗑️');
       });
       row.appendChild(label);
       row.appendChild(rename);
@@ -721,6 +742,25 @@
     });
   }
 
+  /* ===== Typing Indicator (actual DOM dots) ===== */
+  function showTyping(bubble) {
+    removeTyping(bubble);
+    var wrap = document.createElement('div');
+    wrap.className = 'typing-indicator';
+    var i;
+    for (i = 0; i < 3; i++) {
+      var dot = document.createElement('span');
+      dot.className = 'typing-dot';
+      wrap.appendChild(dot);
+    }
+    bubble.appendChild(wrap);
+  }
+
+  function removeTyping(bubble) {
+    var el = bubble.querySelector('.typing-indicator');
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+
   function summarizeFile() {
     if (busy || !attachedFile) return;
     var text = attachedFile.text.slice(0, 16000);
@@ -733,7 +773,7 @@
     setSendUI(true);
     setStatus('🧾 Meringkas file...');
     var bubble = addBubble('assistant', null);
-    bubble.classList.add('typing');
+    showTyping(bubble);
     var full = '';
     abortCtrl = new AbortController();
     fetch(apiUrl('/chat/completions'), {
@@ -756,7 +796,7 @@
       function pump() {
         return reader.read().then(function (r) {
           if (r.done) {
-            bubble.classList.remove('typing');
+            removeTyping(bubble);
             history.push({ role: 'assistant', content: full, t: nowTime() });
             saveHistory();
             renderHistory();
@@ -776,7 +816,7 @@
       }
       return pump();
     }).catch(function (err) {
-      bubble.classList.remove('typing');
+      removeTyping(bubble);
       if (err && err.name === 'AbortError') { setStatus('⏹ Dihentikan.'); }
       else { renderMarkdown(bubble, '⚠️ ' + (err.message || 'Gagal meringkas.')); setStatus('Error: ' + (err.message || err), true); }
       busy = false;
@@ -1140,7 +1180,10 @@
   }
 
   function nowTime() {
-    return new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    var d = new Date();
+    var h = d.getHours();
+    var m = d.getMinutes();
+    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
 
   function addBubble(role, text, index, ts) {
@@ -1151,7 +1194,7 @@
     bubble.className = 'msg-bubble';
     if (text != null) {
       if (role === 'user') bubble.textContent = text;
-      else { bubble.classList.add('typing'); renderMarkdown(bubble, text || '…'); }
+      else renderMarkdown(bubble, text || '…');
     }
     var time = document.createElement('div');
     time.className = 'msg-time';
@@ -1285,6 +1328,19 @@
         });
         welcome.querySelector('.welcome-chips').appendChild(b);
       });
+      var features = document.createElement('div');
+      features.className = 'welcome-features';
+      [['📎', 'Lampirkan file'], ['🔗', 'Pahami URL'], ['🌐', 'Cari di web'], ['🎤', 'Bicara']].forEach(function (f) {
+        var d = document.createElement('div');
+        d.className = 'welcome-feature';
+        d.innerHTML = '<span>' + f[0] + '</span>' + f[1];
+        features.appendChild(d);
+      });
+      welcome.appendChild(features);
+      var hint = document.createElement('div');
+      hint.className = 'welcome-hint';
+      hint.textContent = 'Gunakan tombol di bawah untuk fitur lanjutan';
+      welcome.appendChild(hint);
       box.appendChild(welcome);
       return;
     }
@@ -1833,7 +1889,7 @@
     }
 
     var bubble = addBubble('assistant', null);
-    bubble.classList.add('typing');
+    showTyping(bubble);
     var full = '';
     var attempted = [];
     var webContext = '';
@@ -1844,7 +1900,7 @@
     if (calc) {
       history.push({ role: 'assistant', content: calc, t: nowTime() });
       saveHistory();
-      bubble.classList.remove('typing');
+      removeTyping(bubble);
       renderMarkdown(bubble, calc);
       renderHistory();
       busy = false;
@@ -1919,7 +1975,7 @@
           var finish = function () {
             if (done) return;
             done = true;
-            bubble.classList.remove('typing');
+            removeTyping(bubble);
             history.push({ role: 'assistant', content: full, t: nowTime() });
             saveHistory();
             renderHistory();
@@ -1958,13 +2014,13 @@
 
     function fail(err) {
       if (err && err.name === 'AbortError') {
-        bubble.classList.remove('typing');
+        removeTyping(bubble);
         busy = false;
         setSendUI(false);
         setStatus('⏹ Dihentikan.');
         return;
       }
-      bubble.classList.remove('typing');
+      removeTyping(bubble);
       if (full) renderMarkdown(bubble, full);
       else renderMarkdown(bubble, '⚠️ ' + (err && err.message ? err.message : 'Gagal menghubungi model.'));
       setStatus('Error: ' + (err && err.message ? err.message : err) + '. Cek Base URL, API key, dan koneksi internet.', true);
@@ -2144,6 +2200,12 @@
   }
 
   document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      if (!searchActive) toggleSearch();
+      else { var inp = $('search-input'); if (inp) inp.focus(); }
+      e.preventDefault();
+      return;
+    }
     if (e.key === 'Escape') {
       var im = $('input-more-menu');
       if (im && !im.hidden) { closeInputMore(); return; }
@@ -2181,10 +2243,12 @@
 
   var confirmCb = null;
 
-  function openConfirm(title, msg, okLabel, cb) {
+  function openConfirm(title, msg, okLabel, cb, icon) {
     $('confirm-title').textContent = title || 'Konfirmasi';
     $('confirm-msg').textContent = msg || '';
     $('btn-confirm-ok').textContent = okLabel || 'OK';
+    var iconEl = $('confirm-icon');
+    if (iconEl) iconEl.textContent = icon || '⚠️';
     confirmCb = cb;
     openModal('confirm-modal');
     $('btn-confirm-ok').focus();
@@ -2216,7 +2280,7 @@
     loadPinned();
     var sb = $('btn-sound');
     if (sb) { sb.classList.toggle('active', settings.soundEnabled); sb.title = settings.soundEnabled ? 'Bunyi saat selesai: aktif' : 'Bunyi saat selesai: nonaktif'; sb.setAttribute('aria-pressed', String(settings.soundEnabled)); }
-    $('quick-model').addEventListener('change', changeQuickModel);
+    
     $('btn-stats').addEventListener('click', openStats);
     $('btn-stats-close').addEventListener('click', closeStats);
     $('stats-modal').addEventListener('click', function (e) { if (e.target === $('stats-modal')) closeStats(); });
@@ -2310,7 +2374,7 @@
       if (busy) { closeToolsMenu(); setStatus('Tunggu jawaban selesai sebelum menghapus.', true); return; }
       closeToolsMenu();
       if (!history.length) { setStatus('Belum ada pesan untuk dihapus.'); return; }
-      openConfirm('Hapus obrolan', 'Semua pesan di percakapan ini akan dihapus permanen. Lanjutkan?', 'Hapus', function () {
+      openConfirm('Hapus obrolan', 'Semua pesan di percakapan ini akan dihapus permanen. Lanjutkan?', '🗑️ Hapus', function () {
         history = [];
         summary = '';
         clearAttachment();
@@ -2318,6 +2382,7 @@
         saveHistory();
         saveSummary();
         renderHistory();
+        showToast('🗑️ Obrolan dihapus.');
       });
     });
     $('btn-tools').addEventListener('click', function () {
@@ -2353,6 +2418,19 @@
     $('btn-set-test').addEventListener('click', testConnection);
     $('settings-modal').addEventListener('click', function (e) {
       if (e.target === $('settings-modal')) closeSettings();
+    });
+
+    var settingsTabs = $('settings-modal').querySelectorAll('.settings-tab');
+    Array.prototype.forEach.call(settingsTabs, function (tab) {
+      tab.addEventListener('click', function () {
+        var target = tab.dataset.tab;
+        Array.prototype.forEach.call(settingsTabs, function (t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        var panels = $('settings-modal').querySelectorAll('.settings-panel');
+        Array.prototype.forEach.call(panels, function (p) {
+          p.classList.toggle('active', p.dataset.panel === target);
+        });
+      });
     });
   }
 

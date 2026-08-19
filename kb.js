@@ -172,23 +172,27 @@
   function openKb() {
     var a = app();
     if (!a || !$('kb-modal')) return;
-    var listEl = $('kb-list'), st = $('kb-status');
+    var listEl = $('kb-list'), st = $('kb-status'), emptyEl = $('kb-empty');
     if (!state.ready) {
       if (listEl) listEl.innerHTML = '<p class="set-hint">Sinkronisasi cloud belum aktif. Aktifkan di ☁️ Cloud dulu.</p>';
+      if (emptyEl) emptyEl.hidden = true;
       if (st) st.textContent = '';
       a.openModal('kb-modal');
       return;
     }
     if (listEl) listEl.innerHTML = '';
+    if (emptyEl) emptyEl.hidden = true;
     if (st) { st.textContent = 'Memuat...'; st.className = 'set-status'; }
     a.openModal('kb-modal');
     listDocs().then(function (docs) {
       if (st) st.textContent = '';
       if (!docs.length) {
         state.hasDocs = false;
-        if (listEl) listEl.innerHTML = '<p class="set-hint">Belum ada dokumen. Lampirkan file/URL lalu klik <b>💾 Simpan</b>.</p>';
+        if (emptyEl) emptyEl.hidden = false;
+        if (listEl) listEl.innerHTML = '';
         return;
       }
+      if (emptyEl) emptyEl.hidden = true;
       if (listEl) listEl.innerHTML = docs.map(function (d) {
         var icon = d.source === 'url' ? '🔗' : '📄';
         var meta = d.meta && d.meta.name ? ' · ' + esc(d.meta.name) : '';
@@ -200,7 +204,7 @@
       Array.prototype.forEach.call(listEl.querySelectorAll('[data-kb-del]'), function (b) {
         b.addEventListener('click', function () {
           var id = b.getAttribute('data-kb-del');
-          a.confirm('Hapus dokumen', 'Hapus dokumen ini dari basis pengetahuan secara permanen?', 'Hapus', function () {
+          a.confirm('Hapus dokumen', 'Hapus dokumen ini dari basis pengetahuan secara permanen?', '🗑️ Hapus', function () {
             if (st) { st.textContent = 'Menghapus...'; st.className = 'set-status'; }
             removeDoc(id).then(function () { openKb(); }).catch(function (e) {
               if (st) { st.textContent = 'Gagal: ' + (e && e.message ? e.message : e); st.className = 'set-status error'; }

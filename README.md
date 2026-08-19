@@ -52,8 +52,8 @@ Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backen
 1. Buka `https://cangcilung.vercel.app` (atau `index.html` lokal).
 2. Klik ⚙️ → buat API Key gratis di `https://console.groq.com/keys` → isi **API Key**.
 3. Isi **Model** (default sudah paling pas):
-   - `llama-3.3-70b-versatile` — **default**, gratis, cepat & cerdas.
-   - `openai/gpt-oss-120b`, `qwen/qwen3.6-27b`, `openai/gpt-oss-20b` — alternatif gratis.
+   - `openai/gpt-oss-120b` — **default**, gratis, cepat & cerdas.
+   - `qwen/qwen3.6-27b`, `openai/gpt-oss-20b` — alternatif gratis.
 4. **Tes Koneksi** → **Simpan** → chat.
 
 > Base URL Groq: `https://api.groq.com/openai/v1`. Kuota gratis Groq cukup besar (ribuan permintaan/hari). Daftar model & limit: `console.groq.com/docs/rate-limits`.
