@@ -2471,13 +2471,9 @@
     $('btn-new-chat').addEventListener('click', function () { newSession(); closeSidebar(); });
     $('sidebar-search').addEventListener('click', function () { toggleSearch(); closeSidebar(); });
     $('sidebar-pins').addEventListener('click', function () { openPins(); closeSidebar(); });
-    $('sidebar-stats').addEventListener('click', function () { openStats(); closeSidebar(); });
     $('sidebar-export').addEventListener('click', function () { openExportMenu(); closeSidebar(); });
     $('sidebar-backup').addEventListener('click', function () { openBackup(); closeSidebar(); });
-    $('sidebar-font').addEventListener('click', function () { cycleFont(); closeSidebar(); });
-    $('sidebar-sound').addEventListener('click', function () { toggleSound(); closeSidebar(); });
     $('sidebar-kb').addEventListener('click', function () { if (window.__kb && window.__kb.openKb) window.__kb.openKb(); closeSidebar(); });
-    $('sidebar-persona').addEventListener('click', function () { cyclePersona(); closeSidebar(); });
     $('sidebar-clear-chat').addEventListener('click', function () {
       closeSidebar();
       if (busy) { setStatus('Tunggu jawaban selesai sebelum menghapus.', true); return; }
