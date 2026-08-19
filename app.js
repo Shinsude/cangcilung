@@ -74,13 +74,16 @@
     } catch (e) {}
   }
 
+  var DEPRECATED_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it', 'meta-llama/llama-4-scout-17b-16e-instruct'];
+
   function loadSettings() {
     try {
       var raw = localStorage.getItem(SETTINGS_KEY);
       if (raw) {
         var s = JSON.parse(raw);
         settings.baseUrl = s.baseUrl || '';
-        settings.model = s.model || DEFAULT_MODEL;
+        var m = s.model || DEFAULT_MODEL;
+        settings.model = DEPRECATED_MODELS.indexOf(m) >= 0 ? DEFAULT_MODEL : m;
         settings.apiKey = s.apiKey || '';
         settings.analyModel = s.analyModel || '';
         settings.persona = s.persona || 'default';
@@ -2534,7 +2537,7 @@
     applyCloudSettings: function (s) {
       if (!s) return;
       if (s.baseUrl !== undefined) settings.baseUrl = s.baseUrl;
-      if (s.model) settings.model = s.model;
+      if (s.model) settings.model = DEPRECATED_MODELS.indexOf(s.model) >= 0 ? DEFAULT_MODEL : s.model;
       if (s.analyModel) settings.analyModel = s.analyModel;
       if (s.persona) settings.persona = s.persona;
       if (s.verifyEnabled !== undefined) settings.verifyEnabled = s.verifyEnabled;
