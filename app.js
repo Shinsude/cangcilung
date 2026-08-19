@@ -2334,7 +2334,7 @@
     var sb = $('btn-sound');
     if (sb) { sb.classList.toggle('active', settings.soundEnabled); sb.title = settings.soundEnabled ? 'Bunyi saat selesai: aktif' : 'Bunyi saat selesai: nonaktif'; sb.setAttribute('aria-pressed', String(settings.soundEnabled)); }
     
-    $('btn-stats').addEventListener('click', openStats);
+    if ($('btn-stats')) $('btn-stats').addEventListener('click', openStats);
     $('btn-stats-close').addEventListener('click', closeStats);
     $('stats-modal').addEventListener('click', function (e) { if (e.target === $('stats-modal')) closeStats(); });
     $('btn-pins').addEventListener('click', openPins);
@@ -2347,8 +2347,8 @@
     $('backup-file').addEventListener('change', function () {
       if (this.files && this.files[0]) restoreData(this.files[0]);
     });
-    $('btn-font').addEventListener('click', cycleFont);
-    $('btn-sound').addEventListener('click', toggleSound);
+    if ($('btn-font')) $('btn-font').addEventListener('click', cycleFont);
+    if ($('btn-sound')) $('btn-sound').addEventListener('click', toggleSound);
     $('btn-scroll-down').addEventListener('click', scrollToBottom);
     $('chat-messages').addEventListener('scroll', onChatScroll);
     $('chat-input').addEventListener('input', updateInputCount);
