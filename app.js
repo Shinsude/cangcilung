@@ -550,6 +550,56 @@
       row.appendChild(del);
       box.appendChild(row);
     });
+    renderSidebarChatList();
+  }
+
+  function renderSidebarChatList() {
+    var box = $('sidebar-chat-list');
+    if (!box) return;
+    box.innerHTML = '';
+    sessions.forEach(function (s) {
+      var row = document.createElement('div');
+      row.className = 'sidebar-chat-item' + (s.id === currentSessionId ? ' active' : '');
+      var label = document.createElement('span');
+      label.className = 'sidebar-chat-label';
+      label.textContent = s.name;
+      label.title = s.history.length + ' pesan';
+      label.addEventListener('click', function () { selectSession(s.id); closeSidebar(); });
+      var actions = document.createElement('span');
+      actions.className = 'sidebar-chat-actions';
+      var rename = document.createElement('button');
+      rename.className = 'sidebar-chat-btn';
+      rename.textContent = '✏️';
+      rename.title = 'Ganti nama';
+      rename.addEventListener('click', function (e) { e.stopPropagation(); renameSession(s.id); });
+      var del = document.createElement('button');
+      del.className = 'sidebar-chat-btn';
+      del.textContent = '🗑️';
+      del.title = 'Hapus';
+      del.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openConfirm('Hapus percakapan', 'Hapus percakapan "' + s.name + '" permanen?', '🗑️ Hapus', function () {
+          deleteSession(s.id);
+          showToast('🗑️ Percakapan dihapus.');
+        }, '🗑️');
+      });
+      actions.appendChild(rename);
+      actions.appendChild(del);
+      row.appendChild(label);
+      row.appendChild(actions);
+      box.appendChild(row);
+    });
+  }
+
+  function toggleSidebar() {
+    var sb = $('sidebar');
+    if (!sb) return;
+    sb.classList.toggle('open');
+  }
+
+  function closeSidebar() {
+    var sb = $('sidebar');
+    if (sb) sb.classList.remove('open');
   }
 
   function openSessions() {
@@ -2412,6 +2462,32 @@
       if (e.target === $('confirm-modal')) closeConfirm();
     });
     $('btn-settings').addEventListener('click', openSettings);
+
+    // ── Sidebar events ──
+    $('btn-sidebar-toggle').addEventListener('click', toggleSidebar);
+    $('btn-new-chat').addEventListener('click', function () { newSession(); closeSidebar(); });
+    $('sidebar-search').addEventListener('click', function () { toggleSearch(); closeSidebar(); });
+    $('sidebar-pins').addEventListener('click', function () { openPins(); closeSidebar(); });
+    $('sidebar-stats').addEventListener('click', function () { openStats(); closeSidebar(); });
+    $('sidebar-export').addEventListener('click', function () { openExportMenu(); closeSidebar(); });
+    $('sidebar-backup').addEventListener('click', function () { openBackup(); closeSidebar(); });
+    $('sidebar-font').addEventListener('click', function () { cycleFont(); closeSidebar(); });
+    $('sidebar-sound').addEventListener('click', function () { toggleSound(); closeSidebar(); });
+    $('sidebar-kb').addEventListener('click', function () { if (window.__kb && window.__kb.openKb) window.__kb.openKb(); closeSidebar(); });
+    $('sidebar-persona').addEventListener('click', function () { cyclePersona(); closeSidebar(); });
+    $('sidebar-clear-chat').addEventListener('click', function () {
+      closeSidebar();
+      if (busy) { setStatus('Tunggu jawaban selesai sebelum menghapus.', true); return; }
+      if (!history.length) { setStatus('Belum ada pesan untuk dihapus.'); return; }
+      openConfirm('Hapus obrolan', 'Semua pesan di percakapan ini akan dihapus permanen. Lanjutkan?', '🗑️ Hapus', function () {
+        history = []; summary = ''; clearAttachment(); clearImage();
+        saveHistory(); saveSummary(); renderHistory();
+        showToast('🗑️ Obrolan dihapus.');
+      });
+    });
+    $('sidebar-theme').addEventListener('click', function () { cycleTheme(); closeSidebar(); });
+    $('sidebar-settings').addEventListener('click', function () { openSettings(); closeSidebar(); });
+    $('sidebar-cloud').addEventListener('click', function () { openCloudModal(); closeSidebar(); });
     $('btn-modal-close').addEventListener('click', closeSettings);
     $('btn-set-cancel').addEventListener('click', closeSettings);
     $('btn-set-save').addEventListener('click', saveSettingsFromModal);

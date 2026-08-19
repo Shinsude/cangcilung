@@ -14,6 +14,31 @@
 </head>
 <body>
   <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <button id="btn-new-chat" class="new-chat-btn" title="Percakapan baru">＋ Percakapan baru</button>
+        <div id="sidebar-chat-list" class="sidebar-chat-list"></div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-tools">
+        <button id="sidebar-search" class="sidebar-tool" title="Cari (Ctrl+F)">🔍 Cari dalam percakapan</button>
+        <button id="sidebar-pins" class="sidebar-tool" title="Pesan tersemat">📌 Pesan tersemat</button>
+        <button id="sidebar-stats" class="sidebar-tool" title="Statistik">📊 Statistik</button>
+        <button id="sidebar-export" class="sidebar-tool" title="Ekspor">⬇️ Ekspor percakapan</button>
+        <button id="sidebar-backup" class="sidebar-tool" title="Cadangkan">💾 Cadangkan data</button>
+        <button id="sidebar-font" class="sidebar-tool" title="Ukuran teks">↕️ Ukuran teks</button>
+        <button id="sidebar-sound" class="sidebar-tool" title="Bunyi" aria-pressed="false">🔔 Bunyi selesai</button>
+        <button id="sidebar-kb" class="sidebar-tool" title="Pengetahuan">📚 Pengetahuan</button>
+        <button id="sidebar-persona" class="sidebar-tool" title="Gaya cangcilung">🎭 Gaya cangcilung</button>
+        <button id="sidebar-clear-chat" class="sidebar-tool sidebar-danger" title="Hapus obrolan">🗑️ Hapus obrolan</button>
+      </div>
+      <div class="sidebar-bottom">
+        <button id="sidebar-theme" class="sidebar-tool" title="Ganti tema" aria-pressed="false">🌙 Tema</button>
+        <button id="sidebar-settings" class="sidebar-tool" title="Pengaturan">⚙️ Pengaturan</button>
+        <button id="sidebar-cloud" class="sidebar-tool" title="Cloud sync" hidden>☁️ Sinkronisasi cloud</button>
+      </div>
+    </aside>
+    <button id="btn-sidebar-toggle" class="sidebar-toggle" title="Toggle sidebar" aria-label="Toggle sidebar">☰</button>
     <main class="main">
       <div class="chat-header">
         <div>
@@ -29,11 +54,11 @@
             </button>
             <div class="model-dropdown-list" id="quick-model-list" role="menu"></div>
           </div>
-          <button id="btn-sessions" class="icon-btn" title="Ganti percakapan" aria-label="Ganti percakapan">💬</button>
-          <button id="btn-persona" class="icon-btn" title="Ganti gaya cangcilung" aria-label="Ganti gaya">🎭</button>
-          <button id="btn-search" class="icon-btn" title="Cari dalam percakapan (Ctrl+F)" aria-label="Cari">🔍</button>
-          <button id="btn-theme" class="icon-btn" title="Tema: gelap/terang" aria-label="Ganti tema" aria-pressed="false">🌙</button>
-            <div class="tools-wrap">
+          <button id="btn-sessions" class="icon-btn" title="Ganti percakapan" aria-label="Ganti percakapan" hidden>💬</button>
+          <button id="btn-persona" class="icon-btn" title="Ganti gaya cangcilung" aria-label="Ganti gaya" hidden>🎭</button>
+          <button id="btn-search" class="icon-btn" title="Cari dalam percakapan (Ctrl+F)" aria-label="Cari" hidden>🔍</button>
+          <button id="btn-theme" class="icon-btn" title="Tema: gelap/terang" aria-label="Ganti tema" aria-pressed="false" hidden>🌙</button>
+          <div class="tools-wrap">
             <button id="btn-tools" class="icon-btn" title="Alat lainnya" aria-label="Alat lainnya" aria-haspopup="true" aria-expanded="false">⋮</button>
             <div id="tools-menu" class="tools-menu" role="menu" hidden>
               <button id="btn-pins" class="tools-item" role="menuitem">📌 Pesan tersemat</button>
@@ -46,7 +71,7 @@
               <button id="btn-clear-chat" class="tools-item tools-danger" role="menuitem">🗑️ Hapus obrolan</button>
             </div>
           </div>
-          <button id="btn-settings" class="icon-btn" title="Pengaturan" aria-label="Pengaturan">⚙️</button>
+          <button id="btn-settings" class="icon-btn" title="Pengaturan" aria-label="Pengaturan" hidden>⚙️</button>
         </div>
       </div>
       <div id="chat-messages" class="chat-messages"></div>
