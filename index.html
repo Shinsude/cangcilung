@@ -20,6 +20,32 @@
         <div id="sidebar-chat-list" class="sidebar-chat-list"></div>
       </div>
       <div class="sidebar-divider"></div>
+      <div class="sidebar-section" id="sidebar-search-section" hidden>
+        <div class="sidebar-search-bar">
+          <input type="text" id="search-input" placeholder="Cari kata..." aria-label="Cari dalam percakapan ini">
+          <span id="search-count" class="search-count"></span>
+          <button id="search-prev" class="search-nav" title="Sebelumnya">▲</button>
+          <button id="search-next" class="search-nav" title="Berikutnya">▼</button>
+          <button id="search-close" class="sidebar-search-x" aria-label="Tutup pencarian">×</button>
+        </div>
+      </div>
+      <div class="sidebar-chips" id="sidebar-chips">
+        <div id="attach-chip" class="sidebar-chip" hidden>
+          <span id="attach-name"></span>
+          <button id="btn-file-summary" class="file-summary" title="Ringkas isi file" aria-label="Ringkas file" hidden>🧾 Ringkas</button>
+          <button id="btn-save-kb" class="file-summary" title="Simpan ke basis pengetahuan" aria-label="Simpan ke pengetahuan" hidden>💾 Simpan</button>
+          <button id="btn-attach-clear" class="attach-clear" aria-label="Buang file">×</button>
+        </div>
+        <div id="img-chip" class="sidebar-chip" hidden>
+          <img id="img-preview" class="img-preview" alt="preview">
+          <span id="img-name"></span>
+          <button id="btn-img-clear" class="attach-clear" aria-label="Buang gambar">×</button>
+        </div>
+        <div id="web-chip" class="sidebar-chip" hidden>
+          <span>🌐 Web aktif</span>
+          <button id="btn-web-clear" class="attach-clear" aria-label="Nonaktifkan">×</button>
+        </div>
+      </div>
       <div class="sidebar-tools">
         <button id="sidebar-search" class="sidebar-tool" title="Cari (Ctrl+F)">🔍 Cari dalam percakapan</button>
         <button id="sidebar-pins" class="sidebar-tool" title="Pesan tersemat">📌 Pesan tersemat</button>
@@ -77,28 +103,6 @@
       <div id="chat-messages" class="chat-messages"></div>
       <button id="btn-scroll-down" class="scroll-down-btn" title="Ke pesan terbaru" aria-label="Ke bawah" hidden>⬇️</button>
       <div class="chat-input-area">
-        <div id="search-bar" class="search-bar" hidden>
-          <input type="text" id="search-input" placeholder="Cari kata di percakapan ini..." aria-label="Cari dalam percakapan ini">
-          <span id="search-count" class="search-count"></span>
-          <button id="search-prev" class="search-nav" title="Sebelumnya">▲</button>
-          <button id="search-next" class="search-nav" title="Berikutnya">▼</button>
-          <button id="search-close" class="attach-clear" aria-label="Tutup pencarian">×</button>
-        </div>
-        <div id="attach-chip" class="attach-chip" hidden>
-          <span id="attach-name"></span>
-          <button id="btn-file-summary" class="file-summary" title="Ringkas isi file" aria-label="Ringkas file" hidden>🧾 Ringkas</button>
-          <button id="btn-save-kb" class="file-summary" title="Simpan ke basis pengetahuan" aria-label="Simpan ke pengetahuan" hidden>💾 Simpan</button>
-          <button id="btn-attach-clear" class="attach-clear" aria-label="Buang file">×</button>
-        </div>
-        <div id="img-chip" class="attach-chip" hidden>
-          <img id="img-preview" class="img-preview" alt="preview">
-          <span id="img-name"></span>
-          <button id="btn-img-clear" class="attach-clear" aria-label="Buang gambar">×</button>
-        </div>
-        <div id="web-chip" class="attach-chip web-chip" hidden>
-          <span>🌐 Mode cari di web aktif</span>
-          <button id="btn-web-clear" class="attach-clear" aria-label="Nonaktifkan">×</button>
-        </div>
         <div class="chat-input-wrap">
           <button id="btn-attach" class="attach-btn" title="Lampirkan file atau gambar (txt/md/csv/json/pdf/xlsx/docx/png/jpg)" aria-label="Lampirkan file">📎</button>
           <button id="btn-url" class="attach-btn" title="Pahami isi URL/artikel" aria-label="Lampirkan URL">🔗</button>

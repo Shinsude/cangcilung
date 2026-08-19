@@ -1407,8 +1407,8 @@
 
   function toggleSearch() {
     searchActive = !searchActive;
-    var bar = $('search-bar');
-    if (bar) bar.hidden = !searchActive;
+    var sec = $('sidebar-search-section');
+    if (sec) sec.hidden = !searchActive;
     if (searchActive) {
       var inp = $('search-input');
       if (inp) { inp.value = ''; inp.focus(); }
