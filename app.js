@@ -66,7 +66,7 @@
   var els = {};
   var history = [];
   var summary = '';
-  var memory = { topics: {}, prefs: {} };
+  var memory = { topics: {} };
   var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true, embedBaseUrl: DEFAULT_EMBED_BASE, embedKey: '', embedModel: DEFAULT_EMBED_MODEL };
   var busy = false;
   var abortCtrl = null;
@@ -117,6 +117,7 @@
         settings.voice = s.voice || '';
         settings.fontSize = s.fontSize || 'normal';
         settings.soundEnabled = s.soundEnabled !== false;
+        settings.suggestEnabled = s.suggestEnabled === true;
         settings.embedBaseUrl = s.embedBaseUrl || DEFAULT_EMBED_BASE;
         settings.embedKey = s.embedKey || '';
         settings.embedModel = s.embedModel || DEFAULT_EMBED_MODEL;
@@ -580,12 +581,7 @@
   function loadHistory() {
     try {
       var s = currentSession();
-      if (s) { history = s.history.slice(); return; }
-      var raw = localStorage.getItem(HISTORY_KEY);
-      if (raw) {
-        var arr = JSON.parse(raw);
-        if (Array.isArray(arr)) history = arr.slice(-200);
-      }
+      if (s) { history = s.history.slice(); }
     } catch (e) {}
   }
 
@@ -655,7 +651,27 @@
         if (!txt) return;
         if (history.length !== histLen) return;
         summary = (summary ? summary + '\n' : '') + txt;
-        if (summary.length > 3000) summary = txt;
+        if (summary.length > 3000) {
+          var oldSummary = summary;
+          summary = txt.slice(0, 2000);
+          saveSummary();
+          history = keep;
+          saveHistory();
+          renderHistory();
+          fetch(apiUrl('/chat/completions'), {
+            method: 'POST', headers: apiHeaders(),
+            body: JSON.stringify({ model: model, stream: false, max_tokens: 400, temperature: 0.3, messages: [
+              { role: 'system', content: 'Ringkasan percakapan. Gabungkan ringkasan lama dan baru jadi satu ringkasan padat (maks 300 kata). Fokus: topik utama, keputusan, fakta kunci, preferensi user. Bullet-point.' },
+              { role: 'user', content: 'RINGKASAN LAMA:\n' + oldSummary.slice(0, 2000) + '\n\nRINGKASAN BARU:\n' + txt.slice(0, 2000) }
+            ] })
+          }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+            if (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) {
+              summary = j.choices[0].message.content.trim().slice(0, 3000);
+              saveSummary();
+            }
+          }).catch(function () {});
+          return;
+        }
         saveSummary();
         history = keep;
         saveHistory();
@@ -1698,6 +1714,8 @@
 
   function toggleSuggest() {
     suggestEnabled = !suggestEnabled;
+    settings.suggestEnabled = suggestEnabled;
+    saveSettings();
     var btn = $('btn-suggest');
     if (btn) { btn.classList.toggle('active', suggestEnabled); btn.setAttribute('aria-pressed', String(suggestEnabled)); }
     updateInputMore();
@@ -1788,7 +1806,7 @@
     setStatus(webMode ? '🌐 Cari di web aktif — jawaban akan pakai info terkini.' : 'Mode web nonaktif.');
   }
 
-  var WEB_RE = /\b(terkini|terbaru|berita|sekarang|hari ini|tahun \d{4}|cuaca|hasil pertandingan|skor|harga|kurs|jadwal|pemenang|presiden|gubernur|pemilu|kecelakaan|gempa|bencana|ramalan|prediksi|update|berapa harga|harga saham|film terbaru|lagu terbaru|peringkat|trending|viral|angka kematian|kasus|penduduk|populasi)\b/i;
+  var WEB_RE = /\b(terkini|terbaru|berita|sekarang|hari ini|tahun \d{4}|cuaca|hasil pertandingan|skor|harga|kurs|jadwal|pemenang|presiden|gubernur|pemilu|kecelakaan|gempa|bencana|ramalan|prediksi|update|berapa harga|harga saham|film terbaru|lagu terbaru|peringkat|trending|viral|angka kematian|kasus|penduduk|populasi|latest|current|today|weather|score|price|news|who (is|won|is the)|what (is|are) the|how many|population|earthquake|election|forecast|stock|market|rank|popular|trending|breaking)\b/i;
 
   function needsWeb(text) {
     return WEB_RE.test(text);
@@ -1896,7 +1914,10 @@
     }
     // RAG pintar: pecah jadi chunk kecil, pilih yang paling relevan dengan pertanyaan terakhir
     var question = history.length ? history[history.length - 1].content : '';
-    var keywords = (question.toLowerCase().match(/[a-z0-9]{3,}/g) || [])
+    var contextForKeywords = question;
+    if (history.length >= 2) contextForKeywords += ' ' + (history[history.length - 2].content || '').slice(0, 300);
+    if (summary) contextForKeywords += ' ' + summary.slice(0, 300);
+    var keywords = (contextForKeywords.toLowerCase().match(/[a-z0-9]{3,}/g) || [])
       .filter(function (w) { return STOPWORDS.indexOf(w) === -1; });
     var chunkSize = 2000;
     var overlap = 200;
@@ -1906,6 +1927,12 @@
     }
     if (keywords.length) {
       var docCount = chunks.length;
+      var docFreqs = {};
+      keywords.forEach(function (k) {
+        var freq = 0;
+        chunks.forEach(function (ch) { if (ch.text.toLowerCase().indexOf(k) !== -1) freq++; });
+        docFreqs[k] = freq;
+      });
       chunks.forEach(function (ch) {
         var score = 0;
         var lower = ch.text.toLowerCase();
@@ -1915,7 +1942,7 @@
           while ((pos = lower.indexOf(k, pos)) !== -1) { count++; pos += k.length; }
           if (count > 0) {
             var tf = count / (ch.text.split(/\s+/).length || 1);
-            var idf = Math.log(docCount / (1 + count));
+            var idf = Math.log(docCount / (1 + (docFreqs[k] || 1)));
             score += tf * idf * 10 + count;
           }
         });
@@ -2026,7 +2053,6 @@
     var bubble = addBubble('assistant', null);
     showTyping(bubble);
     var full = '';
-    var attempted = [];
     var webContext = '';
     var kbContext = '';
     var isAnalysis = forceAnalysis || needsAnalysis(text);
@@ -2053,11 +2079,10 @@
 
     function attemptStream(model) {
       abortCtrl = new AbortController();
-      attempted.push(model);
       setStatus(isAnalysis ? '🔍 Menganalisis pertanyaan...' : '💬 Menyusun jawaban...');
       var messages = [{ role: 'system', content: getSystem(isAnalysis) }];
       if (summary) {
-        messages.push({ role: 'system', content: 'Ringkasan percakapan sebelumnya:\n' + summary });
+        messages.push({ role: 'system', content: 'INI ADALAH RINGKASAN KONTEKS PERCAKAPAN SEBELUMNYA (bukan instruksi baru). Gunakan hanya sebagai referensi latar belakang:\n' + summary });
       }
       var memCtx = getMemoryContext();
       if (memCtx) {
@@ -2159,7 +2184,8 @@
             trackUsage();
             speakText(full);
             playDoneSound();
-            if (isAnalysis) verifyAnswer(text, full);
+            var shouldVerify = isAnalysis || CODE_RE.test(text) || full.length > 300;
+            if (shouldVerify) verifyAnswer(text, full);
             loadSuggestions(model, text, full);
             summarizeOld();
           };
@@ -2525,6 +2551,8 @@
     $('btn-img-clear').addEventListener('click', clearImage);
     $('btn-web').addEventListener('click', function () { toggleWebMode(); closeInputMore(); });
     $('btn-web-clear').addEventListener('click', toggleWebMode);
+    suggestEnabled = settings.suggestEnabled === true;
+    if (suggestEnabled) { var sb = $('btn-suggest'); if (sb) { sb.classList.add('active'); sb.setAttribute('aria-pressed', 'true'); } }
     $('btn-speak').addEventListener('click', function () { toggleSpeak(); closeInputMore(); });
     $('btn-suggest').addEventListener('click', function () { toggleSuggest(); closeInputMore(); });
     $('btn-translate').addEventListener('click', function () { toggleTranslate(); closeInputMore(); });
