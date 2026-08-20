@@ -12,7 +12,13 @@
     '',
     'CARA BERPIKIR (wajib diikuti untuk pertanyaan kompleks):',
     '- Sebelum menjawab, identifikasi: jenis pertanyaan (fakta, opini, analisis, kode, kreatif, matematika).',
-    '- Untuk pertanyaan analitis/matematika/logika: gunakan pola "Langkah demi Langkah". Tulis proses penalaranmu sebelum kesimpulan.',
+    '- Untuk pertanyaan analitis/matematika/logika: gunakan pola "Pembuktian Berantai".',
+    '  1. Identifikasi asumsi dan fakta yang diketahui.',
+    '  2. Pecah masalah menjadi sub-masalah kecil.',
+    '  3. Selesaikan satu per satu, pastikan logika setiap langkah valid sebelum lanjut.',
+    '  4. Gabungkan sub-jawaban menjadi kesimpulan akhir.',
+    '  5. Verifikasi kesimpulan dengan substitusi balik.',
+    '- Untuk pertanyaan kode: (1) pahami requirement, (2) pilih algoritma, (3) tulis kode, (4) trace manual untuk edge case, (5) optimasi.',
     '- Untuk pertanyaan fakta: pastikan akurasi. Jika tidak 100% yakin, katakan tingkat kepercayaanmu.',
     '- Jika informasi tidak cukup untuk menjawab, katakan apa yang kurang dan usahakan membantu sebagian.',
     '',
@@ -28,7 +34,9 @@
     '9. Jika pertanyaan ambigu, klarifikasi dulu daripada menjawab salah.',
     '10. Jika ada beberapa pertanyaan dalam satu pesan, jawab SEMUA secara berurutan dengan penanda yang jelas (misal: **Bagian 1:**, **Bagian 2:**).',
     '11. Manfaatkan konteks file/pengetahuan yang diberikan untuk menjawab dengan akurat.',
-    '12. Saat menggunakan informasi dari konteks dokumen atau web, sebutkan sumbernya secara eksplisit.'
+    '12. Saat menggunakan informasi dari konteks dokumen atau web, sebutkan sumbernya secara eksplisit.',
+    '13. Untuk pertanyaan panjang/kompleks: gunakan heading (##), bold untuk istilah kunci, dan tabel jika ada perbandingan.',
+    '14. Akhiri jawaban panjang dengan rangkuman singkat (1-2 kalimat) dari poin utama.'
   ].join(' ');
   var PERSONAS = {
     default: '',
@@ -53,10 +61,12 @@
   var SUMMARY_KEY = 'cangcilung_summary';
   var USAGE_KEY = 'cangcilung_usage';
   var SESSIONS_KEY = 'cangcilung_sessions';
+  var MEMORY_KEY = 'cangcilung_memory';
 
   var els = {};
   var history = [];
   var summary = '';
+  var memory = { topics: {}, prefs: {} };
   var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true, embedBaseUrl: DEFAULT_EMBED_BASE, embedKey: '', embedModel: DEFAULT_EMBED_MODEL };
   var busy = false;
   var abortCtrl = null;
@@ -584,6 +594,31 @@
       var s = currentSession();
       if (s) { s.history = history.slice(-200); touchSession(); saveSessions(); }
     } catch (e) {}
+  }
+
+  function loadMemory() {
+    try {
+      var raw = localStorage.getItem(MEMORY_KEY);
+      if (raw) memory = JSON.parse(raw);
+    } catch (e) {}
+  }
+  function saveMemory() {
+    try { localStorage.setItem(MEMORY_KEY, JSON.stringify(memory)); } catch (e) {}
+  }
+  function trackTopic(text) {
+    var words = (text.toLowerCase().match(/[a-z0-9]{4,}/g) || []);
+    var STOP = ['yang', 'dengan', 'untuk', 'dalam', 'adalah', 'ini', 'itu', 'bagaimana', 'mengapa', 'kenapa', 'apakah', 'tolong', 'jelaskan', 'buatkan', 'tulis', 'adalah', 'bisa', 'akan', 'sudah', 'belum', 'cara', 'apa'];
+    words.forEach(function (w) { if (STOP.indexOf(w) === -1) memory.topics[w] = (memory.topics[w] || 0) + 1; });
+    var top = Object.keys(memory.topics).sort(function (a, b) { return memory.topics[b] - memory.topics[a]; }).slice(0, 30);
+    var slim = {};
+    top.forEach(function (k) { slim[k] = memory.topics[k]; });
+    memory.topics = slim;
+    saveMemory();
+  }
+  function getMemoryContext() {
+    var top = Object.keys(memory.topics).sort(function (a, b) { return memory.topics[b] - memory.topics[a]; }).slice(0, 10);
+    if (!top.length) return '';
+    return 'Topik yang sering dibahas user: ' + top.join(', ') + '.';
   }
 
   var summarizing = false;
@@ -1172,8 +1207,8 @@
     if (!settings.verifyEnabled) return;
     var isLogic = LOGIC_RE.test(question) || ANALYSIS_RE.test(question);
     var verifierSystem = isLogic
-      ? 'Kamu adalah pemeriksa jawaban yang sangat teliti. Tugas kamu:\n1. Baca pertanyaan dan jawaban dengan seksama.\n2. Verifikasi SETIAP langkah penalaran, bukan hanya kesimpulan.\n3. Cek kebenaran fakta, perhitungan matematika, dan logika di setiap tahap.\n4. Jika jawaban BENAR dan langkahnya valid, balas HANYA: OK\n5. Jika ada kesalahan di langkah mana pun, sebutkan langkah yang salah dan berikan koreksi.\n6. Jika jawaban benar tapi langkah penalaran tidak diperlihatkan untuk soal matematika/logika, katakan: "Langkah penalaran tidak diperlihatkan — tambahkan untuk kejelasan."'
-      : 'Kamu adalah pemeriksa jawaban yang teliti. Tugas kamu:\n1. Bandingkan jawaban dengan pertanyaan.\n2. Cek kebenaran fakta, perhitungan matematika, dan logika.\n3. Jika jawaban BENAR, balas HANYA: OK\n4. Jika jawaban SALAH atau tidak lengkap, berikan koreksi yang jelas dan singkat.';
+      ? 'Kamu adalah pemeriksa jawaban yang sangat teliti. Tugas kamu:\n1. Baca pertanyaan dan jawaban dengan seksama.\n2. Verifikasi SETIAP langkah penalaran, bukan hanya kesimpulan.\n3. Cek kebenaran fakta, perhitungan matematika, dan logika di setiap tahap.\n4. Jika jawaban BENAR dan langkahnya valid, balas HANYA: OK\n5. Jika ada kesalahan di langkah mana pun, sebutkan langkah yang salah dan berikan koreksi lengkap.\n6. Jika jawaban benar tapi langkah penalaran tidak diperlihatkan untuk soal matematika/logika, katakan: "Langkah penalaran tidak diperlihatkan — tambahkan untuk kejelasan."'
+      : 'Kamu adalah pemeriksa jawaban yang teliti. Tugas kamu:\n1. Bandingkan jawaban dengan pertanyaan.\n2. Cek kebenaran fakta, perhitungan matematika, dan logika.\n3. Jika jawaban BENAR, balas HANYA: OK\n4. Jika jawaban SALAH atau tidak lengkap, berikan koreksi yang jelas dan lengkap.';
     fetch(apiUrl('/chat/completions'), {
       method: 'POST',
       headers: apiHeaders(),
@@ -1195,10 +1230,13 @@
         if (/^ok$/i.test(txt)) return;
         var note = document.createElement('div');
         note.className = 'msg-note verify-note';
-        note.textContent = '🔎 Verifikasi: ' + txt.slice(0, 500);
+        note.textContent = '🔎 Koreksi otomatis:\n' + txt.slice(0, 800);
         var box = $('chat-messages');
         if (box) box.appendChild(note);
         scrollChat();
+        var corrected = '📌 Jawaban dikoreksi oleh verifikasi otomatis:\n\n' + txt.slice(0, 2000);
+        history.push({ role: 'assistant', content: corrected, t: nowTime(), pinned: true });
+        saveHistory();
       })
       .catch(function () {});
   }
@@ -1759,18 +1797,27 @@
   function searchWeb(query) {
     var q = encodeURIComponent(query.replace(/[?""''!]/g, ' ').slice(0, 200));
     var ddgUrl = 'https://lite.duckduckgo.com/lite/?q=' + q + '&kl=id-id';
-    return fetch(ddgUrl, { signal: AbortSignal.timeout(12000), headers: { 'User-Agent': 'cangcilung/1.0' } })
+    var ddgPromise = fetch(ddgUrl, { signal: AbortSignal.timeout(12000), headers: { 'User-Agent': 'cangcilung/1.0' } })
       .then(function (res) { return res.ok ? res.text() : ''; })
       .then(function (html) {
-        if (!html || html.length < 200) throw new Error('empty');
+        if (!html || html.length < 200) return '';
         var tmp = document.createElement('div');
         tmp.innerHTML = html;
         var results = [];
         tmp.querySelectorAll('.result-snippet').forEach(function (el, i) { if (i < 5) results.push(el.textContent.trim()); });
-        if (!results.length) throw new Error('no results');
-        return results.join('\n\n').slice(0, 5000);
+        return results.length ? results.join('\n\n').slice(0, 4000) : '';
       })
-      .catch(function () { return searchWebWikipedia(query); });
+      .catch(function () { return ''; });
+    var wikiPromise = searchWebWikipedia(query).catch(function () { return ''; });
+    return Promise.all([ddgPromise, wikiPromise]).then(function (parts) {
+      var ddg = parts[0] || '';
+      var wiki = parts[1] || '';
+      if (!ddg && !wiki) return '';
+      var out = [];
+      if (ddg) out.push('[Informasi dari DuckDuckGo]\n' + ddg);
+      if (wiki) out.push('[Referensi dari Wikipedia]\n' + wiki);
+      return out.join('\n\n').slice(0, 8000);
+    });
   }
   function searchWebWikipedia(query) {
     var q = encodeURIComponent(query.replace(/[?""''!]/g, ' ').slice(0, 200));
@@ -1970,6 +2017,7 @@
       renderHistory();
     } else {
       history.push({ role: 'user', content: text, t: nowTime() });
+      trackTopic(text);
       autoTitle(text);
       saveHistory();
       renderHistory();
@@ -2010,6 +2058,10 @@
       var messages = [{ role: 'system', content: getSystem(isAnalysis) }];
       if (summary) {
         messages.push({ role: 'system', content: 'Ringkasan percakapan sebelumnya:\n' + summary });
+      }
+      var memCtx = getMemoryContext();
+      if (memCtx) {
+        messages.push({ role: 'system', content: memCtx });
       }
       fileContextMessages().forEach(function (m) { messages.push(m); });
       if (attachedImage) {
@@ -2163,6 +2215,10 @@
     var pool = [];
     if (attachedImage) pool.push(VISION_MODEL);
     if (isAnalysis && settings.analyModel) pool.push(settings.analyModel);
+    var CODE_RE = /\b(kode|code|program|fungsi|function|class|api|debug|error|bug|compile|runtime|deploy|npm|pip|import|require|variable|loop|for|while|if else|switch|array|object|json|html|css|sql|query|database|regex|algorithm|typescript|javascript|python|java|golang|rust|react|vue|angular|node|express|flask|django)\b/i;
+    if (CODE_RE.test(text) && settings.persona === 'default' && settings.model !== 'openai/gpt-oss-120b') {
+      pool.push('openai/gpt-oss-120b');
+    }
     if (pool.indexOf(settings.model) === -1) pool.push(settings.model);
     FALLBACKS.forEach(function (f) { if (pool.indexOf(f) === -1) pool.push(f); });
 
@@ -2407,6 +2463,7 @@
     loadSessions();
     loadHistory();
     loadSummary();
+    loadMemory();
     els.btnSend = $('btn-send');
     els.chatInput = $('chat-input');
     els.chatMessages = $('chat-messages');
