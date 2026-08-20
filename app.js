@@ -105,6 +105,83 @@
     } catch (e) {}
   }
 
+  var _cryptoKey = null;
+  var _cryptoReady = false;
+
+  function _idbOpen() {
+    return new Promise(function (resolve, reject) {
+      var req = indexedDB.open('cangcilung_keys', 1);
+      req.onupgradeneeded = function (e) { e.target.result.createObjectStore('keys'); };
+      req.onsuccess = function (e) { resolve(e.target.result); };
+      req.onerror = function (e) { reject(e.target.error); };
+    });
+  }
+
+  function _idbGet(db, key) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction('keys', 'readonly');
+      var req = tx.objectStore('keys').get(key);
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  function _idbPut(db, key, val) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction('keys', 'readwrite');
+      var req = tx.objectStore('keys').put(val, key);
+      req.onsuccess = function () { resolve(); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  function _buf2b64(buf) {
+    var bytes = new Uint8Array(buf);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+
+  function _b642buf(b64) {
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  function initCrypto() {
+    return _idbOpen().then(function (db) {
+      return _idbGet(db, 'enc_key').then(function (existing) {
+        if (existing) return crypto.subtle.importKey('jwk', existing, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+        return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']).then(function (k) {
+          return crypto.subtle.exportKey('jwk', k).then(function (jwk) {
+            return _idbPut(db, 'enc_key', jwk).then(function () { return k; });
+          });
+        });
+      }).then(function (k) { _cryptoKey = k; _cryptoReady = true; });
+    }).catch(function () { _cryptoReady = false; });
+  }
+
+  function encryptStr(plaintext) {
+    if (!_cryptoReady || !plaintext) return Promise.resolve(plaintext);
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, _cryptoKey, new TextEncoder().encode(plaintext))
+      .then(function (enc) { return _buf2b64(iv.buffer) + '.' + _buf2b64(enc); });
+  }
+
+  function decryptStr(data) {
+    if (!_cryptoReady || !data || data.indexOf('.') === -1) return Promise.resolve(data);
+    var parts = data.split('.');
+    if (parts.length !== 2) return Promise.resolve(data);
+    try {
+      var iv = new Uint8Array(_b642buf(parts[0]));
+      var enc = _b642buf(parts[1]);
+      return crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, _cryptoKey, enc)
+        .then(function (dec) { return new TextDecoder().decode(dec); })
+        .catch(function () { return data; });
+    } catch (e) { return Promise.resolve(data); }
+  }
+
   var DEPRECATED_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it', 'meta-llama/llama-4-scout-17b-16e-instruct'];
 
   function loadSettings() {
@@ -129,6 +206,10 @@
         settings.embedModel = s.embedModel || DEFAULT_EMBED_MODEL;
       }
     } catch (e) {}
+    if (settings.apiKey && settings.apiKey.indexOf('.') > 0 && settings.apiKey.length > 60) {
+      return decryptStr(settings.apiKey).then(function (dec) { settings.apiKey = dec; });
+    }
+    return Promise.resolve();
   }
 
   function applyTheme(theme) {
@@ -282,11 +363,15 @@
   function closePins() { closeModal('pins-modal'); }
 
   function backupData() {
+    var safeSettings = {};
+    for (var k in settings) {
+      if (settings.hasOwnProperty(k) && k !== 'apiKey' && k !== 'embedKey') safeSettings[k] = settings[k];
+    }
     var data = {
       app: 'cangcilung',
       version: 1,
       exported: new Date().toISOString(),
-      settings: settings,
+      settings: safeSettings,
       sessions: sessions,
       currentSessionId: currentSessionId,
       usage: loadUsage()
@@ -356,8 +441,13 @@
   }
 
   function saveSettings() {
-    try { safeSetItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
-    if (cloudNotify) cloudNotify('settings');
+    encryptStr(settings.apiKey).then(function (encKey) {
+      var toSave = {};
+      for (var k in settings) { if (settings.hasOwnProperty(k)) toSave[k] = settings[k]; }
+      toSave.apiKey = encKey;
+      try { safeSetItem(SETTINGS_KEY, JSON.stringify(toSave)); } catch (e) {}
+      if (cloudNotify) cloudNotify('settings');
+    });
   }
 
   var sessions = [];
@@ -1430,43 +1520,55 @@
     if (btn) btn.hidden = true;
   }
 
-  function renderHistory() {
+  var _renderedCount = 0;
+
+  function renderHistory(forceFull) {
     var box = $('chat-messages');
-    box.innerHTML = '';
-    if (!history.length) {
-      var welcome = document.createElement('div');
-      welcome.className = 'welcome';
-      welcome.innerHTML = '<div class="welcome-avatar">A</div><p>Halo, saya cangcilung. Tanya apa saja — saya siap membantu.</p><div class="welcome-chips"></div>';
-      ['💡 Apa itu RAG?', '📊 Jelaskan cara kerja RAM', '🧮 Hitung 15% dari 3400', '📝 Tulis surat izin sakit'].forEach(function (c) {
-        var b = document.createElement('button');
-        b.className = 'welcome-chip';
-        b.textContent = c;
-        b.addEventListener('click', function () {
-          var inp = $('chat-input');
-          if (inp) { inp.value = c; inp.focus(); updateInputCount(); }
+    if (!box) return;
+    var isFull = forceFull || searchActive || _renderedCount > history.length || _renderedCount === 0;
+
+    if (isFull) {
+      box.innerHTML = '';
+      _renderedCount = 0;
+      if (!history.length) {
+        var welcome = document.createElement('div');
+        welcome.className = 'welcome';
+        welcome.innerHTML = '<div class="welcome-avatar">A</div><p>Halo, saya cangcilung. Tanya apa saja — saya siap membantu.</p><div class="welcome-chips"></div>';
+        ['💡 Apa itu RAG?', '📊 Jelaskan cara kerja RAM', '🧮 Hitung 15% dari 3400', '📝 Tulis surat izin sakit'].forEach(function (c) {
+          var b = document.createElement('button');
+          b.className = 'welcome-chip';
+          b.textContent = c;
+          b.addEventListener('click', function () {
+            var inp = $('chat-input');
+            if (inp) { inp.value = c; inp.focus(); updateInputCount(); }
+          });
+          welcome.querySelector('.welcome-chips').appendChild(b);
         });
-        welcome.querySelector('.welcome-chips').appendChild(b);
-      });
-      var features = document.createElement('div');
-      features.className = 'welcome-features';
-      [['📎', 'Lampirkan file'], ['🔗', 'Pahami URL'], ['🌐', 'Cari di web'], ['🎤', 'Bicara']].forEach(function (f) {
-        var d = document.createElement('div');
-        d.className = 'welcome-feature';
-        d.innerHTML = '<span>' + f[0] + '</span>' + f[1];
-        features.appendChild(d);
-      });
-      welcome.appendChild(features);
-      var hint = document.createElement('div');
-      hint.className = 'welcome-hint';
-      hint.textContent = 'Gunakan tombol di bawah untuk fitur lanjutan';
-      welcome.appendChild(hint);
-      box.appendChild(welcome);
-      return;
+        var features = document.createElement('div');
+        features.className = 'welcome-features';
+        [['📎', 'Lampirkan file'], ['🔗', 'Pahami URL'], ['🌐', 'Cari di web'], ['🎤', 'Bicara']].forEach(function (f) {
+          var d = document.createElement('div');
+          d.className = 'welcome-feature';
+          d.innerHTML = '<span>' + f[0] + '</span>' + f[1];
+          features.appendChild(d);
+        });
+        welcome.appendChild(features);
+        var hint = document.createElement('div');
+        hint.className = 'welcome-hint';
+        hint.textContent = 'Gunakan tombol di bawah untuk fitur lanjutan';
+        welcome.appendChild(hint);
+        box.appendChild(welcome);
+        return;
+      }
     }
-    history.forEach(function (m, i) {
-      var b = addBubble(m.role, m.content, i, m.t);
+
+    while (_renderedCount < history.length) {
+      var m = history[_renderedCount];
+      var b = addBubble(m.role, m.content, _renderedCount, m.t);
       if (m.role === 'assistant') addRunButtons(b);
-    });
+      _renderedCount++;
+    }
+
     if (suggestions.length) renderSuggestions();
     if (searchActive) runSearch();
   }
@@ -1991,61 +2093,95 @@
     if (!attachedFile) return [];
     var msg = [];
     var text = attachedFile.text;
-    var CHUNK = 16000;
-    if (text.length <= CHUNK) {
+    if (text.length <= FILE_CHUNK) {
       msg.push({ role: 'user', content: 'Saya lampirkan isi file "' + attachedFile.name + '":\n\n' + text });
       return msg;
     }
-    // RAG pintar: pecah jadi chunk kecil, pilih yang paling relevan dengan pertanyaan terakhir
     var question = history.length ? history[history.length - 1].content : '';
-    var contextForKeywords = question;
-    if (history.length >= 2) contextForKeywords += ' ' + (history[history.length - 2].content || '').slice(0, 300);
-    if (summary) contextForKeywords += ' ' + summary.slice(0, 300);
-    var keywords = (contextForKeywords.toLowerCase().match(/[a-z0-9]{3,}/g) || [])
-      .filter(function (w) { return STOPWORDS.indexOf(w) === -1; });
-    var chunkSize = 2000;
-    var overlap = 200;
+    var chunkSize = RAG_CHUNK_SIZE;
+    var overlap = RAG_CHUNK_OVERLAP;
     var chunks = [];
     for (var i = 0; i < text.length; i += chunkSize - overlap) {
       chunks.push({ text: text.slice(i, i + chunkSize), idx: i });
     }
-    if (keywords.length) {
-      var docCount = chunks.length;
-      var docFreqs = {};
-      keywords.forEach(function (k) {
-        var freq = 0;
-        chunks.forEach(function (ch) { if (ch.text.toLowerCase().indexOf(k) !== -1) freq++; });
-        docFreqs[k] = freq;
-      });
-      chunks.forEach(function (ch) {
-        var score = 0;
-        var lower = ch.text.toLowerCase();
-        keywords.forEach(function (k) {
-          var count = 0;
-          var pos = 0;
-          while ((pos = lower.indexOf(k, pos)) !== -1) { count++; pos += k.length; }
-          if (count > 0) {
-            var tf = count / (ch.text.split(/\s+/).length || 1);
-            var idf = Math.log(docCount / (1 + (docFreqs[k] || 1)));
-            score += tf * idf * 10 + count;
-          }
-        });
-        ch._score = score;
-      });
-      chunks.sort(function (a, b) { return b._score - a._score || a.idx - b.idx; });
+    if (!chunks.length) chunks = [{ text: text.slice(0, FILE_CHUNK), idx: 0 }];
+
+    var embedKey = settings.embedKey || '';
+    var embedBase = (settings.embedBaseUrl || 'https://api.jina.ai/v1').replace(/\/+$/, '');
+    var embedModel = settings.embedModel || 'jina-embeddings-v3';
+
+    function cosineSim(a, b) {
+      var dot = 0, na = 0, nb = 0;
+      for (var i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+      return dot / ((Math.sqrt(na) || 1) * (Math.sqrt(nb) || 1));
     }
-    var budget = 24000;
-    var used = 0;
-    var picked = [];
-    chunks.forEach(function (ch) {
-      if (used + ch.text.length > budget) return;
-      picked.push(ch);
-      used += ch.text.length;
-    });
-    if (!picked.length) picked = [chunks[0]];
-    picked.sort(function (a, b) { return a.idx - b.idx; });
-    msg.push({ role: 'user', content: 'Saya lampirkan isi file "' + attachedFile.name + '" (bagian relevan yang dipilih untuk pertanyaan ini):\n\n' + picked.map(function (c) { return c.text; }).join('\n---\n') });
-    return msg;
+
+    if (embedKey && embedBase) {
+      var textsToEmbed = [question].concat(chunks.map(function (c) { return c.text; }));
+      return fetch(embedBase + '/embeddings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + embedKey },
+        body: JSON.stringify({ model: embedModel, input: textsToEmbed })
+      }).then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (!j || !j.data || j.data.length < 2) return fallbackTFIDF(chunks, question, msg);
+          var qVec = j.data[0].embedding;
+          chunks.forEach(function (ch, i) { ch._score = cosineSim(qVec, j.data[i + 1].embedding); });
+          chunks.sort(function (a, b) { return b._score - a._score || a.idx - b.idx; });
+          return pickChunks(chunks, attachedFile.name, msg);
+        }).catch(function () { return fallbackTFIDF(chunks, question, msg); });
+    }
+
+    return Promise.resolve(fallbackTFIDF(chunks, question, msg));
+
+    function fallbackTFIDF(chunks, question, msg) {
+      var contextForKeywords = question;
+      if (history.length >= 2) contextForKeywords += ' ' + (history[history.length - 2].content || '').slice(0, 300);
+      if (summary) contextForKeywords += ' ' + summary.slice(0, 300);
+      var keywords = (contextForKeywords.toLowerCase().match(/[a-z0-9]{3,}/g) || [])
+        .filter(function (w) { return STOPWORDS.indexOf(w) === -1; });
+      if (keywords.length) {
+        var docCount = chunks.length;
+        var docFreqs = {};
+        keywords.forEach(function (k) {
+          var freq = 0;
+          chunks.forEach(function (ch) { if (ch.text.toLowerCase().indexOf(k) !== -1) freq++; });
+          docFreqs[k] = freq;
+        });
+        chunks.forEach(function (ch) {
+          var score = 0;
+          var lower = ch.text.toLowerCase();
+          keywords.forEach(function (k) {
+            var count = 0;
+            var pos = 0;
+            while ((pos = lower.indexOf(k, pos)) !== -1) { count++; pos += k.length; }
+            if (count > 0) {
+              var tf = count / (ch.text.split(/\s+/).length || 1);
+              var idf = Math.log(docCount / (1 + (docFreqs[k] || 1)));
+              score += tf * idf * 10 + count;
+            }
+          });
+          ch._score = score;
+        });
+        chunks.sort(function (a, b) { return b._score - a._score || a.idx - b.idx; });
+      }
+      return pickChunks(chunks, attachedFile.name, msg);
+    }
+
+    function pickChunks(chunks, name, msg) {
+      var budget = RAG_BUDGET;
+      var used = 0;
+      var picked = [];
+      chunks.forEach(function (ch) {
+        if (used + ch.text.length > budget) return;
+        picked.push(ch);
+        used += ch.text.length;
+      });
+      if (!picked.length) picked = [chunks[0]];
+      picked.sort(function (a, b) { return a.idx - b.idx; });
+      msg.push({ role: 'user', content: 'Saya lampirkan isi file "' + name + '" (bagian relevan):\n\n' + picked.map(function (c) { return c.text; }).join('\n---\n') });
+      return msg;
+    }
   }
 
   function setSendUI(streaming) {
@@ -2581,7 +2717,7 @@
   }
 
   function init() {
-    loadSettings();
+    initCrypto().then(function () { return loadSettings(); }).then(function () {
     loadSessions();
     loadHistory();
     loadSummary();
@@ -2788,6 +2924,7 @@
         });
       });
     });
+    }).catch(function () {});
   }
 
   /* API untuk lapisan cloud (cloud.js) */
