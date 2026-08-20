@@ -33,7 +33,8 @@
     guru: '\nGaya kamu sekarang: GURU. Jelaskan konsep dengan sabar dan runtut, gunakan analogi sederhana, dan akhiri dengan pertanyaan latihan kecil atau rangkuman. Bersemangat mengajar.',
     teman: '\nGaya kamu sekarang: TEMAN. Jawab dengan santai, akrab, dan hangat seperti teman dekat. Boleh pakai bahasa gaul ringan dan emoji, tetap akurat.',
     bos: '\nGaya kamu sekarang: BOS. Jawab singkat, langsung ke poin, tegas, tanpa basa-basi. Beri keputusan/rekomendasi yang jelas.',
-    kode: '\nGaya kamu sekarang: SPESIALIS KODE. Fokus pada solusi teknis yang efisien dan benar. Berikan kode bersih dengan penjelasan singkat. Prioritaskan kualitas kode dan praktik terbaik.'
+    kode: '\nGaya kamu sekarang: SPESIALIS KODE. Fokus pada solusi teknis yang efisien dan benar. Berikan kode bersih dengan penjelasan singkat. Prioritaskan kualitas kode dan praktik terbaik.',
+    analyst: '\nGaya kamu sekarang: ANALIS. Pendekatan sistematis: (1) definisi masalah, (2) identifikasi variabel/asumsi, (3) analisis bertahap dengan data/fakta, (4) kesimpulan dengan confidence level. Gunakan tabel untuk perbandingan. Tunjukkan semua langkah perhitungan. Akhiri dengan limitasi analisis.'
   };
   var DEFAULT_BASE = 'https://api.groq.com/openai/v1';
   var DEFAULT_MODEL = 'openai/gpt-oss-120b';
@@ -910,8 +911,19 @@
     el.textContent = text || '';
   }
 
-  function getSystem() {
+  function getSystem(isAnalysis) {
     var s = SYSTEM + (PERSONAS[settings.persona] || '');
+    if (isAnalysis) {
+      s += '\n\n[MODE ANALISIS — WAJIB DIIKUTI]\n' +
+        'Pertanyaan ini membutuhkan analisis mendalam. Aturan khusus:\n' +
+        '1. TULIS SETIAP LANGKAH penalaran secara eksplisit (bernomor). Jangan lompat ke kesimpulan.\n' +
+        '2. MATEMATIKA: Tunjukkan semua operasi perhitungan, bukan hanya hasil akhir. Verifikasi jawaban dengan substitusi balik.\n' +
+        '3. KODE: Jelaskan pendekatan sebelum kode, analisis kompleksitas waktu/ruang, dan sebutkan edge cases.\n' +
+        '4. PERBANDINGAN: Gunakan tabel markdown terstruktur. Sebutkan kriteria, data, dan penilaian per kriteria.\n' +
+        '5. LOGIKA/BUKTI: Tulis hipotesis, asumsi, langkah deduksi, dan kesimpulan terpisah.\n' +
+        '6. AKHIRI dengan ringkasan 1-2 kalimat dari kesimpulan utama.\n' +
+        '7. Jika ada asumsi yang dibuat, sebutkan secara eksplisit.';
+    }
     if (translateEnabled) {
       s += '\nMode sekarang: PENERJEMAH. Terjemahkan teks user antara bahasa Indonesia dan Inggris (deteksi bahasa sumber otomatis). Jawab HANYA dengan hasil terjemahan, tanpa penjelasan atau pembuka. Jika sudah sama kedua arah, balas dengan "OK".';
     }
@@ -1156,16 +1168,20 @@
 
   function verifyAnswer(question, answer) {
     if (!settings.verifyEnabled) return;
+    var isLogic = LOGIC_RE.test(question) || ANALYSIS_RE.test(question);
+    var verifierSystem = isLogic
+      ? 'Kamu adalah pemeriksa jawaban yang sangat teliti. Tugas kamu:\n1. Baca pertanyaan dan jawaban dengan seksama.\n2. Verifikasi SETIAP langkah penalaran, bukan hanya kesimpulan.\n3. Cek kebenaran fakta, perhitungan matematika, dan logika di setiap tahap.\n4. Jika jawaban BENAR dan langkahnya valid, balas HANYA: OK\n5. Jika ada kesalahan di langkah mana pun, sebutkan langkah yang salah dan berikan koreksi.\n6. Jika jawaban benar tapi langkah penalaran tidak diperlihatkan untuk soal matematika/logika, katakan: "Langkah penalaran tidak diperlihatkan — tambahkan untuk kejelasan."'
+      : 'Kamu adalah pemeriksa jawaban yang teliti. Tugas kamu:\n1. Bandingkan jawaban dengan pertanyaan.\n2. Cek kebenaran fakta, perhitungan matematika, dan logika.\n3. Jika jawaban BENAR, balas HANYA: OK\n4. Jika jawaban SALAH atau tidak lengkap, berikan koreksi yang jelas dan singkat.';
     fetch(apiUrl('/chat/completions'), {
       method: 'POST',
       headers: apiHeaders(),
       body: JSON.stringify({
         model: settings.analyModel || settings.model,
         stream: false,
-        max_tokens: 500,
-        temperature: 0.3,
+        max_tokens: isLogic ? 800 : 500,
+        temperature: 0.1,
         messages: [
-          { role: 'system', content: 'Kamu adalah pemeriksa jawaban yang teliti. Tugas kamu:\n1. Bandingkan jawaban dengan pertanyaan.\n2. Cek kebenaran fakta, perhitungan matematika, dan logika.\n3. Jika jawaban BENAR, balas HANYA: OK\n4. Jika jawaban SALAH atau tidak lengkap, berikan koreksi yang jelas dan singkat. Sertakan jawaban yang benar.' },
+          { role: 'system', content: verifierSystem },
           { role: 'user', content: 'PERTANYAAN:\n' + question + '\n\nJAWABAN YANG PERLU DIPERIKSA:\n' + String(answer).slice(0, 3000) }
         ]
       })
@@ -1648,9 +1664,9 @@
     setStatus(suggestEnabled ? '💡 Saran pertanyaan aktif.' : 'Mode saran nonaktif.');
   }
 
-  var PERSONA_ORDER = ['default', 'guru', 'teman', 'bos', 'kode'];
-  var PERSONA_EMOJI = { default: '✨', guru: '🎓', teman: '🤝', bos: '👔', kode: '💻' };
-  var PERSONA_LABEL = { default: 'Seimbang', guru: 'Guru', teman: 'Teman', bos: 'Bos', kode: 'Kode' };
+  var PERSONA_ORDER = ['default', 'guru', 'teman', 'bos', 'kode', 'analyst'];
+  var PERSONA_EMOJI = { default: '✨', guru: '🎓', teman: '🤝', bos: '👔', kode: '💻', analyst: '📊' };
+  var PERSONA_LABEL = { default: 'Seimbang', guru: 'Guru', teman: 'Teman', bos: 'Bos', kode: 'Kode', analyst: 'Analis' };
 
   function cyclePersona() {
     var idx = PERSONA_ORDER.indexOf(settings.persona);
@@ -1762,7 +1778,7 @@
       });
   }
 
-  var ANALYSIS_RE = /\b(hitung|hitunglah|jumlahkan|kalikan|bagikan|kurangkan|berapakah?|berapa (hasil|x|y|z)|rumus|persamaan|akar|logaritma|persen|konversi|prosentase|rata.?rata|mean|median|modus|standar deviasi|variansi|probabilitas|peluang)\b|[-+*/^().=<>]|[\d]+[.,][\d]+/i;
+  var ANALYSIS_RE = /\b(hitung|hitunglah|jumlahkan|kalikan|bagikan|kurangkan|berapakah?|berapa (hasil|x|y|z)|rumus|persamaan|akar|logaritma|persen|konversi|prosentase|rata.?rata|mean|median|modus|standar deviasi|variansi|probabilitas|peluang)\b|\d\s*[-+*/^]\s*\d|\d+[.,]\d+\s*[-+*/^=<>]\s*\d|\(\s*\d/i;
   var LOGIC_RE = /\b(logika|logical|analisa|analisis|bandingkan|bandingkanlah|buktikan|deriv|turunan|integral|persamaan|soal|case\b|debug|perbaiki kode|tulis kode|buatkan kode|pseudocode|algoritma|optimalkan|evaluasi|penjelasan kenapa|mengapa|sebab|akibat|perbandingan|kelebihan|kekurangan|pros\s*kon)\b/i;
 
   function needsAnalysis(text) {
@@ -1785,12 +1801,15 @@
 
   function calcAnswer(text) {
     var trimmed = text.trim();
+    trimmed = trimmed.replace(/^(berapa|hitung|jumlahkan|hasil\s+dari)\s*/i, '').trim();
     if (/^[?]/.test(trimmed)) trimmed = trimmed.slice(1).trim();
     if (!/^\d/.test(trimmed) && !/^[(]/.test(trimmed)) return null;
-    if (/\D{3,}/.test(trimmed)) return null;
-    var result = safeEval(trimmed);
+    var expr = trimmed.replace(/%/g, '/100').replace(/,/g, '.').replace(/\^/g, '**').replace(/\s+/g, '');
+    if (/\D{4,}/.test(expr.replace(/\/100/g, ''))) return null;
+    var result = safeEval(expr);
     if (result == null) return null;
-    return 'Hasil hitung pasti (dihitung oleh kalkulator internal): ' + trimmed + ' = ' + result;
+    var display = Number.isInteger(result) ? result : parseFloat(result.toFixed(10));
+    return 'Hasil hitung pasti (kalkulator internal): ' + trimmed + ' = ' + display;
   }
 
   var STOPWORDS = ['yang', 'dan', 'di', 'ke', 'dari', 'untuk', 'dengan', 'pada', 'ini', 'itu', 'apa', 'bagaimana', 'berapa', 'apakah', 'kenapa', 'mengapa', 'saya', 'kamu', 'aku', 'mau', 'tolong', 'jelaskan', 'dalam', 'secara', 'akan', 'tidak', 'bisa', 'please'];
@@ -1880,6 +1899,12 @@
     kbCancel = false;
     var input = $('chat-input');
     var text = input.value.trim();
+    var forceAnalysis = false;
+    if (/^\/analyze\b/i.test(text)) {
+      forceAnalysis = true;
+      text = text.replace(/^\/analyze\s*/i, '').trim();
+      input.value = text;
+    }
     if (!text) return;
     if (!settings.model) {
       setStatus('Atur model dulu di ⚙️ Pengaturan.', true);
@@ -1912,7 +1937,7 @@
     var attempted = [];
     var webContext = '';
     var kbContext = '';
-    var isAnalysis = needsAnalysis(text);
+    var isAnalysis = forceAnalysis || needsAnalysis(text);
 
     var calc = calcAnswer(text);
     if (calc) {
@@ -1938,7 +1963,7 @@
       abortCtrl = new AbortController();
       attempted.push(model);
       setStatus(isAnalysis ? '🔍 Menganalisis pertanyaan...' : '💬 Menyusun jawaban...');
-      var messages = [{ role: 'system', content: getSystem() }];
+      var messages = [{ role: 'system', content: getSystem(isAnalysis) }];
       if (summary) {
         messages.push({ role: 'system', content: 'Ringkasan percakapan sebelumnya:\n' + summary });
       }
@@ -1963,8 +1988,8 @@
         model: model,
         stream: true,
         messages: messages,
-        temperature: 0.5,
-        top_p: 0.9
+        temperature: isAnalysis ? 0.2 : 0.5,
+        top_p: isAnalysis ? 0.8 : 0.9
       };
 
       return fetch(apiUrl('/chat/completions'), {
@@ -2104,6 +2129,7 @@
     $('set-model-analy').value = settings.analyModel || '';
     $('set-apikey').value = settings.apiKey || '';
     $('set-persona').value = settings.persona || 'default';
+    $('set-verify').checked = settings.verifyEnabled;
     $('set-embed-baseurl').value = settings.embedBaseUrl || DEFAULT_EMBED_BASE;
     $('set-embed-key').value = settings.embedKey || '';
     $('set-embed-model').value = settings.embedModel || DEFAULT_EMBED_MODEL;
@@ -2123,6 +2149,7 @@
     settings.analyModel = $('set-model-analy').value.trim();
     settings.apiKey = $('set-apikey').value.trim();
     settings.persona = $('set-persona').value || 'default';
+    settings.verifyEnabled = $('set-verify').checked;
     settings.voice = $('set-voice').value || '';
     settings.embedBaseUrl = $('set-embed-baseurl').value.trim() || DEFAULT_EMBED_BASE;
     settings.embedKey = $('set-embed-key').value.trim();
