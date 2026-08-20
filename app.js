@@ -7,15 +7,26 @@
   'use strict';
 
   var SYSTEM = [
-    'Kamu adalah cangcilung, asisten AI dewasa yang ramah, terus terang, dan sangat membantu.',
+    'Kamu adalah cangcilung, asisten AI dewasa yang cerdas, ramah, terus terang, dan sangat membantu.',
     'Jawab dalam bahasa Indonesia yang natural dan sopan.',
-    'Prinsip menjawab:',
+    '',
+    'CARA BERPIKIR (wajib diikuti untuk pertanyaan kompleks):',
+    '- Sebelum menjawab, identifikasi: jenis pertanyaan (fakta, opini, analisis, kode, kreatif, matematika).',
+    '- Untuk pertanyaan analitis/matematika/logika: gunakan pola "Langkah demi Langkah". Tulis proses penalaranmu sebelum kesimpulan.',
+    '- Untuk pertanyaan fakta: pastikan akurasi. Jika tidak 100% yakin, katakan tingkat kepercayaanmu.',
+    '- Jika informasi tidak cukup untuk menjawab, katakan apa yang kurang dan usahakan membantu sebagian.',
+    '',
+    'ATURAN MENJAWAB:',
     '1. AKURAT dulu, baru lengkap. Jangan menebak; jika tidak yakin, katakan tidak yakin.',
-    '2. Untuk hitungan/analisis/masalah bertahap, tunjukkan langkahnya secara ringkas dan rapi (pakai bullet/angka).',
+    '2. Untuk hitungan/analisis/masalah bertahap, tunjukkan proses penalaran secara ringkas dan rapi (pakai bullet/angka).',
     '3. Untuk pertanyaan singkat, jawab singkat. Untuk pertanyaan kompleks, jawab terstruktur (poin, tabel, kode bila perlu).',
-    '4. Jika diminta kode, berikan kode lengkap yang bisa langsung dipakai + penjelasan singkat.',
+    '4. Jika diminta kode, berikan kode lengkap yang bisa langsung dipakai + penjelasan singkat. Selalu sertakan contoh pemakaian jika relevan.',
     '5. Jangan mengulang pertanyaan user. Langsung ke inti jawaban.',
-    '6. Bahasa: gunakan Indonesia; istilah teknis boleh bahasa Inggris jika lebih tepat.'
+    '6. Bahasa: gunakan Indonesia; istilah teknis boleh bahasa Inggris jika lebih tepat.',
+    '7. Jika user memberikan data/angka, verifikasi sebelum menggunakannya dalam perhitungan.',
+    '8. Untuk perbandingan, buat tabel atau daftar yang jelas agar mudah dipahami.',
+    '9. Jika pertanyaan ambigu, klarifikasi dulu daripada menjawab salah.',
+    '10. Manfaatkan konteks file/pengetahuan yang diberikan untuk menjawab dengan akurat.'
   ].join(' ');
   var PERSONAS = {
     default: '',
@@ -651,9 +662,10 @@
         model: settings.model,
         stream: false,
         max_tokens: 400,
+        temperature: 0.3,
         messages: [{
           role: 'system',
-          content: 'Kamu adalah pencatat ringkasan. Ringkas percakapan berikut dalam bahasa Indonesia, maksimal 250 kata, dalam bentuk poin-poin penting (topik, keputusan, fakta yang disebutkan user). Hanya hasil ringkasan, tanpa pembuka.'
+          content: 'Ringkas percakapan berikut dalam bahasa Indonesia, maksimal 300 kata. Fokus pada: topik utama, keputusan yang diambil, fakta penting, preferensi user, dan konteks yang relevan untuk pertanyaan lanjutan. Format poin-poin. Hanya hasil ringkasan, tanpa pembuka.'
         }, {
           role: 'user',
           content: old.map(function (m) { return m.role + ': ' + m.content; }).join('\n').slice(-6000)
@@ -835,6 +847,7 @@
       body: JSON.stringify({
         model: settings.model,
         stream: true,
+        temperature: 0.5,
         messages: [
           { role: 'system', content: getSystem() },
           { role: 'user', content: q + '\n\n--- ISI FILE ---\n' + text }
@@ -1210,10 +1223,11 @@
       body: JSON.stringify({
         model: settings.analyModel || settings.model,
         stream: false,
-        max_tokens: 300,
+        max_tokens: 500,
+        temperature: 0.3,
         messages: [
-          { role: 'system', content: 'Kamu adalah pemeriksa jawaban. Periksa kebenaran jawaban berikut terhadap pertanyaan. Jika jawaban SALAH (terutama perhitungan/logika), jawab dengan koreksi singkat. Jika BENAR, balas hanya dengan: OK' },
-          { role: 'user', content: 'Pertanyaan: ' + question + '\n\nJawaban:\n' + String(answer).slice(0, 3000) }
+          { role: 'system', content: 'Kamu adalah pemeriksa jawaban yang teliti. Tugas kamu:\n1. Bandingkan jawaban dengan pertanyaan.\n2. Cek kebenaran fakta, perhitungan matematika, dan logika.\n3. Jika jawaban BENAR, balas HANYA: OK\n4. Jika jawaban SALAH atau tidak lengkap, berikan koreksi yang jelas dan singkat. Sertakan jawaban yang benar.' },
+          { role: 'user', content: 'PERTANYAAN:\n' + question + '\n\nJAWABAN YANG PERLU DIPERIKSA:\n' + String(answer).slice(0, 3000) }
         ]
       })
     })
@@ -1746,9 +1760,10 @@
         model: model,
         stream: false,
         max_tokens: 120,
+        temperature: 0.7,
         messages: [{
           role: 'system',
-          content: 'Kamu adalah pembuat saran pertanyaan. Berdasarkan pertanyaan dan jawaban berikut, buat 3 pertanyaan lanjutan yang menarik dalam bahasa Indonesia. Format: satu pertanyaan per baris, tanpa nomor, tanpa teks lain.'
+          content: 'Berdasarkan pertanyaan dan jawaban berikut, buat 3 pertanyaan lanjutan yang menarik dan relevan dalam bahasa Indonesia. Pertanyaan harus:\n- Menggali lebih dalam dari topik yang dibahas\n- Menjelaskan konsep yang mungkin belum dipahami user\n- Membantu user mempraktikkan atau menerapkan pengetahuan\nFormat: satu pertanyaan per baris, tanpa nomor, tanpa teks lain.'
         }, {
           role: 'user',
           content: 'Pertanyaan: ' + question + '\n\nJawaban: ' + String(answer).slice(0, 2000)
@@ -1808,8 +1823,8 @@
       });
   }
 
-  var ANALYSIS_RE = /\b(hitung|hitunglah|jumlahkan|kalikan|bagikan|kurangkan|berapakah?|berapa (hasil|x|y|z)|rumus|persamaan|akar|logaritma|persen|konversi)\b|[-+*/^().]|[\d]+[.,][\d]+/i;
-  var LOGIC_RE = /\b(logika|logical|analisa|analisis|bandingkan|bandingkanlah|buktikan|deriv|turunan|integral|persamaan|soal|case\b|debug|perbaiki kode|tulis kode|buatkan kode|pseudocode|algoritma)\b/i;
+  var ANALYSIS_RE = /\b(hitung|hitunglah|jumlahkan|kalikan|bagikan|kurangkan|berapakah?|berapa (hasil|x|y|z)|rumus|persamaan|akar|logaritma|persen|konversi|prosentase|rata.?rata|mean|median|modus|standar deviasi|variansi|probabilitas|peluang)\b|[-+*/^().=<>]|[\d]+[.,][\d]+/i;
+  var LOGIC_RE = /\b(logika|logical|analisa|analisis|bandingkan|bandingkanlah|buktikan|deriv|turunan|integral|persamaan|soal|case\b|debug|perbaiki kode|tulis kode|buatkan kode|pseudocode|algoritma|optimalkan|evaluasi|penjelasan kenapa|mengapa|sebab|akibat|perbandingan|kelebihan|kekurangan|pros\s*kon)\b/i;
 
   function needsAnalysis(text) {
     if (LOGIC_RE.test(text)) return true;
@@ -1854,22 +1869,32 @@
     var question = history.length ? history[history.length - 1].content : '';
     var keywords = (question.toLowerCase().match(/[a-z0-9]{3,}/g) || [])
       .filter(function (w) { return STOPWORDS.indexOf(w) === -1; });
-    var chunkSize = 3000;
+    var chunkSize = 2000;
+    var overlap = 200;
     var chunks = [];
-    for (var i = 0; i < text.length; i += chunkSize) {
+    for (var i = 0; i < text.length; i += chunkSize - overlap) {
       chunks.push({ text: text.slice(i, i + chunkSize), idx: i });
     }
     if (keywords.length) {
+      var docCount = chunks.length;
       chunks.forEach(function (ch) {
         var score = 0;
+        var lower = ch.text.toLowerCase();
         keywords.forEach(function (k) {
-          if (ch.text.toLowerCase().indexOf(k) !== -1) score++;
+          var count = 0;
+          var pos = 0;
+          while ((pos = lower.indexOf(k, pos)) !== -1) { count++; pos += k.length; }
+          if (count > 0) {
+            var tf = count / (ch.text.split(/\s+/).length || 1);
+            var idf = Math.log(docCount / (1 + count));
+            score += tf * idf * 10 + count;
+          }
         });
         ch._score = score;
       });
       chunks.sort(function (a, b) { return b._score - a._score || a.idx - b.idx; });
     }
-    var budget = 20000;
+    var budget = 24000;
     var used = 0;
     var picked = [];
     chunks.forEach(function (ch) {
@@ -1988,16 +2013,18 @@
         });
       }
       if (kbContext) {
-        messages.push({ role: 'system', content: 'Pengetahuan tersimpan Anda (gunakan bila relevan untuk menjawab dengan akurat):\n' + kbContext });
+        messages.push({ role: 'system', content: 'PENGETAHUAN DARI DOKUMEN TERSIMPAN (gunakan sebagai acuan utama jika relevan, sebutkan sumber dokumennya):\n' + kbContext });
       }
       if (webContext) {
-        messages.push({ role: 'system', content: 'Info terkini dari Wikipedia (pakai ini bila relevan untuk jawaban akurat):\n' + webContext });
+        messages.push({ role: 'system', content: 'INFORMASI TERKINI DARI WEB (gunakan jika relevan untuk jawaban yang up-to-date):\n' + webContext });
       }
       messages = messages.concat(history.map(function (m) { return { role: m.role, content: m.content }; }));
       var body = {
         model: model,
         stream: true,
-        messages: messages
+        messages: messages,
+        temperature: 0.5,
+        top_p: 0.9
       };
 
       return fetch(apiUrl('/chat/completions'), {

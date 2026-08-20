@@ -89,8 +89,8 @@
     if (!canRetrieve()) return Promise.resolve('');
     return embedTexts([query]).then(function (vecs) {
       var v = toVec(vecs[0]);
-      return state.client.rpc('match_chunks', { query_embedding: v, match_count: 6, uid: state.user.id })
-        .then(function (r) { if (r.error) throw r.error; return r.data || []; });
+      return state.client.rpc('match_chunks', { query_embedding: v, match_count: 10, uid: state.user.id })
+        .then(function (r) { if (r.error) throw r.error; return (r.data || []).filter(function (x) { return (x.similarity || 0) >= 0.55; }); });
     }).then(function (rows) {
       if (!rows || !rows.length) return '';
       var ids = [], seen = {};
