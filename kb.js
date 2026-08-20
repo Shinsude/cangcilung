@@ -85,9 +85,14 @@
   }
 
   /* ---------- pencarian semantik ---------- */
+  var SLANG = { gmn: 'bagaimana', gw: 'saya', sy: 'saya', klo: 'kalau', krn: 'karena', tp: 'tapi', yg: 'yang', aja: 'saja', bgt: 'banget', dong: 'saja', sih: 'saja', kok: 'apa', deh: 'saja', dong: 'saja', nih: 'ini', dong: 'saja' };
+  function normalizeQuery(q) {
+    return q.replace(/\b[a-z]{2,5}\b/gi, function (w) { return SLANG[w.toLowerCase()] || w; });
+  }
   function retrieve(query) {
     if (!canRetrieve()) return Promise.resolve('');
-    return embedTexts([query]).then(function (vecs) {
+    var nq = normalizeQuery(query);
+    return embedTexts([nq]).then(function (vecs) {
       var v = toVec(vecs[0]);
       return state.client.rpc('match_chunks', { query_embedding: v, match_count: 10, uid: state.user.id })
         .then(function (r) { if (r.error) throw r.error; return (r.data || []).filter(function (x) { return (x.similarity || 0) >= 0.55; }); });

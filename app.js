@@ -8,7 +8,7 @@
 
   var SYSTEM = [
     'Kamu adalah cangcilung, asisten AI dewasa yang cerdas, ramah, terus terang, dan sangat membantu.',
-    'Jawab dalam bahasa Indonesia yang natural dan sopan.',
+    'Jawab dalam bahasa Indonesia yang natural dan sopan. Pahami bahasa gaul/singkatan (misal: gmn=gimana, gw=saya, apz=apa, bgt=banget, lg=lagi) dan jawab dengan bahasa baku yang baik.',
     '',
     'CARA BERPIKIR (wajib diikuti untuk pertanyaan kompleks):',
     '- Sebelum menjawab, identifikasi: jenis pertanyaan (fakta, opini, analisis, kode, kreatif, matematika).',
@@ -26,7 +26,9 @@
     '7. Jika user memberikan data/angka, verifikasi sebelum menggunakannya dalam perhitungan.',
     '8. Untuk perbandingan, buat tabel atau daftar yang jelas agar mudah dipahami.',
     '9. Jika pertanyaan ambigu, klarifikasi dulu daripada menjawab salah.',
-    '10. Manfaatkan konteks file/pengetahuan yang diberikan untuk menjawab dengan akurat.'
+    '10. Jika ada beberapa pertanyaan dalam satu pesan, jawab SEMUA secara berurutan dengan penanda yang jelas (misal: **Bagian 1:**, **Bagian 2:**).',
+    '11. Manfaatkan konteks file/pengetahuan yang diberikan untuk menjawab dengan akurat.',
+    '12. Saat menggunakan informasi dari konteks dokumen atau web, sebutkan sumbernya secara eksplisit.'
   ].join(' ');
   var PERSONAS = {
     default: '',
@@ -608,7 +610,7 @@
           content: 'Ringkas percakapan berikut dalam bahasa Indonesia, maksimal 300 kata. Fokus pada: topik utama, keputusan yang diambil, fakta penting, preferensi user, dan konteks yang relevan untuk pertanyaan lanjutan. Format poin-poin. Hanya hasil ringkasan, tanpa pembuka.'
         }, {
           role: 'user',
-          content: old.map(function (m) { return m.role + ': ' + m.content; }).join('\n').slice(-6000)
+          content: old.map(function (m) { return m.role + ': ' + (m.content || '').slice(0, 500); }).join('\n').slice(-8000)
         }]
       })
     })
@@ -1748,7 +1750,7 @@
     setStatus(webMode ? '🌐 Cari di web aktif — jawaban akan pakai info terkini.' : 'Mode web nonaktif.');
   }
 
-  var WEB_RE = /\b(terkini|terbaru|berita|sekarang|hari ini|tahun \d{4}|cuaca|hasil pertandingan|skor|harga|jadwal|pemenang|presiden|gubernur|pemilu|kecelakaan|gempa|bencana|ramalan|prediksi|update|berapa harga)\b/i;
+  var WEB_RE = /\b(terkini|terbaru|berita|sekarang|hari ini|tahun \d{4}|cuaca|hasil pertandingan|skor|harga|kurs|jadwal|pemenang|presiden|gubernur|pemilu|kecelakaan|gempa|bencana|ramalan|prediksi|update|berapa harga|harga saham|film terbaru|lagu terbaru|peringkat|trending|viral|angka kematian|kasus|penduduk|populasi)\b/i;
 
   function needsWeb(text) {
     return WEB_RE.test(text);
@@ -1756,21 +1758,43 @@
 
   function searchWeb(query) {
     var q = encodeURIComponent(query.replace(/[?""''!]/g, ' ').slice(0, 200));
+    var ddgUrl = 'https://lite.duckduckgo.com/lite/?q=' + q + '&kl=id-id';
+    return fetch(ddgUrl, { signal: AbortSignal.timeout(12000), headers: { 'User-Agent': 'cangcilung/1.0' } })
+      .then(function (res) { return res.ok ? res.text() : ''; })
+      .then(function (html) {
+        if (!html || html.length < 200) throw new Error('empty');
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        var results = [];
+        tmp.querySelectorAll('.result-snippet').forEach(function (el, i) { if (i < 5) results.push(el.textContent.trim()); });
+        if (!results.length) throw new Error('no results');
+        return results.join('\n\n').slice(0, 5000);
+      })
+      .catch(function () { return searchWebWikipedia(query); });
+  }
+  function searchWebWikipedia(query) {
+    var q = encodeURIComponent(query.replace(/[?""''!]/g, ' ').slice(0, 200));
     var url = 'https://id.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + q + '&format=json&origin=*&srlimit=3';
     return fetch(url, { signal: AbortSignal.timeout(10000) })
       .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)); })
       .then(function (j) {
         var hits = (j.query && j.query.search) || [];
+        if (!hits.length) {
+          return fetch('https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + q + '&format=json&origin=*&srlimit=2', { signal: AbortSignal.timeout(10000) })
+            .then(function (r) { return r.ok ? r.json() : { query: { search: [] } }; })
+            .then(function (j2) { hits = (j2.query && j2.query.search) || []; });
+        }
+      })
+      .then(function () {
         var titles = hits.map(function (h) { return h.title; }).slice(0, 3);
         var chain = Promise.resolve();
         var out = [];
         titles.forEach(function (title) {
           chain = chain.then(function () {
-            return fetch('https://id.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title), { signal: AbortSignal.timeout(10000) })
+            var base = titles.indexOf(title) < 2 ? 'id' : 'en';
+            return fetch('https://' + base + '.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title), { signal: AbortSignal.timeout(10000) })
               .then(function (r) { return r.ok ? r.json() : null; })
-              .then(function (s) {
-                if (s && s.extract) out.push('## ' + s.title + '\n' + s.extract.slice(0, 1200));
-              })
+              .then(function (s) { if (s && s.extract) out.push('## ' + s.title + '\n' + s.extract.slice(0, 1200)); })
               .catch(function () {});
           });
         });
@@ -1906,10 +1930,30 @@
       input.value = text;
     }
     if (!text) return;
+    var GREET_RE = /^(hi|hai|hello|halo|hey|tes|test|oke|ok|ya|yo|assalam|selamat pagi|selamat siang|selamat malam|thanks|terima kasih|makasih|dah|bye|sampai)[\s!.]*$/i;
+    if (GREET_RE.test(text) && !settings.model) {
+      var quickReply = /^(hi|hai|hello|halo|hey|assalam)/i.test(text) ? 'Halo! Ada yang bisa saya bantu?'
+        : /^(oke|ok|ya|yo)/i.test(text) ? 'Baik, silakan lanjutkan.'
+        : /^(thanks|terima kasih|makasih)/i.test(text) ? 'Sama-sama! Senang bisa membantu.'
+        : /^(bye|dah|sampai)/i.test(text) ? 'Sampai jumpa!'
+        : 'Ya, ada yang perlu?';
+      history.push({ role: 'assistant', content: quickReply, t: nowTime() });
+      saveHistory();
+      var greetBubble = addBubble('assistant', quickReply);
+      addRunButtons(greetBubble);
+      renderHistory();
+      busy = false;
+      setSendUI(false);
+      setStatus('');
+      return;
+    }
     if (!settings.model) {
       setStatus('Atur model dulu di ⚙️ Pengaturan.', true);
       openSettings();
       return;
+    }
+    if (text.length > 30000) {
+      text = text.slice(0, 30000) + '\n\n[... teks dipotong karena terlalu panjang. Gunakan fitur 📎 lampirkan file untuk dokumen besar ...]';
     }
 
     busy = true;
@@ -1969,10 +2013,11 @@
       }
       fileContextMessages().forEach(function (m) { messages.push(m); });
       if (attachedImage) {
+        var imgQ = history.length ? history[history.length - 1].content : 'Deskripsikan gambar ini.';
         messages.push({
           role: 'user',
           content: [
-            { type: 'text', text: 'Saya lampirkan gambar ini. Analisis dan jawab pertanyaan saya tentang gambar tersebut.' },
+            { type: 'text', text: 'Analisis gambar ini secara detail. Jika ada teks/OCR, transkripsikan. Jika ada grafik/tabel/chart, jelaskan datanya. Jika ada UI/layar, jelaskan elemennya. Kemudian jawab pertanyaan berikut: ' + imgQ },
             { type: 'image_url', image_url: { url: attachedImage.dataUrl } }
           ]
         });
@@ -1983,11 +2028,27 @@
       if (webContext) {
         messages.push({ role: 'system', content: 'INFORMASI TERKINI DARI WEB (gunakan jika relevan untuk jawaban yang up-to-date):\n' + webContext });
       }
-      messages = messages.concat(history.map(function (m) { return { role: m.role, content: m.content }; }));
+      if (pinned.length) {
+        var pinText = pinned.map(function (p) { return p.role + ': ' + (p.content || '').slice(0, 500); }).join('\n');
+        messages.push({ role: 'system', content: 'PESAN PENTING YANG DIYAKINKAN USER (selalu pertimbangkan konteks ini):\n' + pinText.slice(0, 3000) });
+      }
+      var MAX_CHARS = 28000;
+      var sysChars = 0;
+      messages.forEach(function (m) { sysChars += (typeof m.content === 'string' ? m.content.length : 200); });
+      var budgedHistory = [];
+      var hChars = 0;
+      for (var hi = history.length - 1; hi >= 0; hi--) {
+        var mc = (history[hi].content || '').length;
+        if (hChars + mc > MAX_CHARS - sysChars - 2000) break;
+        hChars += mc;
+        budgedHistory.unshift({ role: history[hi].role, content: history[hi].content });
+      }
+      messages = messages.concat(budgedHistory);
       var body = {
         model: model,
         stream: true,
         messages: messages,
+        max_tokens: isAnalysis ? 2048 : 1024,
         temperature: isAnalysis ? 0.2 : 0.5,
         top_p: isAnalysis ? 0.8 : 0.9
       };
@@ -2021,6 +2082,10 @@
             if (done) return;
             done = true;
             removeTyping(bubble);
+            if (!full || full.trim().length < 3) {
+              full = full || '';
+              if (!pool.length) full = '⚠️ Model tidak memberikan jawaban. Coba lagi atau ganti model.';
+            }
             history.push({ role: 'assistant', content: full, t: nowTime() });
             saveHistory();
             renderHistory();
