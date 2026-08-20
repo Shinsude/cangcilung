@@ -230,7 +230,7 @@
   }
 
   function pullSessionsOnly() {
-    if (!state.enabled || !state.ready || !state.user) return;
+    if (!state.enabled || !state.ready || !state.user || state.syncing) return;
     state.client.from('sessions').select('id,name,data,updated_at').then(function (r) {
       if (r.error) return;
       mergeCloud(r.data || [], false, false);
@@ -240,6 +240,7 @@
   /* ---------- realtime ---------- */
   function subscribeRealtime() {
     try {
+      if (state.channel) { state.client.removeChannel(state.channel); state.channel = null; }
       var ch = state.client.channel('sessions-' + state.user.id);
       ch.on('postgres_changes', {
         event: '*', schema: 'public', table: 'sessions', filter: 'user_id=eq.' + state.user.id
@@ -249,6 +250,7 @@
         state.timer = setTimeout(pullSessionsOnly, 800);
       });
       ch.subscribe();
+      state.channel = ch;
     } catch (e) { log('realtime gagal', e); }
   }
 

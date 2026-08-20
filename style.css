@@ -589,16 +589,6 @@ html { scrollbar-width: thin; scrollbar-color: #424242 transparent; }
 .kb-count { opacity: .5; font-size: 11px; }
 
 /* ── Search ── */
-.search-bar {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 10px; margin-bottom: 8px;
-  border: 1px solid var(--border); border-radius: 10px;
-  background: var(--card);
-}
-.search-bar input {
-  flex: 1; border: none; background: transparent; color: var(--text);
-  outline: none; font-size: 14px; font-family: inherit;
-}
 .search-count { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
 .search-nav {
   cursor: pointer; border: none; background: transparent;
@@ -653,7 +643,7 @@ body.drag-over::after {
 .stats-title { font-weight: 700; margin: 12px 0 4px; font-size: 14px; }
 
 /* ═══════════ TYPING ═══════════ */
-.bubble > .typing-indicator { display: flex; align-items: center; gap: 4px; padding: 4px 0; }
+.msg-bubble > .typing-indicator { display: flex; align-items: center; gap: 4px; padding: 4px 0; }
 .typing-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--text-dim); opacity: .4;
@@ -726,8 +716,6 @@ body.drag-over::after {
 .model-dropdown-item.selected { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
 .model-item-label { display: block; font-size: 13px; }
 .model-item-sub { display: block; font-size: 11px; opacity: .5; margin-top: 1px; font-family: 'JetBrains Mono', monospace; }
-
-.quick-model { display: none; }
 
 /* ═══════════ RESPONSIVE ═══════════ */
 @media (max-width: 768px) {

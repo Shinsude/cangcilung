@@ -232,7 +232,7 @@
     var btnSave = $('btn-save-kb');
     if (btnSave) btnSave.addEventListener('click', doSave);
 
-    function closeToolsMenu() { var m = $('tools-menu'); if (m) m.hidden = true; }
+    function closeToolsMenu() { var m = $('tools-menu'); if (m) m.hidden = true; var b = $('btn-tools'); if (b) b.setAttribute('aria-expanded', 'false'); }
 
     if (window.__onCloudReady) window.__onCloudReady(function (client, user) {
       state.client = client;

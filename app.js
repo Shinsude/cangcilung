@@ -176,14 +176,6 @@
   function changeQuickModel() { }
 
   var FONT_SIZES = ['small', 'normal', 'large'];
-  function cycleFont() {
-    var idx = FONT_SIZES.indexOf(settings.fontSize);
-    if (idx === -1) idx = 1;
-    settings.fontSize = FONT_SIZES[(idx + 1) % FONT_SIZES.length];
-    saveSettings();
-    applyFont();
-    setStatus('↕️ Ukuran teks: ' + settings.fontSize);
-  }
 
   function applyFont() {
     var box = $('chat-messages');
@@ -209,55 +201,6 @@
       setTimeout(function () { ctx.close(); }, 600);
     } catch (e) {}
   }
-
-  function toggleSound() {
-    settings.soundEnabled = !settings.soundEnabled;
-    saveSettings();
-    var btn = $('btn-sound');
-    if (btn) { btn.classList.toggle('active', settings.soundEnabled); btn.title = settings.soundEnabled ? 'Bunyi saat selesai: aktif' : 'Bunyi saat selesai: nonaktif'; btn.setAttribute('aria-pressed', String(settings.soundEnabled)); }
-    setStatus(settings.soundEnabled ? '🔔 Bunyi saat jawaban selesai aktif.' : '🔕 Bunyi nonaktif.');
-  }
-
-  function openStats() {
-    var body = $('stats-body');
-    if (!body) return;
-    var total = history.length;
-    var user = 0, asst = 0;
-    var words = {};
-    var STOP = /^(yang|dan|di|ke|dari|untuk|dengan|pada|ini|itu|apa|bagaimana|berapa|apakah|kenapa|mengapa|saya|kamu|aku|kita|mau|tolong|jelaskan|dalam|secara|akan|tidak|bisa|please|ada|dia|mereka|juga|saja|sudah|belum|masih|hanya|atau|lebih|kurang|sangat|banyak|semua|hal|nya|kah|lah|a)$/i;
-    var allText = '';
-    history.forEach(function (m) {
-      if (m.role === 'user') { user++; allText += ' ' + m.content; }
-      else asst++;
-      allText += ' ' + m.content;
-    });
-    var tokens = allText.toLowerCase().match(/[a-z0-9]{3,}/g) || [];
-    tokens.forEach(function (w) {
-      if (STOP.test(w)) return;
-      words[w] = (words[w] || 0) + 1;
-    });
-    var top = Object.keys(words).sort(function (a, b) { return words[b] - words[a]; }).slice(0, 12);
-    var chars = allText.length;
-    var avg = total ? Math.round(chars / total) : 0;
-
-    var h = '';
-    h += '<div class="stats-title">Ringkasan percakapan ini</div>';
-    h += '<div class="stats-row"><span>Total pesan</span><b>' + total + '</b></div>';
-    h += '<div class="stats-row"><span>Dari Anda</span><b>' + user + '</b></div>';
-    h += '<div class="stats-row"><span>Dari cangcilung</span><b>' + asst + '</b></div>';
-    h += '<div class="stats-row"><span>Total karakter</span><b>' + chars.toLocaleString('id-ID') + '</b></div>';
-    h += '<div class="stats-row"><span>Rata-rata panjang pesan</span><b>' + avg + ' karakter</b></div>';
-    if (top.length) {
-      h += '<div class="stats-title">Kata yang sering muncul</div>';
-      top.forEach(function (w) { h += '<div class="stats-row"><span>' + esc(w) + '</span><b>' + words[w] + '×</b></div>'; });
-    } else {
-      h += '<div class="stats-title">Kata yang sering muncul</div><p class="set-hint">Belum ada data.</p>';
-    }
-    body.innerHTML = h;
-    openModal('stats-modal');
-  }
-
-  function closeStats() { closeModal('stats-modal'); }
 
   var pinned = [];
 
@@ -346,7 +289,7 @@
       try {
         var data = JSON.parse(r.result);
         if (!data || !data.sessions) throw new Error('File bukan cadangan cangcilung.');
-        settings = Object.assign({ baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true }, data.settings || {});
+        settings = Object.assign({ baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true, embedBaseUrl: DEFAULT_EMBED_BASE, embedKey: '', embedModel: DEFAULT_EMBED_MODEL }, data.settings || {});
         sessions = Array.isArray(data.sessions) && data.sessions.length ? data.sessions : [{ id: 's1', name: 'Percakapan 1', history: [], summary: '', pinned: [] }];
         currentSessionId = data.currentSessionId && sessions.some(function (s) { return s.id === data.currentSessionId; }) ? data.currentSessionId : sessions[0].id;
         if (data.usage) localStorage.setItem(USAGE_KEY, JSON.stringify(data.usage));
@@ -650,6 +593,7 @@
     var old = history.slice(0, history.length - 20);
     if (old.length < 20) return;
     summarizing = true;
+    var histLen = history.length;
     fetch(apiUrl('/chat/completions'), {
       method: 'POST',
       headers: apiHeaders(),
@@ -670,11 +614,11 @@
       .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)); })
       .then(function (j) {
         var txt = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
-        if (txt) {
-          summary = (summary ? summary + '\n' : '') + txt;
-          if (summary.length > 3000) summary = txt;
-          saveSummary();
-        }
+        if (!txt) return;
+        if (history.length !== histLen) return;
+        summary = (summary ? summary + '\n' : '') + txt;
+        if (summary.length > 3000) summary = txt;
+        saveSummary();
         history = keep;
         saveHistory();
         renderHistory();
@@ -2289,6 +2233,7 @@
       if (im && !im.hidden) { closeInputMore(); return; }
       var menu = $('tools-menu');
       if (menu && !menu.hidden) { closeToolsMenu(); return; }
+      if (searchActive) { toggleSearch(); return; }
       var opens = document.querySelectorAll('.modal-overlay:not([hidden])');
       if (opens.length) closeModal(opens[opens.length - 1].id);
       return;
@@ -2371,12 +2316,9 @@
       });
     }
     loadPinned();
-    var sb = $('btn-sound');
-    if (sb) { sb.classList.toggle('active', settings.soundEnabled); sb.title = settings.soundEnabled ? 'Bunyi saat selesai: aktif' : 'Bunyi saat selesai: nonaktif'; sb.setAttribute('aria-pressed', String(settings.soundEnabled)); }
     
-    if ($('btn-stats')) $('btn-stats').addEventListener('click', openStats);
-    $('btn-stats-close').addEventListener('click', closeStats);
-    $('stats-modal').addEventListener('click', function (e) { if (e.target === $('stats-modal')) closeStats(); });
+    if ($('btn-stats-close')) $('btn-stats-close').addEventListener('click', function () { closeModal('stats-modal'); });
+    if ($('stats-modal')) $('stats-modal').addEventListener('click', function (e) { if (e.target === $('stats-modal')) closeModal('stats-modal'); });
     $('btn-pins').addEventListener('click', openPins);
     $('btn-pins-close').addEventListener('click', closePins);
     $('pins-modal').addEventListener('click', function (e) { if (e.target === $('pins-modal')) closePins(); });
@@ -2387,8 +2329,6 @@
     $('backup-file').addEventListener('change', function () {
       if (this.files && this.files[0]) restoreData(this.files[0]);
     });
-    if ($('btn-font')) $('btn-font').addEventListener('click', cycleFont);
-    if ($('btn-sound')) $('btn-sound').addEventListener('click', toggleSound);
     $('btn-scroll-down').addEventListener('click', scrollToBottom);
     $('chat-messages').addEventListener('scroll', onChatScroll);
     $('chat-input').addEventListener('input', updateInputCount);
