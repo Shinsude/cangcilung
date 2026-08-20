@@ -256,14 +256,17 @@
   function onAuthChange(event, session) {
     state.user = session && session.user ? session.user : null;
     log('auth', event, state.user && state.user.id);
+    var sc = document.getElementById('sidebar-cloud');
     if (state.user) {
       state.ready = true;
+      if (sc) sc.hidden = false;
       setInd('sync', 'Menyinkronkan...');
       pullAll();
       subscribeRealtime();
       fireReady();
     } else {
       state.ready = false;
+      if (sc) sc.hidden = true;
       setInd('err', 'Tidak terautentikasi');
     }
   }

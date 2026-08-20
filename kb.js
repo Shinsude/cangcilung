@@ -127,7 +127,7 @@
     return state.client.from('chunks').delete().eq('user_id', state.user.id).eq('document_id', id)
       .then(function (r) { if (r.error) throw r.error; })
       .then(function () { return state.client.from('documents').delete().eq('user_id', state.user.id).eq('id', id); })
-      .then(function (r) { if (r.error) throw r.error; state.hasDocs = true; })
+      .then(function (r) { if (r.error) throw r.error; hasDocsGate(); })
       .catch(function (err) { /* mungkin list kosong */ throw err; });
   }
 

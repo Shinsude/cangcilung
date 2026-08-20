@@ -57,6 +57,7 @@
   var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true, embedBaseUrl: DEFAULT_EMBED_BASE, embedKey: '', embedModel: DEFAULT_EMBED_MODEL };
   var busy = false;
   var abortCtrl = null;
+  var lastUsedModel = '';
 
   function $(id) { return document.getElementById(id); }
 
@@ -149,8 +150,14 @@
     models.forEach(function (m) {
       var b = document.createElement('button');
       b.className = 'model-dropdown-item' + (m === cur ? ' selected' : '');
-      var label = MODEL_LABELS[m] || m;
-      b.innerHTML = '<span class="model-item-label">' + label + '</span><span class="model-item-sub">' + m + '</span>';
+      var labelSpan = document.createElement('span');
+      labelSpan.className = 'model-item-label';
+      labelSpan.textContent = MODEL_LABELS[m] || m;
+      var subSpan = document.createElement('span');
+      subSpan.className = 'model-item-sub';
+      subSpan.textContent = m;
+      b.appendChild(labelSpan);
+      b.appendChild(subSpan);
       b.dataset.model = m;
       b.addEventListener('click', function () {
         settings.model = m;
@@ -164,17 +171,6 @@
       list.appendChild(b);
     });
     btn.querySelector('.model-name').textContent = MODEL_LABELS[cur] || cur;
-    btn.addEventListener('click', function () {
-      var opening = !list.classList.contains('open');
-      list.classList.toggle('open', opening);
-      btn.setAttribute('aria-expanded', String(opening));
-    });
-    document.addEventListener('click', function (e) {
-      if (!e.target.closest('.model-dropdown')) {
-        list.classList.remove('open');
-        btn.setAttribute('aria-expanded', 'false');
-      }
-    });
   }
 
   function changeQuickModel() { }
@@ -253,7 +249,7 @@
     h += '<div class="stats-row"><span>Rata-rata panjang pesan</span><b>' + avg + ' karakter</b></div>';
     if (top.length) {
       h += '<div class="stats-title">Kata yang sering muncul</div>';
-      top.forEach(function (w) { h += '<div class="stats-row"><span>' + w + '</span><b>' + words[w] + '×</b></div>'; });
+      top.forEach(function (w) { h += '<div class="stats-row"><span>' + esc(w) + '</span><b>' + words[w] + '×</b></div>'; });
     } else {
       h += '<div class="stats-title">Kata yang sering muncul</div><p class="set-hint">Belum ada data.</p>';
     }
@@ -639,7 +635,6 @@
 
   function saveHistory() {
     try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-200)));
       var s = currentSession();
       if (s) { s.history = history.slice(-200); touchSession(); saveSessions(); }
     } catch (e) {}
@@ -659,7 +654,7 @@
       method: 'POST',
       headers: apiHeaders(),
       body: JSON.stringify({
-        model: settings.model,
+        model: lastUsedModel || settings.model,
         stream: false,
         max_tokens: 400,
         temperature: 0.3,
@@ -1474,7 +1469,7 @@
     var el = msgs[idx];
     if (!el) return;
     el.style.border = '1px solid var(--accent)';
-    el.style.background = 'rgba(124, 58, 237, .15)';
+    el.style.background = 'var(--accent-dim)';
     el.scrollIntoView({ block: 'center' });
     var cnt = $('search-count');
     if (cnt && searchMatches.length) cnt.textContent = (searchIdx + 1) + '/' + searchMatches.length + ' ditemukan';
@@ -1933,6 +1928,7 @@
   function sendChat() {
     if (busy) {
       kbCancel = true;
+      webFetching = false;
       if (abortCtrl) abortCtrl.abort();
       else { busy = false; setSendUI(false); setStatus('⏹ Dihentikan.'); }
       return;
@@ -2060,6 +2056,7 @@
             saveHistory();
             renderHistory();
             busy = false;
+            lastUsedModel = model;
             setSendUI(false);
             setStatus('');
             trackUsage();
@@ -2115,6 +2112,7 @@
     FALLBACKS.forEach(function (f) { if (pool.indexOf(f) === -1) pool.push(f); });
 
     function next() {
+      if (!busy) return;
       var model = pool.shift();
       if (!model) return fail(new Error('Semua model gagal.'));
       if ((webMode || needsWeb(text)) && !webContext && !webFetching) {
@@ -2357,6 +2355,21 @@
     applyTheme(settings.theme);
     applyFont();
     populateQuickModel();
+    var qmb = $('quick-model-btn');
+    var qml = $('quick-model-list');
+    if (qmb && qml) {
+      qmb.addEventListener('click', function () {
+        var opening = !qml.classList.contains('open');
+        qml.classList.toggle('open', opening);
+        qmb.setAttribute('aria-expanded', String(opening));
+      });
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('.model-dropdown')) {
+          qml.classList.remove('open');
+          qmb.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
     loadPinned();
     var sb = $('btn-sound');
     if (sb) { sb.classList.toggle('active', settings.soundEnabled); sb.title = settings.soundEnabled ? 'Bunyi saat selesai: aktif' : 'Bunyi saat selesai: nonaktif'; sb.setAttribute('aria-pressed', String(settings.soundEnabled)); }
@@ -2432,10 +2445,13 @@
     $('btn-url-close').addEventListener('click', closeUrlModal);
     $('url-modal').addEventListener('click', function (e) { if (e.target === $('url-modal')) closeUrlModal(); });
     $('url-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submitUrl(); } });
-    document.addEventListener('dragover', function (e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; document.body.classList.add('drag-over'); });
-    document.addEventListener('dragleave', function () { document.body.classList.remove('drag-over'); });
+    var dragCounter = 0;
+    document.addEventListener('dragover', function (e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    document.addEventListener('dragenter', function (e) { e.preventDefault(); dragCounter++; document.body.classList.add('drag-over'); });
+    document.addEventListener('dragleave', function () { if (--dragCounter <= 0) { dragCounter = 0; document.body.classList.remove('drag-over'); } });
     document.addEventListener('drop', function (e) {
       e.preventDefault();
+      dragCounter = 0;
       document.body.classList.remove('drag-over');
       var dt = e.dataTransfer;
       if (dt && dt.files && dt.files.length) {
