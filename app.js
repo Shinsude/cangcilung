@@ -429,6 +429,7 @@
     summary = '';
     saveHistory();
     saveSummary();
+    loadPinned();
     renderHistory();
     connSub();
     closeSessions();
@@ -454,6 +455,7 @@
     summary = '';
     var s = currentSession();
     if (s) { history = s.history.slice(); summary = s.summary || ''; }
+    loadPinned();
     clearAttachment();
     clearImage();
     renderHistory();
@@ -683,6 +685,7 @@
           summary = txt.slice(0, 2000);
           saveSummary();
           history = keep;
+          currentSession().history = keep.slice();
           saveHistory();
           renderHistory();
           fetch(apiUrl('/chat/completions'), {
@@ -701,6 +704,7 @@
         }
         saveSummary();
         history = keep;
+        currentSession().history = keep.slice();
         saveHistory();
         renderHistory();
       })
@@ -1272,8 +1276,12 @@
         var note = document.createElement('div');
         note.className = 'msg-note verify-note';
         note.textContent = '🔎 Koreksi: ' + txt.slice(0, 500);
-        var box = $('chat-messages');
-        if (box) box.appendChild(note);
+        var msgs = $('chat-messages');
+        if (msgs) {
+          var lastBubble = msgs.querySelector('.msg.assistant:last-of-type .msg-bubble');
+          if (lastBubble) lastBubble.appendChild(note);
+          else msgs.appendChild(note);
+        }
         scrollChat();
       })
       .catch(function () {});
@@ -1459,6 +1467,7 @@
       var b = addBubble(m.role, m.content, i, m.t);
       if (m.role === 'assistant') addRunButtons(b);
     });
+    if (suggestions.length) renderSuggestions();
     if (searchActive) runSearch();
   }
 
@@ -1775,6 +1784,8 @@
   function renderSuggestions() {
     var box = $('chat-messages');
     if (!suggestions.length) return;
+    var existing = box.querySelector('.msg.suggest');
+    if (existing) existing.remove();
     var wrap = document.createElement('div');
     wrap.className = 'msg suggest';
     var label = document.createElement('div');
@@ -2084,10 +2095,9 @@
         : /^(thanks|terima kasih|makasih)/i.test(text) ? 'Sama-sama! Senang bisa membantu.'
         : /^(bye|dah|sampai)/i.test(text) ? 'Sampai jumpa!'
         : 'Ya, ada yang perlu?';
+      history.push({ role: 'user', content: text, t: nowTime() });
       history.push({ role: 'assistant', content: quickReply, t: nowTime() });
       saveHistory();
-      var greetBubble = addBubble('assistant', quickReply);
-      addRunButtons(greetBubble);
       renderHistory();
       busy = false;
       setSendUI(false);
@@ -2143,11 +2153,10 @@
       return;
     }
 
+    var fallbackNote = '';
+
     function addFallbackNote(name) {
-      var note = document.createElement('div');
-      note.className = 'msg-note';
-      note.textContent = '→ otomatis pindah ke ' + name + ' (model sebelumnya sibuk/limit)';
-      bubble.appendChild(note);
+      fallbackNote = '→ otomatis pindah ke ' + name + ' (model sebelumnya sibuk/limit)';
     }
 
     function attemptStream(model) {
@@ -2250,6 +2259,13 @@
             history.push({ role: 'assistant', content: full, t: nowTime() });
             saveHistory();
             renderHistory();
+            if (fallbackNote) {
+              var fn = document.createElement('div');
+              fn.className = 'msg-note';
+              fn.textContent = fallbackNote;
+              $('chat-messages').appendChild(fn);
+              fallbackNote = '';
+            }
             busy = false;
             lastUsedModel = model;
             setSendUI(false);
