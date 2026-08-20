@@ -85,9 +85,11 @@
   }
 
   /* ---------- pencarian semantik ---------- */
-  var SLANG = { gmn: 'bagaimana', gw: 'saya', sy: 'saya', klo: 'kalau', krn: 'karena', tp: 'tapi', yg: 'yang', aja: 'saja', bgt: 'banget', dong: 'saja', sih: 'saja', kok: 'apa', deh: 'saja', dong: 'saja', nih: 'ini', dong: 'saja' };
+  var SLANG = { gmn: 'bagaimana', gw: 'saya', sy: 'saya', klo: 'kalau', krn: 'karena', tp: 'tapi', yg: 'yang', aja: 'saja', bgt: 'banget', dong: 'saja', sih: 'saja', kok: 'apa', deh: 'saja', nih: 'ini', lg: 'lagi', skrg: 'sekarang', bbrp: 'beberapa', smua: 'semua', tmn: 'teman', ortu: 'orang tua', kerja: 'bekerja', sklh: 'sekolah', uang: 'duit' };
+  var STOP_WORDS = /^(yang|dan|di|ke|dari|ini|itu|untuk|dengan|pada|adalah|ialah|akan|juga|sudah|telah|bisa|dapat|tidak|bukan|belum|belum|karena|sebagai|jika|maka|oleh|sebuah|ada|hal|cara|agar|supaya|bagaimana|gimana|mengapa|kenapa|kapan|dimana|siapa|apa|berapa)$/i;
   function normalizeQuery(q) {
-    return q.replace(/\b[a-z]{2,5}\b/gi, function (w) { return SLANG[w.toLowerCase()] || w; });
+    var normalized = q.replace(/\b[a-z]{2,5}\b/gi, function (w) { return SLANG[w.toLowerCase()] || w; });
+    return normalized.replace(/\b[a-z]{3,}\b/gi, function (w) { return STOP_WORDS.test(w) ? '' : w; }).replace(/\s+/g, ' ').trim();
   }
   function retrieve(query) {
     if (!canRetrieve()) return Promise.resolve('');

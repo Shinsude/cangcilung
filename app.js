@@ -1716,14 +1716,14 @@
       body: JSON.stringify({
         model: model,
         stream: false,
-        max_tokens: 120,
+        max_tokens: 150,
         temperature: 0.7,
         messages: [{
           role: 'system',
-          content: 'Berdasarkan pertanyaan dan jawaban berikut, buat 3 pertanyaan lanjutan yang menarik dan relevan dalam bahasa Indonesia. Pertanyaan harus:\n- Menggali lebih dalam dari topik yang dibahas\n- Menjelaskan konsep yang mungkin belum dipahami user\n- Membantu user mempraktikkan atau menerapkan pengetahuan\nFormat: satu pertanyaan per baris, tanpa nomor, tanpa teks lain.'
+          content: 'Kamu adalah asisten yang membantu user belajar lebih dalam. Berdasarkan percakapan berikut, buat 3 pertanyaan lanjutan yang ACTIONABLE dan relevan:\n- Jika ada kode: tawarkan untuk menjelaskan bagian tertentu, memodifikasi, atau menguji\n- Jika ada konsep: tawarkan analogi, contoh kasus, atau latihan\n- Jika ada data/angka: tawarkan analisis perbandingan atau visualisasi\n- Jika ada error: tawarkan debugging atau optimasi\nFormat: HANYA pertanyaan, satu per baris, tanpa nomor, tanpa penjelasan lain. Maksimal 15 kata per pertanyaan.'
         }, {
           role: 'user',
-          content: 'Pertanyaan: ' + question + '\n\nJawaban: ' + String(answer).slice(0, 2000)
+          content: 'Pertanyaan user: ' + question.slice(0, 500) + '\n\nJawaban yang diberikan: ' + String(answer).slice(0, 1500)
         }]
       })
     })
@@ -1931,7 +1931,7 @@
     }
     if (!text) return;
     var GREET_RE = /^(hi|hai|hello|halo|hey|tes|test|oke|ok|ya|yo|assalam|selamat pagi|selamat siang|selamat malam|thanks|terima kasih|makasih|dah|bye|sampai)[\s!.]*$/i;
-    if (GREET_RE.test(text) && !settings.model) {
+    if (GREET_RE.test(text)) {
       var quickReply = /^(hi|hai|hello|halo|hey|assalam)/i.test(text) ? 'Halo! Ada yang bisa saya bantu?'
         : /^(oke|ok|ya|yo)/i.test(text) ? 'Baik, silakan lanjutkan.'
         : /^(thanks|terima kasih|makasih)/i.test(text) ? 'Sama-sama! Senang bisa membantu.'
@@ -2082,9 +2082,20 @@
             if (done) return;
             done = true;
             removeTyping(bubble);
-            if (!full || full.trim().length < 3) {
-              full = full || '';
-              if (!pool.length) full = '⚠️ Model tidak memberikan jawaban. Coba lagi atau ganti model.';
+            var trimmed = (full || '').trim();
+            if (!trimmed || trimmed.length < 3) {
+              full = '';
+              if (pool.length) {
+                retryReason = 'Model tidak merespons, mencoba cadangan...';
+                return;
+              }
+              full = '⚠️ Model tidak memberikan jawaban. Coba lagi atau ganti model.';
+            }
+            var LOW_QUALITY = /^(maaf|saya tidak|saya tidak bisa|I'm sorry|I cannot|I can't|tidak bisa saya|maaf saya)/i;
+            if (trimmed.length < 50 && LOW_QUALITY.test(trimmed) && pool.length) {
+              full = '';
+              retryReason = 'Jawaban terlalu pendek, mencoba model lain...';
+              return;
             }
             history.push({ role: 'assistant', content: full, t: nowTime() });
             saveHistory();
@@ -2119,7 +2130,10 @@
             });
           }
           var renderQueued = false;
-          return pump();
+          var retryReason = '';
+          return pump().then(function () {
+            if (retryReason) return Promise.reject({ _retry: true, msg: retryReason });
+          });
         });
     }
 
@@ -2134,7 +2148,14 @@
       removeTyping(bubble);
       if (full) renderMarkdown(bubble, full);
       else renderMarkdown(bubble, '⚠️ ' + (err && err.message ? err.message : 'Gagal menghubungi model.'));
-      setStatus('Error: ' + (err && err.message ? err.message : err) + '. Cek Base URL, API key, dan koneksi internet.', true);
+      var errMsg = err && err.message ? err.message : String(err);
+      var hint = '';
+      if (/401|unauthorized|invalid.*key/i.test(errMsg)) hint = ' API key tidak valid — cek di ⚙️ Pengaturan.';
+      else if (/429|rate.?limit/i.test(errMsg)) hint = ' Terlalu banyak request — tunggu beberapa detik.';
+      else if (/fetch|network|Failed to fetch/i.test(errMsg)) hint = ' Periksa koneksi internet dan Base URL.';
+      else if (/model.*not.*found|does not exist/i.test(errMsg)) hint = ' Model tidak tersedia — coba ganti model.';
+      else if (/500|502|503/i.test(errMsg)) hint = ' Server sementara tidak tersedia — coba lagi nanti.';
+      setStatus('Error: ' + errMsg + hint, true);
       busy = false;
       setSendUI(false);
     }
@@ -2166,6 +2187,13 @@
       attemptStream(model)
         .catch(function (err) {
           if (err && err.name === 'AbortError') return fail(err);
+          if (err && err._retry) {
+            if (!pool.length) return fail(new Error(err.msg));
+            if (model !== settings.model) addFallbackNote(model);
+            setStatus(err.msg);
+            next();
+            return;
+          }
           if (full) return fail(err);
           var retryable = !err.status || err.status === 429 || err.status === 502 || err.status === 503 || err.status === 500;
           if (!retryable) return fail(err);
