@@ -68,7 +68,7 @@
   /* ---------- sanitasi: jangan pernah mengirim apiKey ke cloud ---------- */
   function cloudSettings(s) {
     var c = {};
-    ['baseUrl', 'model', 'analyModel', 'persona', 'verifyEnabled', 'theme', 'voice', 'fontSize', 'soundEnabled', 'embedBaseUrl', 'embedModel']
+    ['baseUrl', 'model', 'analyModel', 'persona', 'verifyEnabled', 'theme', 'voice', 'fontSize', 'soundEnabled', 'suggestEnabled', 'embedBaseUrl', 'embedModel']
       .forEach(function (k) { if (s[k] !== undefined) c[k] = s[k]; });
     return c;
   }

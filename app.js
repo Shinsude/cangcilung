@@ -7,36 +7,20 @@
   'use strict';
 
   var SYSTEM = [
-    'Kamu adalah cangcilung, asisten AI dewasa yang cerdas, ramah, terus terang, dan sangat membantu.',
-    'Jawab dalam bahasa Indonesia yang natural dan sopan. Pahami bahasa gaul/singkatan (misal: gmn=gimana, gw=saya, apz=apa, bgt=banget, lg=lagi) dan jawab dengan bahasa baku yang baik.',
+    'Kamu adalah cangcilung, asisten AI Indonesia yang cerdas, ramah, dan sangat membantu.',
+    'Pahami bahasa gaul/singkatan, jawab dengan bahasa baku yang baik.',
     '',
-    'CARA BERPIKIR (wajib diikuti untuk pertanyaan kompleks):',
-    '- Sebelum menjawab, identifikasi: jenis pertanyaan (fakta, opini, analisis, kode, kreatif, matematika).',
-    '- Untuk pertanyaan analitis/matematika/logika: gunakan pola "Pembuktian Berantai".',
-    '  1. Identifikasi asumsi dan fakta yang diketahui.',
-    '  2. Pecah masalah menjadi sub-masalah kecil.',
-    '  3. Selesaikan satu per satu, pastikan logika setiap langkah valid sebelum lanjut.',
-    '  4. Gabungkan sub-jawaban menjadi kesimpulan akhir.',
-    '  5. Verifikasi kesimpulan dengan substitusi balik.',
-    '- Untuk pertanyaan kode: (1) pahami requirement, (2) pilih algoritma, (3) tulis kode, (4) trace manual untuk edge case, (5) optimasi.',
-    '- Untuk pertanyaan fakta: pastikan akurasi. Jika tidak 100% yakin, katakan tingkat kepercayaanmu.',
-    '- Jika informasi tidak cukup untuk menjawab, katakan apa yang kurang dan usahakan membantu sebagian.',
-    '',
-    'ATURAN MENJAWAB:',
-    '1. AKURAT dulu, baru lengkap. Jangan menebak; jika tidak yakin, katakan tidak yakin.',
-    '2. Untuk hitungan/analisis/masalah bertahap, tunjukkan proses penalaran secara ringkas dan rapi (pakai bullet/angka).',
-    '3. Untuk pertanyaan singkat, jawab singkat. Untuk pertanyaan kompleks, jawab terstruktur (poin, tabel, kode bila perlu).',
-    '4. Jika diminta kode, berikan kode lengkap yang bisa langsung dipakai + penjelasan singkat. Selalu sertakan contoh pemakaian jika relevan.',
-    '5. Jangan mengulang pertanyaan user. Langsung ke inti jawaban.',
-    '6. Bahasa: gunakan Indonesia; istilah teknis boleh bahasa Inggris jika lebih tepat.',
-    '7. Jika user memberikan data/angka, verifikasi sebelum menggunakannya dalam perhitungan.',
-    '8. Untuk perbandingan, buat tabel atau daftar yang jelas agar mudah dipahami.',
-    '9. Jika pertanyaan ambigu, klarifikasi dulu daripada menjawab salah.',
-    '10. Jika ada beberapa pertanyaan dalam satu pesan, jawab SEMUA secara berurutan dengan penanda yang jelas (misal: **Bagian 1:**, **Bagian 2:**).',
-    '11. Manfaatkan konteks file/pengetahuan yang diberikan untuk menjawab dengan akurat.',
-    '12. Saat menggunakan informasi dari konteks dokumen atau web, sebutkan sumbernya secara eksplisit.',
-    '13. Untuk pertanyaan panjang/kompleks: gunakan heading (##), bold untuk istilah kunci, dan tabel jika ada perbandingan.',
-    '14. Akhiri jawaban panjang dengan rangkuman singkat (1-2 kalimat) dari poin utama.'
+    'ATURAN UTAMA:',
+    '1. AKURAT dulu, baru lengkap. Jangan menebak — jika tidak yakin, bilang tidak yakin.',
+    '2. Tunjukkan proses penalaran untuk hitungan/analisis (bullet/angka).',
+    '3. Singkat untuk pertanyaan singkat. Terstruktur untuk yang kompleks (poin/tabel/kode).',
+    '4. Kode: lengkap + bisa dipakai + contoh pemakaian. Jangan ulang pertanyaan user.',
+    '5. Bahasa Indonesia; istilah teknis boleh Inggris.',
+    '6. Verifikasi data/angka dari user sebelum dipakai.',
+    '7. Perbandingan → tabel. Pertanyaan ambigu → klarifikasi dulu.',
+    '8. Multi-pertanyaan: jawab SEMUA berurutan (Bagian 1, 2, dst).',
+    '9. Manfaatkan konteks file/pengetahuan/web. Sebutkan sumbernya.',
+    '10. Jawaban panjang: pakai heading, bold, dan akhiri dengan rangkuman 1-2 kalimat.'
   ].join(' ');
   var PERSONAS = {
     default: '',
@@ -72,6 +56,28 @@
   var abortCtrl = null;
   var lastUsedModel = '';
 
+  var MAX_HISTORY = 200;
+  var MAX_SESSIONS_UNBOUNDED = true;
+  var SUMMARY_THRESHOLD = 3000;
+  var SUMMARY_MAX_TOKENS = 400;
+  var RAG_CHUNK_SIZE = 2000;
+  var RAG_CHUNK_OVERLAP = 200;
+  var RAG_BUDGET = 24000;
+  var FILE_CHUNK = 16000;
+  var MSG_BUDGET = 28000;
+  var INPUT_MAX_CHARS = 30000;
+  var WORKER_TIMEOUT = 5000;
+  var IMAGE_MAX_DIM = 1200;
+  var IMAGE_QUALITY = 0.75;
+  var SOUND_VOLUME = 0.08;
+  var TOAST_DURATION = 2400;
+  var SCROLL_THRESHOLD = 80;
+  var DDG_TIMEOUT = 12000;
+  var WIKI_TIMEOUT = 10000;
+  var PROXY_TIMEOUT = 15000;
+  var MAX_TOKENS_NORMAL = 1024;
+  var MAX_TOKENS_ANALYSIS = 2048;
+
   function $(id) { return document.getElementById(id); }
 
   var cloudNotify = null;
@@ -93,7 +99,7 @@
 
   function saveSummary() {
     try {
-      localStorage.setItem(SUMMARY_KEY, summary);
+      safeSetItem(SUMMARY_KEY, summary);
       var s = currentSession();
       if (s) { s.summary = summary; touchSession(); saveSessions(); }
     } catch (e) {}
@@ -186,8 +192,6 @@
     });
     btn.querySelector('.model-name').textContent = MODEL_LABELS[cur] || cur;
   }
-
-  function changeQuickModel() { }
 
   var FONT_SIZES = ['small', 'normal', 'large'];
 
@@ -352,7 +356,7 @@
   }
 
   function saveSettings() {
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+    try { safeSetItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
     if (cloudNotify) cloudNotify('settings');
   }
 
@@ -379,9 +383,25 @@
     saveSessions();
   }
 
+  var _lsWarned = false;
+  function safeSetItem(key, val) {
+    try { localStorage.setItem(key, val); return true; }
+    catch (e) {
+      if (!_lsWarned) { _lsWarned = true; setStatus('⚠️ localStorage penuh! Data mungkin tidak tersimpan. Hapus beberapa sesi lama.', true); }
+      return false;
+    }
+  }
+  var _saveTimer = null;
   function saveSessions() {
-    try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions)); } catch (e) {}
-    if (cloudNotify) cloudNotify('sessions');
+    if (_saveTimer) clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(function () {
+      _saveTimer = null;
+      if (safeSetItem(SESSIONS_KEY, JSON.stringify(sessions)) && cloudNotify) cloudNotify('sessions');
+    }, 300);
+  }
+  function saveSessionsNow() {
+    if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+    if (safeSetItem(SESSIONS_KEY, JSON.stringify(sessions)) && cloudNotify) cloudNotify('sessions');
   }
 
   function currentSession() {
@@ -599,7 +619,7 @@
     } catch (e) {}
   }
   function saveMemory() {
-    try { localStorage.setItem(MEMORY_KEY, JSON.stringify(memory)); } catch (e) {}
+    try { safeSetItem(MEMORY_KEY, JSON.stringify(memory)); } catch (e) {}
   }
   function trackTopic(text) {
     var words = (text.toLowerCase().match(/[a-z0-9]{4,}/g) || []);
@@ -660,7 +680,7 @@
           renderHistory();
           fetch(apiUrl('/chat/completions'), {
             method: 'POST', headers: apiHeaders(),
-            body: JSON.stringify({ model: model, stream: false, max_tokens: 400, temperature: 0.3, messages: [
+            body: JSON.stringify({ model: lastUsedModel || settings.model, stream: false, max_tokens: 400, temperature: 0.3, messages: [
               { role: 'system', content: 'Ringkasan percakapan. Gabungkan ringkasan lama dan baru jadi satu ringkasan padat (maks 300 kata). Fokus: topik utama, keputusan, fakta kunci, preferensi user. Bullet-point.' },
               { role: 'user', content: 'RINGKASAN LAMA:\n' + oldSummary.slice(0, 2000) + '\n\nRINGKASAN BARU:\n' + txt.slice(0, 2000) }
             ] })
@@ -996,9 +1016,7 @@
       var btn = document.createElement('button');
       btn.className = 'run-btn';
       btn.textContent = '▶ Jalankan';
-      btn.addEventListener('click', function () {
-        runCode(code.textContent, pre);
-      });
+      btn.dataset.action = 'run';
       pre.appendChild(btn);
     });
   }
@@ -1250,8 +1268,9 @@
         var box = $('chat-messages');
         if (box) box.appendChild(note);
         scrollChat();
-        var corrected = '📌 Jawaban dikoreksi oleh verifikasi otomatis:\n\n' + txt.slice(0, 2000);
-        history.push({ role: 'assistant', content: corrected, t: nowTime(), pinned: true });
+        for (var mi = history.length - 1; mi >= 0; mi--) {
+          if (history[mi].role === 'assistant') { history[mi].content = txt.slice(0, 2000); break; }
+        }
         saveHistory();
       })
       .catch(function () {});
@@ -1285,14 +1304,14 @@
     copyBtn.className = 'bubble-act';
     copyBtn.textContent = '📋';
     copyBtn.title = 'Salin';
-    copyBtn.addEventListener('click', function () { copyText(text || ''); });
+    copyBtn.dataset.action = 'copy';
     actions.appendChild(copyBtn);
     if (role === 'user' && index != null) {
       var edBtn = document.createElement('button');
       edBtn.className = 'bubble-act';
       edBtn.textContent = '✏️';
       edBtn.title = 'Edit pesan';
-      edBtn.addEventListener('click', function () { editMessage(index); });
+      edBtn.dataset.action = 'edit';
       actions.appendChild(edBtn);
     }
     if (role === 'assistant' && text && index === history.length - 1) {
@@ -1300,7 +1319,7 @@
       reBtn.className = 'bubble-act';
       reBtn.textContent = '🔁';
       reBtn.title = 'Ulangi jawaban';
-      reBtn.addEventListener('click', function () { regenerateLast(); });
+      reBtn.dataset.action = 'regenerate';
       actions.appendChild(reBtn);
     }
     if (index != null) {
@@ -1308,7 +1327,7 @@
       pinBtn.className = 'bubble-act';
       pinBtn.textContent = '📌';
       pinBtn.title = 'Semat pesan';
-      pinBtn.addEventListener('click', function () { togglePin(index); });
+      pinBtn.dataset.action = 'pin';
       actions.appendChild(pinBtn);
     }
     wrap.appendChild(actions);
@@ -1318,6 +1337,17 @@
   }
 
   var editingIndex = -1;
+
+  function doClearChat() {
+    if (busy) { closeToolsMenu(); closeSidebar(); setStatus('Tunggu jawaban selesai sebelum menghapus.', true); return; }
+    closeToolsMenu();
+    if (!history.length) { setStatus('Belum ada pesan untuk dihapus.'); return; }
+    openConfirm('Hapus obrolan', 'Semua pesan di percakapan ini akan dihapus permanen. Lanjutkan?', '🗑️ Hapus', function () {
+      history = []; summary = ''; clearAttachment(); clearImage();
+      saveHistory(); saveSummary(); renderHistory();
+      showToast('🗑️ Obrolan dihapus.');
+    });
+  }
 
   function editMessage(index) {
     if (busy) return;
@@ -1867,7 +1897,7 @@
       });
   }
 
-  var ANALYSIS_RE = /\b(hitung|hitunglah|jumlahkan|kalikan|bagikan|kurangkan|berapakah?|berapa (hasil|x|y|z)|rumus|persamaan|akar|logaritma|persen|konversi|prosentase|rata.?rata|mean|median|modus|standar deviasi|variansi|probabilitas|peluang)\b|\d\s*[-+*/^]\s*\d|\d+[.,]\d+\s*[-+*/^=<>]\s*\d|\(\s*\d/i;
+  var ANALYSIS_RE = /\b(hitung|hitunglah|jumlahkan|kalikan|bagikan|kurangkan|berapakah|berapa (hasil|angka|nilai|jumlah)|rumus|persamaan|akar|logaritma|persen|konversi|prosentase|rata.?rata|mean|median|modus|standar deviasi|variansi|probabilitas|peluang)\b|\d\s*[-+*/^]\s*\d|\d+[.,]\d+\s*[-+*/^=<>]\s*\d|\(\s*\d/i;
   var LOGIC_RE = /\b(logika|logical|analisa|analisis|bandingkan|bandingkanlah|buktikan|deriv|turunan|integral|persamaan|soal|case\b|debug|perbaiki kode|tulis kode|buatkan kode|pseudocode|algoritma|optimalkan|evaluasi|penjelasan kenapa|mengapa|sebab|akibat|perbandingan|kelebihan|kekurangan|pros\s*kon)\b/i;
 
   function needsAnalysis(text) {
@@ -1880,12 +1910,52 @@
     expr = String(expr).replace(/[^\d+\-*/().^,%\s]/g, '');
     if (!/[\d]/.test(expr) || !/[-+*/^]/.test(expr)) return null;
     expr = expr.replace(/\s+/g, '').replace(/,/g, '.').replace(/\^/g, '**');
-    try {
-      var fn = new Function('return (' + expr + ')');
-      var result = fn();
-      if (typeof result !== 'number' || !isFinite(result)) return null;
-      return result;
-    } catch (e) { return null; }
+    if (/\.\./.test(expr) || /^\./.test(expr) || /\.$/.test(expr)) return null;
+    if (/[^0-9)]\*{2}[^0-9(]/.test(expr) || /\*{3,}/.test(expr)) return null;
+    var result = (function parse(s, pos) {
+      pos = pos || { i: 0 };
+      function parseExpr() {
+        var left = parseTerm();
+        while (pos.i < s.length && (s[pos.i] === '+' || s[pos.i] === '-')) {
+          var op = s[pos.i++];
+          var right = parseTerm();
+          left = op === '+' ? left + right : left - right;
+        }
+        return left;
+      }
+      function parseTerm() {
+        var left = parseUnary();
+        while (pos.i < s.length && (s[pos.i] === '*' || s[pos.i] === '/')) {
+          var op = s[pos.i++];
+          var right = parseUnary();
+          left = op === '*' ? left * right : left / right;
+        }
+        return left;
+      }
+      function parseUnary() {
+        if (s[pos.i] === '-') { pos.i++; return -parsePrimary(); }
+        if (s[pos.i] === '+') { pos.i++; }
+        return parsePrimary();
+      }
+      function parsePrimary() {
+        if (s[pos.i] === '(') {
+          pos.i++;
+          var val = parseExpr();
+          if (s[pos.i] === ')') pos.i++;
+          return val;
+        }
+        var numStr = '';
+        while (pos.i < s.length && /[0-9.]/.test(s[pos.i])) { numStr += s[pos.i++]; }
+        var num = parseFloat(numStr);
+        if (pos.i < s.length && s[pos.i] === '*') {
+          if (s[pos.i + 1] === '*') { pos.i += 2; return Math.pow(num, parseUnary()); }
+        }
+        return num;
+      }
+      var r = parseExpr();
+      return (pos.i >= s.length && isFinite(r)) ? r : null;
+    })(expr);
+    return result;
   }
 
   function calcAnswer(text) {
@@ -2112,15 +2182,15 @@
       var MAX_CHARS = 28000;
       var sysChars = 0;
       messages.forEach(function (m) { sysChars += (typeof m.content === 'string' ? m.content.length : 200); });
-      var budgedHistory = [];
+      var budgetedHistory = [];
       var hChars = 0;
       for (var hi = history.length - 1; hi >= 0; hi--) {
         var mc = (history[hi].content || '').length;
         if (hChars + mc > MAX_CHARS - sysChars - 2000) break;
         hChars += mc;
-        budgedHistory.unshift({ role: history[hi].role, content: history[hi].content });
+        budgetedHistory.unshift({ role: history[hi].role, content: history[hi].content });
       }
-      messages = messages.concat(budgedHistory);
+      messages = messages.concat(budgetedHistory);
       var body = {
         model: model,
         stream: true,
@@ -2216,6 +2286,7 @@
     }
 
     function fail(err) {
+      _nextRunning = false;
       if (err && err.name === 'AbortError') {
         removeTyping(bubble);
         busy = false;
@@ -2248,8 +2319,10 @@
     if (pool.indexOf(settings.model) === -1) pool.push(settings.model);
     FALLBACKS.forEach(function (f) { if (pool.indexOf(f) === -1) pool.push(f); });
 
+    var _nextRunning = false;
     function next() {
-      if (!busy) return;
+      if (!busy || _nextRunning) return;
+      _nextRunning = true;
       var model = pool.shift();
       if (!model) return fail(new Error('Semua model gagal.'));
       if ((webMode || needsWeb(text)) && !webContext && !webFetching) {
@@ -2262,6 +2335,7 @@
           setStatus('Mode web: gagal mencari, lanjut jawab biasa.');
         }).finally(function () {
           webFetching = false;
+          _nextRunning = false;
           next();
         });
         return;
@@ -2273,6 +2347,7 @@
             if (!pool.length) return fail(new Error(err.msg));
             if (model !== settings.model) addFallbackNote(model);
             setStatus(err.msg);
+            _nextRunning = false;
             next();
             return;
           }
@@ -2282,6 +2357,7 @@
           if (!pool.length) return fail(err);
           if (model !== settings.model) addFallbackNote(model);
           setStatus('Model ' + model + ' sibuk, coba cadangan...');
+          _nextRunning = false;
           next();
         });
     }
@@ -2291,8 +2367,9 @@
       window.__kb.retrieve(text).then(function (c) {
         if (kbCancel) return;
         kbContext = c || '';
+        _nextRunning = false;
         next();
-      }).catch(function () { if (!kbCancel) next(); });
+      }).catch(function () { if (!kbCancel) { _nextRunning = false; next(); } });
     } else {
       next();
     }
@@ -2549,6 +2626,25 @@
     $('btn-file-summary').addEventListener('click', summarizeFile);
     $('btn-attach-clear').addEventListener('click', clearAttachment);
     $('btn-img-clear').addEventListener('click', clearImage);
+    $('chat-messages').addEventListener('click', function (e) {
+      var btn = e.target.closest('.bubble-act, .run-btn');
+      if (!btn) return;
+      var action = btn.dataset.action;
+      if (action === 'run') {
+        var pre = btn.closest('pre');
+        var code = pre ? pre.querySelector('code') : null;
+        if (code) runCode(code.textContent, pre);
+        return;
+      }
+      var wrap = btn.closest('.msg');
+      var idx = wrap && wrap.dataset.index != null ? parseInt(wrap.dataset.index) : null;
+      if (action === 'copy') {
+        var bbl = wrap ? wrap.querySelector('.msg-bubble') : null;
+        copyText(bbl ? bbl.textContent : '');
+      } else if (action === 'edit' && idx != null) { editMessage(idx); }
+      else if (action === 'regenerate') { regenerateLast(); }
+      else if (action === 'pin' && idx != null) { togglePin(idx); }
+    });
     $('btn-web').addEventListener('click', function () { toggleWebMode(); closeInputMore(); });
     $('btn-web-clear').addEventListener('click', toggleWebMode);
     suggestEnabled = settings.suggestEnabled === true;
@@ -2611,21 +2707,7 @@
         sendChat();
       }
     });
-    $('btn-clear-chat').addEventListener('click', function () {
-      if (busy) { closeToolsMenu(); setStatus('Tunggu jawaban selesai sebelum menghapus.', true); return; }
-      closeToolsMenu();
-      if (!history.length) { setStatus('Belum ada pesan untuk dihapus.'); return; }
-      openConfirm('Hapus obrolan', 'Semua pesan di percakapan ini akan dihapus permanen. Lanjutkan?', '🗑️ Hapus', function () {
-        history = [];
-        summary = '';
-        clearAttachment();
-        clearImage();
-        saveHistory();
-        saveSummary();
-        renderHistory();
-        showToast('🗑️ Obrolan dihapus.');
-      });
-    });
+    $('btn-clear-chat').addEventListener('click', function () { doClearChat(); });
     $('btn-tools').addEventListener('click', function () {
       var m = $('tools-menu');
       var opening = m.hidden;
@@ -2662,16 +2744,7 @@
     $('sidebar-export').addEventListener('click', function () { openExportMenu(); closeSidebar(); });
     $('sidebar-backup').addEventListener('click', function () { openBackup(); closeSidebar(); });
     $('sidebar-kb').addEventListener('click', function () { if (window.__kb && window.__kb.openKb) window.__kb.openKb(); closeSidebar(); });
-    $('sidebar-clear-chat').addEventListener('click', function () {
-      closeSidebar();
-      if (busy) { setStatus('Tunggu jawaban selesai sebelum menghapus.', true); return; }
-      if (!history.length) { setStatus('Belum ada pesan untuk dihapus.'); return; }
-      openConfirm('Hapus obrolan', 'Semua pesan di percakapan ini akan dihapus permanen. Lanjutkan?', '🗑️ Hapus', function () {
-        history = []; summary = ''; clearAttachment(); clearImage();
-        saveHistory(); saveSummary(); renderHistory();
-        showToast('🗑️ Obrolan dihapus.');
-      });
-    });
+    $('sidebar-clear-chat').addEventListener('click', function () { doClearChat(); closeSidebar(); });
     $('sidebar-theme').addEventListener('click', function () { cycleTheme(); closeSidebar(); });
     $('sidebar-settings').addEventListener('click', function () { openSettings(); closeSidebar(); });
     $('sidebar-cloud').addEventListener('click', function () { openCloudModal(); closeSidebar(); });
@@ -2729,6 +2802,7 @@
       if (s.voice) settings.voice = s.voice;
       if (s.fontSize) settings.fontSize = s.fontSize;
       if (s.soundEnabled !== undefined) settings.soundEnabled = s.soundEnabled;
+      if (s.suggestEnabled !== undefined) { settings.suggestEnabled = s.suggestEnabled; suggestEnabled = s.suggestEnabled; }
       if (s.embedBaseUrl) settings.embedBaseUrl = s.embedBaseUrl;
       if (s.embedModel) settings.embedModel = s.embedModel;
       saveSettings();
