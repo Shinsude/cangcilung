@@ -20,7 +20,13 @@
     '7. Perbandingan → tabel. Pertanyaan ambigu → klarifikasi dulu.',
     '8. Multi-pertanyaan: jawab SEMUA berurutan (Bagian 1, 2, dst).',
     '9. Manfaatkan konteks file/pengetahuan/web. Sebutkan sumbernya.',
-    '10. Jawaban panjang: pakai heading, bold, dan akhiri dengan rangkuman 1-2 kalimat.'
+    '10. Jawaban panjang: pakai heading, bold, dan akhiri dengan rangkuman 1-2 kalimat.',
+    '',
+    'DISCLAIMER WAJIB:',
+    '- MEDIS: Selalu sertakan "Ini informasi umum, bukan pengganti konsultasi dokter." untuk pertanyaan kesehatan.',
+    '- HUKUM: Selalu sertakan "Ini informasi umum, bukan pengganti konsultasi pengacara." untuk pertanyaan hukum.',
+    '- KEUANGAN: Selalu sertakan "Ini informasi umum, bukan saran investasi profesional." untuk pertanyaan keuangan/investasi.',
+    '- Keputusan kritis (medis, hukum, keuangan besar) → rekomendasikan konsultasi profesional.'
   ].join(' ');
   var PERSONAS = {
     default: '',
@@ -1442,7 +1448,7 @@
       if (!history.length) {
         var welcome = document.createElement('div');
         welcome.className = 'welcome';
-        welcome.innerHTML = '<div class="welcome-avatar">A</div><p>Halo, saya cangcilung. Tanya apa saja — saya siap membantu.</p><div class="welcome-chips"></div>';
+        welcome.innerHTML = '<div class="welcome-avatar">A</div><p>Halo, saya cangcilung. Asisten AI Indonesia — tanya apa saja, saya siap membantu!</p><div class="welcome-chips"></div>';
         ['💡 Apa itu RAG?', '📊 Jelaskan cara kerja RAM', '🧮 Hitung 15% dari 3400', '📝 Tulis surat izin sakit'].forEach(function (c) {
           var b = document.createElement('button');
           b.className = 'welcome-chip';
@@ -1455,7 +1461,7 @@
         });
         var features = document.createElement('div');
         features.className = 'welcome-features';
-        [['📎', 'Lampirkan file'], ['🔗', 'Pahami URL'], ['🌐', 'Cari di web'], ['🎤', 'Bicara']].forEach(function (f) {
+        [['📎', 'Lampirkan file'], ['🌐', 'Cari di web'], ['🧠', 'Basis pengetahuan'], ['🎤', 'Bicara']].forEach(function (f) {
           var d = document.createElement('div');
           d.className = 'welcome-feature';
           d.innerHTML = '<span>' + f[0] + '</span>' + f[1];
@@ -1464,7 +1470,7 @@
         welcome.appendChild(features);
         var hint = document.createElement('div');
         hint.className = 'welcome-hint';
-        hint.textContent = 'Gunakan tombol di bawah untuk fitur lanjutan';
+        hint.textContent = '📎 File • 🌐 Web search • 🧠 Knowledge base • 🎤 Voice';
         welcome.appendChild(hint);
         box.appendChild(welcome);
         return;
