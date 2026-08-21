@@ -378,5 +378,6 @@
       });
     });
     window.__cloudInit();
+    if (window.cangcilung) window.cangcilung.openCloudModal = openCloudModal;
   });
 })();

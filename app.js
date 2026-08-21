@@ -215,8 +215,8 @@
   }
 
   function decryptApiKey() {
-    if (settings.apiKey && settings.apiKey.indexOf('.') > 0 && settings.apiKey.length > 60) {
-      return decryptStr(settings.apiKey).then(function (dec) { settings.apiKey = dec; });
+    if (settings.apiKey && settings.apiKey.indexOf('.') > 0 && /^[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+$/.test(settings.apiKey)) {
+      return decryptStr(settings.apiKey).then(function (dec) { settings.apiKey = dec; }).catch(function () {});
     }
     return Promise.resolve();
   }
@@ -1283,7 +1283,8 @@
         note.textContent = '🔎 Koreksi: ' + txt.slice(0, 500);
         var msgs = $('chat-messages');
         if (msgs) {
-          var lastBubble = msgs.querySelector('.msg.assistant:last-of-type .msg-bubble');
+          var bubbles = msgs.querySelectorAll('.msg-bubble');
+          var lastBubble = bubbles.length ? bubbles[bubbles.length - 1] : null;
           if (lastBubble) lastBubble.appendChild(note);
           else msgs.appendChild(note);
         }
@@ -1506,13 +1507,14 @@
   }
 
   function clearSearch() {
+    searchActive = false;
     searchMatches = [];
     searchIdx = 0;
     var cnt = $('search-count');
     if (cnt) cnt.textContent = '';
     var inp = $('search-input');
     if (inp) inp.value = '';
-    renderHistory();
+    renderHistory(true);
   }
 
   function runSearch() {
@@ -1876,10 +1878,11 @@
   function searchWebWikipedia(query) {
     var q = encodeURIComponent(query.replace(/[?""''!]/g, ' ').slice(0, 200));
     var url = 'https://id.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + q + '&format=json&origin=*&srlimit=3';
+    var hits = [];
     return fetch(url, { signal: AbortSignal.timeout(10000) })
       .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)); })
       .then(function (j) {
-        var hits = (j.query && j.query.search) || [];
+        hits = (j.query && j.query.search) || [];
         if (!hits.length) {
           return fetch('https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + q + '&format=json&origin=*&srlimit=2', { signal: AbortSignal.timeout(10000) })
             .then(function (r) { return r.ok ? r.json() : { query: { search: [] } }; })
@@ -1930,12 +1933,12 @@
   var STOPWORDS = ['yang', 'dan', 'di', 'ke', 'dari', 'untuk', 'dengan', 'pada', 'ini', 'itu', 'apa', 'bagaimana', 'berapa', 'apakah', 'kenapa', 'mengapa', 'saya', 'kamu', 'aku', 'mau', 'tolong', 'jelaskan', 'dalam', 'secara', 'akan', 'tidak', 'bisa', 'please'];
 
   function fileContextMessages() {
-    if (!attachedFile) return [];
+    if (!attachedFile) return Promise.resolve([]);
     var msg = [];
     var text = attachedFile.text;
     if (text.length <= FILE_CHUNK) {
       msg.push({ role: 'user', content: 'Saya lampirkan isi file "' + attachedFile.name + '":\n\n' + text });
-      return msg;
+      return Promise.resolve(msg);
     }
     var question = history.length ? history[history.length - 1].content : '';
     var chunkSize = RAG_CHUNK_SIZE;
@@ -2099,6 +2102,7 @@
       editingIndex = -1;
       history[ei] = { role: 'user', content: text, t: history[ei].t || nowTime() };
       history = history.slice(0, ei + 1);
+      _renderedCount = 0;
       saveHistory();
       renderHistory();
     } else {
@@ -2146,7 +2150,8 @@
       if (memCtx) {
         messages.push({ role: 'system', content: memCtx });
       }
-      fileContextMessages().forEach(function (m) { messages.push(m); });
+      fileContextMessages().then(function (fileMsgs) {
+      fileMsgs.forEach(function (m) { messages.push(m); });
       if (attachedImage) {
         var imgQ = history.length ? history[history.length - 1].content : 'Deskripsikan gambar ini.';
         messages.push({
@@ -2234,6 +2239,7 @@
             }
             history.push({ role: 'assistant', content: full, t: nowTime() });
             saveHistory();
+            if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
             renderHistory();
             if (fallbackNote) {
               var fn = document.createElement('div');
@@ -2278,6 +2284,7 @@
             if (retryReason) return Promise.reject({ _retry: true, msg: retryReason });
           });
         });
+      }); 
     }
 
     function fail(err) {
@@ -2744,7 +2751,7 @@
     $('sidebar-clear-chat').addEventListener('click', function () { doClearChat(); closeSidebar(); });
     $('sidebar-theme').addEventListener('click', function () { cycleTheme(); closeSidebar(); });
     $('sidebar-settings').addEventListener('click', function () { openSettings(); closeSidebar(); });
-    $('sidebar-cloud').addEventListener('click', function () { openCloudModal(); closeSidebar(); });
+    $('sidebar-cloud').addEventListener('click', function () { if (window.cangcilung && window.cangcilung.openCloudModal) window.cangcilung.openCloudModal(); closeSidebar(); });
     $('btn-modal-close').addEventListener('click', closeSettings);
     $('btn-set-cancel').addEventListener('click', closeSettings);
     $('btn-set-save').addEventListener('click', saveSettingsFromModal);
