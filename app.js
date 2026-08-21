@@ -2150,7 +2150,7 @@
       if (memCtx) {
         messages.push({ role: 'system', content: memCtx });
       }
-      fileContextMessages().then(function (fileMsgs) {
+      return fileContextMessages().then(function (fileMsgs) {
       fileMsgs.forEach(function (m) { messages.push(m); });
       if (attachedImage) {
         var imgQ = history.length ? history[history.length - 1].content : 'Deskripsikan gambar ini.';
