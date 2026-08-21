@@ -401,11 +401,16 @@
       try {
         var data = JSON.parse(r.result);
         if (!data || !data.sessions) throw new Error('File bukan cadangan cangcilung.');
+        if (busy) { if (abortCtrl) abortCtrl.abort(); busy = false; setSendUI(false); }
+        editingIndex = -1;
         settings = Object.assign({ baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true, embedBaseUrl: DEFAULT_EMBED_BASE, embedKey: '', embedModel: DEFAULT_EMBED_MODEL }, data.settings || {});
         sessions = Array.isArray(data.sessions) && data.sessions.length ? data.sessions : [{ id: 's1', name: 'Percakapan 1', history: [], summary: '', pinned: [] }];
         currentSessionId = data.currentSessionId && sessions.some(function (s) { return s.id === data.currentSessionId; }) ? data.currentSessionId : sessions[0].id;
         if (data.usage) localStorage.setItem(USAGE_KEY, JSON.stringify(data.usage));
         saveSettings();
+        if (settings.apiKey && /^[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+$/.test(settings.apiKey)) {
+          decryptStr(settings.apiKey).then(function (dec) { settings.apiKey = dec; saveSettings(); }).catch(function () {});
+        }
         saveSessions();
         history = [];
         summary = '';
@@ -519,6 +524,7 @@
 
   function newSession() {
     if (busy) { abortAll(); }
+    editingIndex = -1;
     var n = sessions.length + 1;
     var id = 's' + Date.now();
     sessions.push({ id: id, name: 'Percakapan ' + n, history: [], summary: '', updatedAt: Date.now() });
@@ -548,6 +554,7 @@
 
   function selectSession(id) {
     if (busy) { abortAll(); }
+    editingIndex = -1;
     currentSessionId = id;
     saveSessions();
     history = [];
@@ -564,6 +571,8 @@
 
   function deleteSession(id) {
     if (sessions.length <= 1) { setStatus('Minimal satu percakapan harus ada.', true); return; }
+    if (busy) { if (abortCtrl) abortCtrl.abort(); busy = false; setSendUI(false); }
+    editingIndex = -1;
     sessions = sessions.filter(function (s) { return s.id !== id; });
     if (cloudNotify) cloudNotify('deleteSession', id);
     if (currentSessionId === id) currentSessionId = sessions[0].id;
@@ -756,6 +765,7 @@
     if (old.length < 20) return;
     summarizing = true;
     var histLen = history.length;
+    var snapSessionId = currentSessionId;
     fetch(apiUrl('/chat/completions'), {
       method: 'POST',
       headers: apiHeaders(),
@@ -778,6 +788,7 @@
         var txt = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || '').trim();
         if (!txt) return;
         if (history.length !== histLen) return;
+        if (currentSessionId !== snapSessionId) return;
         summary = (summary ? summary + '\n' : '') + txt;
         if (summary.length > 3000) {
           var oldSummary = summary;
@@ -891,9 +902,9 @@
       function pump() {
         return reader.read().then(function (r) {
           if (r.done) {
-            removeTyping(bubble);
             history.push({ role: 'assistant', content: full, t: nowTime() });
             saveHistory();
+            if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
             renderHistory();
             busy = false;
             setSendUI(false);
@@ -1360,6 +1371,7 @@
     closeToolsMenu();
     if (!history.length) { setStatus('Belum ada pesan untuk dihapus.'); return; }
     openConfirm('Hapus obrolan', 'Semua pesan di percakapan ini akan dihapus permanen. Lanjutkan?', '🗑️ Hapus', function () {
+      editingIndex = -1;
       history = []; summary = ''; clearAttachment(); clearImage();
       saveHistory(); saveSummary(); renderHistory();
       showToast('🗑️ Obrolan dihapus.');
@@ -1852,8 +1864,8 @@
 
   function searchWeb(query) {
     var q = encodeURIComponent(query.replace(/[?""''!]/g, ' ').slice(0, 200));
-    var ddgUrl = 'https://lite.duckduckgo.com/lite/?q=' + q + '&kl=id-id';
-    var ddgPromise = fetch(ddgUrl, { signal: AbortSignal.timeout(12000), headers: { 'User-Agent': 'cangcilung/1.0' } })
+    var ddgUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://lite.duckduckgo.com/lite/?q=' + q + '&kl=id-id');
+    var ddgPromise = fetch(ddgUrl, { signal: AbortSignal.timeout(12000) })
       .then(function (res) { return res.ok ? res.text() : ''; })
       .then(function (html) {
         if (!html || html.length < 200) return '';
@@ -1964,7 +1976,8 @@
       return fetch(embedBase + '/embeddings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + embedKey },
-        body: JSON.stringify({ model: embedModel, input: textsToEmbed })
+        body: JSON.stringify({ model: embedModel, input: textsToEmbed }),
+        signal: AbortSignal.timeout(15000)
       }).then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
           if (!j || !j.data || j.data.length < 2) return fallbackTFIDF(chunks, question, msg);
@@ -2124,8 +2137,7 @@
     if (calc) {
       history.push({ role: 'assistant', content: calc, t: nowTime() });
       saveHistory();
-      removeTyping(bubble);
-      renderMarkdown(bubble, calc);
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
       renderHistory();
       busy = false;
       setSendUI(false);
@@ -2254,6 +2266,7 @@
             setStatus('');
             trackUsage();
             speakText(full);
+            abortCtrl = null;
             playDoneSound();
             var shouldVerify = isAnalysis || CODE_RE.test(text) || full.length > 300;
             if (shouldVerify) verifyAnswer(text, full);
@@ -2290,15 +2303,25 @@
     function fail(err) {
       _nextRunning = false;
       if (err && err.name === 'AbortError') {
+        if (full && full.trim().length > 5) {
+          history.push({ role: 'assistant', content: full.trim(), t: nowTime() });
+          saveHistory();
+        }
         removeTyping(bubble);
         busy = false;
         setSendUI(false);
         setStatus('⏹ Dihentikan.');
+        abortCtrl = null;
         return;
       }
-      removeTyping(bubble);
-      if (full) renderMarkdown(bubble, full);
-      else renderMarkdown(bubble, '⚠️ ' + (err && err.message ? err.message : 'Gagal menghubungi model.'));
+      if (full && full.trim().length > 10) {
+        history.push({ role: 'assistant', content: full.trim(), t: nowTime() });
+        saveHistory();
+        removeTyping(bubble);
+      } else {
+        removeTyping(bubble);
+        renderMarkdown(bubble, '⚠️ ' + (err && err.message ? err.message : 'Gagal menghubungi model.'));
+      }
       var errMsg = err && err.message ? err.message : String(err);
       var hint = '';
       if (/401|unauthorized|invalid.*key/i.test(errMsg)) hint = ' API key tidak valid — cek di ⚙️ Pengaturan.';
@@ -2309,6 +2332,7 @@
       setStatus('Error: ' + errMsg + hint, true);
       busy = false;
       setSendUI(false);
+      abortCtrl = null;
     }
 
     var pool = [];
@@ -2706,7 +2730,7 @@
       }
     });
     $('chat-input').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         e.preventDefault();
         sendChat();
       }
