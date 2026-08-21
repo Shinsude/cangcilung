@@ -1591,7 +1591,7 @@
           if (buffer.thinking) {
             var closeIdx = c.indexOf('</think>');
             if (closeIdx !== -1) { c = c.slice(closeIdx + 8); buffer.thinking = false; }
-            else c = '';
+            else { c = ''; }
           }
           if (!buffer.thinking && c) {
             var openIdx = c.indexOf('<think>');
@@ -1606,6 +1606,11 @@
         }
         if (j.choices && j.choices[0] && j.choices[0].finish_reason === 'stop') onDone();
       } catch (e) {}
+    });
+    var tail = buffer.text;
+    var tagPrefixes = ['<think>', '</think>', '</think>'];
+    tagPrefixes.forEach(function (p) {
+      if (tail.slice(-p.length) === p) { buffer.text = buffer.text.slice(0, -p.length); }
     });
   }
 
@@ -1891,11 +1896,13 @@
     var q = encodeURIComponent(query.replace(/[?""''!]/g, ' ').slice(0, 200));
     var url = 'https://id.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + q + '&format=json&origin=*&srlimit=3';
     var hits = [];
+    var usedId = true;
     return fetch(url, { signal: AbortSignal.timeout(10000) })
       .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)); })
       .then(function (j) {
         hits = (j.query && j.query.search) || [];
         if (!hits.length) {
+          usedId = false;
           return fetch('https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + q + '&format=json&origin=*&srlimit=2', { signal: AbortSignal.timeout(10000) })
             .then(function (r) { return r.ok ? r.json() : { query: { search: [] } }; })
             .then(function (j2) { hits = (j2.query && j2.query.search) || []; });
@@ -1907,7 +1914,7 @@
         var out = [];
         titles.forEach(function (title) {
           chain = chain.then(function () {
-            var base = titles.indexOf(title) < 2 ? 'id' : 'en';
+            var base = usedId ? 'id' : 'en';
             return fetch('https://' + base + '.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title), { signal: AbortSignal.timeout(10000) })
               .then(function (r) { return r.ok ? r.json() : null; })
               .then(function (s) { if (s && s.extract) out.push('## ' + s.title + '\n' + s.extract.slice(0, 1200)); })
