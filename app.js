@@ -445,6 +445,9 @@
       for (var k in settings) { if (settings.hasOwnProperty(k)) toSave[k] = settings[k]; }
       toSave.apiKey = encKey;
       try { safeSetItem(SETTINGS_KEY, JSON.stringify(toSave)); } catch (e) {}
+      if (window.CC && window.CC.storage && !window.CC.storage.isFallback()) {
+        window.CC.storage.set(SETTINGS_KEY, toSave);
+      }
       if (cloudNotify) cloudNotify('settings');
     });
   }
@@ -453,26 +456,32 @@
   var currentSessionId = null;
 
   function loadSessions() {
+    var found, i;
     try {
       var raw = JSON.parse(localStorage.getItem(SESSIONS_KEY) || 'null');
       if (Array.isArray(raw) && raw.length) {
         sessions = raw;
         currentSessionId = localStorage.getItem('cangcilung_active_session') || sessions[0].id;
-        var found = false;
-        for (var i = 0; i < sessions.length; i++) { if (sessions[i].id === currentSessionId) { found = true; break; } }
+        found = false;
+        for (i = 0; i < sessions.length; i++) { if (sessions[i].id === currentSessionId) { found = true; break; } }
         if (!found) currentSessionId = sessions[0].id;
-        return;
+      } else {
+        throw new Error('empty');
       }
-    } catch (e) {}
-    sessions = [{ id: 's1', name: 'Percakapan 1', history: [], summary: '' }];
-    currentSessionId = 's1';
-    try {
-      var legacy = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-      if (Array.isArray(legacy) && legacy.length) sessions[0].history = legacy.slice(-200);
-      var legacySum = localStorage.getItem(SUMMARY_KEY) || '';
-      if (legacySum) sessions[0].summary = legacySum;
-    } catch (e) {}
-    saveSessions();
+    } catch (e) {
+      sessions = [{ id: 's1', name: 'Percakapan 1', history: [], summary: '' }];
+      currentSessionId = 's1';
+      try {
+        var legacy = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        if (Array.isArray(legacy) && legacy.length) sessions[0].history = legacy.slice(-200);
+        var legacySum = localStorage.getItem(SUMMARY_KEY) || '';
+        if (legacySum) sessions[0].summary = legacySum;
+      } catch (e2) {}
+      saveSessions();
+    }
+    if (window.CC && window.CC.storage && !window.CC.storage.isFallback()) {
+      window.CC.storage.migrateFromLocalStorage([SESSIONS_KEY, SETTINGS_KEY, SUMMARY_KEY, HISTORY_KEY, MEMORY_KEY, USAGE_KEY]).catch(function () {});
+    }
   }
 
   var _lsWarned = false;
@@ -490,6 +499,12 @@
       _saveTimer = null;
       safeSetItem(SESSIONS_KEY, JSON.stringify(sessions));
       try { localStorage.setItem('cangcilung_active_session', currentSessionId); } catch (e) {}
+      if (window.CC && window.CC.storage && !window.CC.storage.isFallback()) {
+        window.CC.storage.bulkSet([
+          [SESSIONS_KEY, sessions],
+          ['cangcilung_active_session', currentSessionId]
+        ]);
+      }
       if (cloudNotify) cloudNotify('sessions');
     }, 300);
   }
@@ -497,6 +512,12 @@
     if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
     safeSetItem(SESSIONS_KEY, JSON.stringify(sessions));
     try { localStorage.setItem('cangcilung_active_session', currentSessionId); } catch (e) {}
+    if (window.CC && window.CC.storage && !window.CC.storage.isFallback()) {
+      window.CC.storage.bulkSet([
+        [SESSIONS_KEY, sessions],
+        ['cangcilung_active_session', currentSessionId]
+      ]);
+    }
     if (cloudNotify) cloudNotify('sessions');
   }
 
@@ -1285,12 +1306,7 @@
       .catch(function () {});
   }
 
-  function nowTime() {
-    var d = new Date();
-    var h = d.getHours();
-    var m = d.getMinutes();
-    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
-  }
+  function nowTime() { return window.CC && window.CC.utils ? window.CC.utils.nowTime() : (function () { var d = new Date(), h = d.getHours(), m = d.getMinutes(); return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m; })(); }
 
   function addBubble(role, text, index, ts) {
     var wrap = document.createElement('div');
@@ -1430,6 +1446,8 @@
   }
 
   var _renderedCount = 0;
+  var VIRTUAL_BATCH = 40;
+  var _virtualStart = 0;
 
   function renderHistory(forceFull) {
     var box = $('chat-messages');
@@ -1439,6 +1457,7 @@
     if (isFull) {
       box.innerHTML = '';
       _renderedCount = 0;
+      _virtualStart = 0;
       if (!history.length) {
         var welcome = document.createElement('div');
         welcome.className = 'welcome';
@@ -1471,11 +1490,13 @@
       }
     }
 
-    while (_renderedCount < history.length) {
-      var m = history[_renderedCount];
-      var b = addBubble(m.role, m.content, _renderedCount, m.t);
-      if (m.role === 'assistant') addRunButtons(b);
-      _renderedCount++;
+    if (!isFull && _renderedCount < history.length) {
+      while (_renderedCount < history.length) {
+        var m = history[_renderedCount];
+        var b = addBubble(m.role, m.content, _renderedCount, m.t);
+        if (m.role === 'assistant') addRunButtons(b);
+        _renderedCount++;
+      }
     }
 
     if (suggestions.length) renderSuggestions();
@@ -2791,13 +2812,19 @@
     });
   }
 
-  /* API untuk lapisan cloud (cloud.js) */
+  /** @type {Object} Public API for cloud.js, kb.js, and external consumers */
   window.cangcilung = {
+    /** @returns {Array<Object>} Shallow copy of all sessions */
     getSessions: function () { return sessions.slice(); },
+    /** @returns {Object} Current settings object (live reference) */
     getSettings: function () { return settings; },
+    /** @returns {{ date: string, requests: number }} Today's usage stats */
     getUsage: loadUsage,
+    /** @param {string} id - Modal element ID */
     openModal: openModal,
+    /** @param {string} id - Modal element ID */
     closeModal: closeModal,
+    /** @param {Array<Object>} arr - Cloud-synced sessions array */
     applyCloudSessions: function (arr) {
       if (!Array.isArray(arr)) return;
       sessions = arr;
@@ -2812,6 +2839,7 @@
       renderPins();
       connSub();
     },
+    /** @param {Object} s - Partial settings from cloud */
     applyCloudSettings: function (s) {
       if (!s) return;
       if (s.baseUrl !== undefined) settings.baseUrl = s.baseUrl;
@@ -2832,15 +2860,20 @@
       populateQuickModel();
       renderUsage();
     },
+    /** @param {{ date: string, requests: number }} u - Usage data from cloud */
     applyCloudUsage: function (u) {
       if (u && u.requests) {
         try { localStorage.setItem(USAGE_KEY, JSON.stringify({ date: u.date, requests: u.requests })); } catch (e) {}
         renderUsage();
       }
     },
+    /** @param {string} msg - Status message text */
     setStatus: setStatus,
+    /** @param {string} title - Dialog title @param {string} msg - Dialog message @param {string} okLabel - OK button label @param {Function} cb - Callback on confirm */
     confirm: openConfirm,
+    /** @returns {boolean} Whether a file is currently attached */
     hasAttachment: function () { return !!attachedFile; },
+    /** @returns {{ name: string, text: string }|null} Current attached file info */
     getAttachment: function () { return attachedFile ? { name: attachedFile.name, text: attachedFile.text } : null; },
     refreshChip: function () {
       var btn = $('btn-save-kb');
