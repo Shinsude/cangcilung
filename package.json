@@ -1,0 +1,14 @@
+{
+  "name": "cangcilung",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve -s . -l 3000 --no-clipboard",
+    "test:unit": "node C:\\Users\\HP\\AppData\\Local\\Temp\\opencode\\unit-tests.cjs",
+    "test:e2e": "node C:\\Users\\HP\\AppData\\Local\\Temp\\opencode\\e2e21.cjs",
+    "test:cloud": "node C:\\Users\\HP\\AppData\\Local\\Temp\\opencode\\e2e24.cjs",
+    "test:kb": "node C:\\Users\\HP\\AppData\\Local\\Temp\\opencode\\e2e27.cjs",
+    "test": "npm run test:unit && npm run test:e2e && npm run test:cloud && npm run test:kb",
+    "deploy": "vercel --yes --prod"
+  }
+}

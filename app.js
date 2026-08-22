@@ -63,26 +63,11 @@
   var lastUsedModel = '';
 
   var MAX_HISTORY = 200;
-  var MAX_SESSIONS_UNBOUNDED = true;
-  var SUMMARY_THRESHOLD = 3000;
-  var SUMMARY_MAX_TOKENS = 400;
   var RAG_CHUNK_SIZE = 2000;
   var RAG_CHUNK_OVERLAP = 200;
   var RAG_BUDGET = 24000;
   var FILE_CHUNK = 16000;
   var MSG_BUDGET = 28000;
-  var INPUT_MAX_CHARS = 30000;
-  var WORKER_TIMEOUT = 5000;
-  var IMAGE_MAX_DIM = 1200;
-  var IMAGE_QUALITY = 0.75;
-  var SOUND_VOLUME = 0.08;
-  var TOAST_DURATION = 2400;
-  var SCROLL_THRESHOLD = 80;
-  var DDG_TIMEOUT = 12000;
-  var WIKI_TIMEOUT = 10000;
-  var PROXY_TIMEOUT = 15000;
-  var MAX_TOKENS_NORMAL = 1024;
-  var MAX_TOKENS_ANALYSIS = 2048;
 
   function $(id) { return document.getElementById(id); }
 
@@ -991,10 +976,6 @@
     el._t = setTimeout(function () { el.hidden = true; }, 2400);
   }
 
-  function esc(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
   function renderMarkdown(el, text) {
     if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
       try {
@@ -1222,8 +1203,8 @@
       fetch(target, { signal: AbortSignal.timeout(15000) })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
         .then(function (html) {
-          var tmp = document.createElement('div');
-          tmp.innerHTML = html;
+        var tmp = document.createElement('div');
+        tmp.innerHTML = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(html, { USE_PROFILES: { html: true } }) : html;
           tmp.querySelectorAll('script,style,nav,header,footer,aside').forEach(function (el) { el.remove(); });
           var text = (tmp.textContent || '').replace(/\s+/g, ' ').trim();
           if (text.length < 50) throw new Error('halaman kosong');
@@ -2069,6 +2050,40 @@
     setStatus('');
   }
 
+  function handleGreeting(text) {
+    var GREET_RE = /^(hi|hai|hello|halo|hey|tes|test|oke|ok|ya|yo|assalam|selamat pagi|selamat siang|selamat malam|thanks|terima kasih|makasih|dah|bye|sampai)[\s!.]*$/i;
+    if (!GREET_RE.test(text)) return false;
+    var quickReply = /^(hi|hai|hello|halo|hey|assalam)/i.test(text) ? 'Halo! Ada yang bisa saya bantu?'
+      : /^(oke|ok|ya|yo)/i.test(text) ? 'Baik, silakan lanjutkan.'
+      : /^(thanks|terima kasih|makasih)/i.test(text) ? 'Sama-sama! Senang bisa membantu.'
+      : /^(bye|dah|sampai)/i.test(text) ? 'Sampai jumpa!'
+      : 'Ya, ada yang perlu?';
+    history.push({ role: 'user', content: text, t: nowTime() });
+    history.push({ role: 'assistant', content: quickReply, t: nowTime() });
+    saveHistory();
+    renderHistory();
+    busy = false;
+    setSendUI(false);
+    setStatus('');
+    return true;
+  }
+
+  function addUserMessage(text) {
+    if (editingIndex >= 0) {
+      var ei = editingIndex;
+      editingIndex = -1;
+      history[ei] = { role: 'user', content: text, t: history[ei].t || nowTime() };
+      history = history.slice(0, ei + 1);
+      _renderedCount = 0;
+    } else {
+      history.push({ role: 'user', content: text, t: nowTime() });
+      trackTopic(text);
+      autoTitle(text);
+    }
+    saveHistory();
+    renderHistory();
+  }
+
   function sendChat() {
     if (busy) {
       kbCancel = true;
@@ -2087,22 +2102,7 @@
       input.value = text;
     }
     if (!text) return;
-    var GREET_RE = /^(hi|hai|hello|halo|hey|tes|test|oke|ok|ya|yo|assalam|selamat pagi|selamat siang|selamat malam|thanks|terima kasih|makasih|dah|bye|sampai)[\s!.]*$/i;
-    if (GREET_RE.test(text)) {
-      var quickReply = /^(hi|hai|hello|halo|hey|assalam)/i.test(text) ? 'Halo! Ada yang bisa saya bantu?'
-        : /^(oke|ok|ya|yo)/i.test(text) ? 'Baik, silakan lanjutkan.'
-        : /^(thanks|terima kasih|makasih)/i.test(text) ? 'Sama-sama! Senang bisa membantu.'
-        : /^(bye|dah|sampai)/i.test(text) ? 'Sampai jumpa!'
-        : 'Ya, ada yang perlu?';
-      history.push({ role: 'user', content: text, t: nowTime() });
-      history.push({ role: 'assistant', content: quickReply, t: nowTime() });
-      saveHistory();
-      renderHistory();
-      busy = false;
-      setSendUI(false);
-      setStatus('');
-      return;
-    }
+    if (handleGreeting(text)) return;
     if (!settings.model) {
       setStatus('Atur model dulu di ⚙️ Pengaturan.', true);
       openSettings();
@@ -2117,21 +2117,7 @@
     setSendUI(true);
     setStatus('Menghubungkan ke model...');
 
-    if (editingIndex >= 0) {
-      var ei = editingIndex;
-      editingIndex = -1;
-      history[ei] = { role: 'user', content: text, t: history[ei].t || nowTime() };
-      history = history.slice(0, ei + 1);
-      _renderedCount = 0;
-      saveHistory();
-      renderHistory();
-    } else {
-      history.push({ role: 'user', content: text, t: nowTime() });
-      trackTopic(text);
-      autoTitle(text);
-      saveHistory();
-      renderHistory();
-    }
+    addUserMessage(text);
 
     var bubble = addBubble('assistant', null);
     showTyping(bubble);
