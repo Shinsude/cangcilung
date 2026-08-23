@@ -1495,13 +1495,11 @@
       }
     }
 
-    if (!isFull && _renderedCount < history.length) {
-      while (_renderedCount < history.length) {
-        var m = history[_renderedCount];
-        var b = addBubble(m.role, m.content, _renderedCount, m.t);
-        if (m.role === 'assistant') addRunButtons(b);
-        _renderedCount++;
-      }
+    while (_renderedCount < history.length) {
+      var m = history[_renderedCount];
+      var b = addBubble(m.role, m.content, _renderedCount, m.t);
+      if (m.role === 'assistant') addRunButtons(b);
+      _renderedCount++;
     }
 
     if (suggestions.length) renderSuggestions();
