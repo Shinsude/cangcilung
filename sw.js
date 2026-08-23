@@ -9,6 +9,7 @@ const CORE = [
   '/lib/utils.js',
   '/lib/stream.js',
   '/lib/search.js',
+  '/lib/render.js',
   '/lib/idb-storage.js',
   '/kb.js',
   '/cloud.js',

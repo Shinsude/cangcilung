@@ -855,6 +855,7 @@
 
   /* ===== Typing Indicator (actual DOM dots) ===== */
   function showTyping(bubble) {
+    if (window.CC && window.CC.render) return window.CC.render.showTyping(bubble);
     removeTyping(bubble);
     var wrap = document.createElement('div');
     wrap.className = 'typing-indicator';
@@ -868,6 +869,7 @@
   }
 
   function removeTyping(bubble) {
+    if (window.CC && window.CC.render) return window.CC.render.removeTyping(bubble);
     var el = bubble.querySelector('.typing-indicator');
     if (el && el.parentNode) el.parentNode.removeChild(el);
   }
@@ -998,6 +1000,7 @@
   }
 
   function renderMarkdown(el, text) {
+    if (window.CC && window.CC.render) return window.CC.render.renderMarkdown(el, text);
     if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
       try {
         var html = marked.parse(text || '');
@@ -1033,6 +1036,7 @@
   }
 
   function addRunButtons(el) {
+    if (window.CC && window.CC.render) return window.CC.render.addRunButtons(el);
     if (!el) return;
     var blocks = el.querySelectorAll('pre code');
     blocks.forEach(function (code) {
@@ -1051,6 +1055,7 @@
   }
 
   function runCode(source, pre) {
+    if (window.CC && window.CC.render) return window.CC.render.runCode(source, pre);
     var out = pre.querySelector('.run-output');
     if (out) out.remove();
     out = document.createElement('div');
@@ -2882,6 +2887,43 @@
       btn.hidden = !show;
     }
   };
+
+  /** Centralized state accessor for external modules (lib/render.js, lib/search.js, etc.)
+   *  Arrays/objects are live references. Primitives use getter/setter. */
+  var S = window.CC.state = {};
+  Object.defineProperties(S, {
+    history:     { get: function () { return history; },     enumerable: true },
+    sessions:    { get: function () { return sessions; },    enumerable: true },
+    settings:    { get: function () { return settings; },    enumerable: true },
+    summary:     { get: function () { return summary; },     enumerable: true },
+    memory:      { get: function () { return memory; },      enumerable: true },
+    pinned:      { get: function () { return pinned; },      enumerable: true },
+    suggestions: { get: function () { return suggestions; }, enumerable: true },
+    els:         { get: function () { return els; },         enumerable: true },
+    busy:        { get: function () { return busy; },        set: function (v) { busy = v; },        enumerable: true },
+    abortCtrl:   { get: function () { return abortCtrl; },   set: function (v) { abortCtrl = v; },   enumerable: true },
+    lastUsedModel: { get: function () { return lastUsedModel; }, set: function (v) { lastUsedModel = v; }, enumerable: true },
+    editingIndex: { get: function () { return editingIndex; }, set: function (v) { editingIndex = v; }, enumerable: true },
+    _renderedCount: { get: function () { return _renderedCount; }, set: function (v) { _renderedCount = v; }, enumerable: true },
+    searchMatches: { get: function () { return searchMatches; }, set: function (v) { searchMatches = v; }, enumerable: true },
+    searchIdx:   { get: function () { return searchIdx; },   set: function (v) { searchIdx = v; },   enumerable: true },
+    searchActive:{ get: function () { return searchActive; },set: function (v) { searchActive = v; },enumerable: true },
+    autoScrollPaused: { get: function () { return autoScrollPaused; }, set: function (v) { autoScrollPaused = v; }, enumerable: true },
+    attachedFile:{ get: function () { return attachedFile; },set: function (v) { attachedFile = v; },enumerable: true },
+    attachedImage: { get: function () { return attachedImage; }, set: function (v) { attachedImage = v; }, enumerable: true },
+    summarizing: { get: function () { return summarizing; }, set: function (v) { summarizing = v; }, enumerable: true },
+    kbCancel:    { get: function () { return kbCancel; },    set: function (v) { kbCancel = v; },    enumerable: true },
+    webMode:     { get: function () { return webMode; },     set: function (v) { webMode = v; },     enumerable: true },
+    webFetching: { get: function () { return webFetching; }, set: function (v) { webFetching = v; }, enumerable: true },
+    speakEnabled:{ get: function () { return speakEnabled; },set: function (v) { speakEnabled = v; },enumerable: true },
+    suggestEnabled:{ get: function () { return suggestEnabled; }, set: function (v) { suggestEnabled = v; }, enumerable: true },
+    translateEnabled: { get: function () { return translateEnabled; }, set: function (v) { translateEnabled = v; }, enumerable: true },
+    currentSessionId: { get: function () { return currentSessionId; }, set: function (v) { currentSessionId = v; }, enumerable: true },
+    cloudNotify: { get: function () { return cloudNotify; }, set: function (v) { cloudNotify = v; }, enumerable: true },
+    modalStack:  { get: function () { return modalStack; }, enumerable: true },
+    confirmCb:   { get: function () { return confirmCb; },   set: function (v) { confirmCb = v; },   enumerable: true },
+    renameSessionId: { get: function () { return renameSessionId; }, set: function (v) { renameSessionId = v; }, enumerable: true }
+  });
 
   document.addEventListener('DOMContentLoaded', init);
 })();
