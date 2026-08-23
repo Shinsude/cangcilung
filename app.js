@@ -1457,6 +1457,93 @@
   var _renderedCount = 0;
   var VIRTUAL_BATCH = 40;
   var _virtualStart = 0;
+  var _loadObserver = null;
+
+  function _setupLoadOlder() {
+    if (_loadObserver) _loadObserver.disconnect();
+    _loadObserver = null;
+    var sentinel = $('load-older-sentinel');
+    if (!sentinel || _virtualStart <= 0) return;
+    _loadObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) loadOlderMessages();
+      });
+    }, { root: $('chat-messages'), threshold: 0.1 });
+    _loadObserver.observe(sentinel);
+  }
+
+  function loadOlderMessages() {
+    if (_loadObserver) _loadObserver.disconnect();
+    var box = $('chat-messages');
+    if (!box || !history.length) return;
+    var prevHeight = box.scrollHeight;
+    var oldStart = _virtualStart;
+    var newStart = Math.max(0, oldStart - VIRTUAL_BATCH);
+    var sentinel = $('load-older-sentinel');
+    if (sentinel) sentinel.remove();
+    for (var i = newStart; i < oldStart; i++) {
+      var m = history[i];
+      var ref = box.children[0] || null;
+      var wrap = document.createElement('div');
+      wrap.className = 'msg ' + m.role;
+      if (i != null) wrap.dataset.index = i;
+      var bubble = document.createElement('div');
+      bubble.className = 'msg-bubble';
+      if (m.role === 'user') bubble.textContent = m.content;
+      else renderMarkdown(bubble, m.content || '…');
+      var time = document.createElement('div');
+      time.className = 'msg-time';
+      time.textContent = m.t || nowTime();
+      wrap.appendChild(bubble);
+      wrap.appendChild(time);
+      var actions = document.createElement('div');
+      actions.className = 'msg-actions';
+      var copyBtn = document.createElement('button');
+      copyBtn.className = 'bubble-act';
+      copyBtn.textContent = '📋';
+      copyBtn.title = 'Salin';
+      copyBtn.dataset.action = 'copy';
+      actions.appendChild(copyBtn);
+      if (m.role === 'user' && i != null) {
+        var edBtn = document.createElement('button');
+        edBtn.className = 'bubble-act';
+        edBtn.textContent = '✏️';
+        edBtn.title = 'Edit pesan';
+        edBtn.dataset.action = 'edit';
+        actions.appendChild(edBtn);
+      }
+      if (m.role === 'assistant' && m.content && i === history.length - 1) {
+        var reBtn = document.createElement('button');
+        reBtn.className = 'bubble-act';
+        reBtn.textContent = '🔁';
+        reBtn.title = 'Ulangi jawaban';
+        reBtn.dataset.action = 'regenerate';
+        actions.appendChild(reBtn);
+      }
+      if (i != null) {
+        var pinBtn = document.createElement('button');
+        pinBtn.className = 'bubble-act';
+        pinBtn.textContent = '📌';
+        pinBtn.title = 'Semat pesan';
+        pinBtn.dataset.action = 'pin';
+        actions.appendChild(pinBtn);
+      }
+      wrap.appendChild(actions);
+      box.insertBefore(wrap, ref);
+      if (m.role === 'assistant') addRunButtons(bubble);
+    }
+    _virtualStart = newStart;
+    _renderedCount = history.length;
+    box.scrollTop = box.scrollHeight - prevHeight;
+    if (_virtualStart > 0) {
+      var sent = document.createElement('div');
+      sent.id = 'load-older-sentinel';
+      sent.className = 'load-older-sentinel';
+      sent.textContent = '⬆️ Muat pesan lebih lama…';
+      box.insertBefore(sent, box.firstChild);
+    }
+    _setupLoadOlder();
+  }
 
   function renderHistory(forceFull) {
     var box = $('chat-messages');
@@ -1466,8 +1553,8 @@
     if (isFull) {
       box.innerHTML = '';
       _renderedCount = 0;
-      _virtualStart = 0;
       if (!history.length) {
+        _virtualStart = 0;
         var welcome = document.createElement('div');
         welcome.className = 'welcome';
         welcome.innerHTML = '<div class="welcome-avatar">A</div><p>Halo, saya cangcilung. Asisten AI Indonesia — tanya apa saja, saya siap membantu!</p><div class="welcome-chips"></div>';
@@ -1497,6 +1584,21 @@
         box.appendChild(welcome);
         return;
       }
+      if (searchActive) {
+        _virtualStart = 0;
+      } else if (history.length > VIRTUAL_BATCH) {
+        _virtualStart = history.length - VIRTUAL_BATCH;
+      } else {
+        _virtualStart = 0;
+      }
+      _renderedCount = _virtualStart;
+      if (_virtualStart > 0) {
+        var sent = document.createElement('div');
+        sent.id = 'load-older-sentinel';
+        sent.className = 'load-older-sentinel';
+        sent.textContent = '⬆️ Muat pesan lebih lama…';
+        box.appendChild(sent);
+      }
     }
 
     while (_renderedCount < history.length) {
@@ -1504,6 +1606,17 @@
       var b = addBubble(m.role, m.content, _renderedCount, m.t);
       if (m.role === 'assistant') addRunButtons(b);
       _renderedCount++;
+    }
+
+    if (isFull && !searchActive && _virtualStart > 0) {
+      if (!$('load-older-sentinel')) {
+        var sent2 = document.createElement('div');
+        sent2.id = 'load-older-sentinel';
+        sent2.className = 'load-older-sentinel';
+        sent2.textContent = '⬆️ Muat pesan lebih lama…';
+        box.insertBefore(sent2, box.firstChild);
+      }
+      _setupLoadOlder();
     }
 
     if (suggestions.length) renderSuggestions();

@@ -394,6 +394,19 @@ html { scrollbar-width: thin; scrollbar-color: #424242 transparent; }
 }
 .welcome-feature span { font-size: 16px; flex-shrink: 0; }
 
+.load-older-sentinel {
+  text-align: center;
+  padding: 16px;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background .15s;
+}
+.load-older-sentinel:hover {
+  background: var(--card);
+}
+
 /* ═══════════ INPUT — ChatGPT style ═══════════ */
 .chat-input-area {
   padding: 0 0 12px; position: relative; flex-shrink: 0;
