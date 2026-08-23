@@ -702,12 +702,14 @@
   }
 
   function toggleSidebar() {
+    if (window.CC && window.CC.ui) return window.CC.ui.toggleSidebar();
     var sb = $('sidebar');
     if (!sb) return;
     sb.classList.toggle('open');
   }
 
   function closeSidebar() {
+    if (window.CC && window.CC.ui) return window.CC.ui.closeSidebar();
     var sb = $('sidebar');
     if (sb) sb.classList.remove('open');
   }
@@ -981,6 +983,7 @@
   }
 
   function setStatus(msg, isError) {
+    if (window.CC && window.CC.ui) return window.CC.ui.setStatus(msg, isError);
     var el = $('chat-status');
     if (!el) return;
     el.textContent = msg || '';
@@ -990,6 +993,7 @@
   }
 
   function showToast(msg, isError) {
+    if (window.CC && window.CC.ui) return window.CC.ui.showToast(msg, isError);
     var el = $('toast');
     if (!el) return;
     el.textContent = msg || '';
@@ -2053,6 +2057,7 @@
   }
 
   function setSendUI(streaming) {
+    if (window.CC && window.CC.ui) return window.CC.ui.setSendUI(streaming);
     var btn = $('btn-send');
     if (!btn) return;
     if (streaming) {
@@ -2573,6 +2578,7 @@
   });
 
   function closeToolsMenu() {
+    if (window.CC && window.CC.ui) return window.CC.ui.closeToolsMenu();
     var menu = $('tools-menu');
     if (menu) { menu.hidden = true; }
     var tb = $('btn-tools');
@@ -2580,6 +2586,7 @@
   }
 
   function closeInputMore() {
+    if (window.CC && window.CC.ui) return window.CC.ui.closeInputMore();
     var m = $('input-more-menu');
     if (m) { m.hidden = true; }
     var imb = $('btn-input-more');

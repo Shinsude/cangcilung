@@ -1,4 +1,4 @@
-const CACHE = 'cangcilung-v18';
+const CACHE = 'cangcilung-v19';
 const CORE = [
   '/',
   '/index.html',
@@ -10,6 +10,7 @@ const CORE = [
   '/lib/stream.js',
   '/lib/search.js',
   '/lib/render.js',
+  '/lib/ui.js',
   '/lib/idb-storage.js',
   '/kb.js',
   '/cloud.js',
