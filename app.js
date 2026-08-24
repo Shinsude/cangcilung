@@ -742,6 +742,7 @@
     try {
       var raw = localStorage.getItem(MEMORY_KEY);
       if (raw) memory = JSON.parse(raw);
+      if (!memory.prefs) memory.prefs = {};
     } catch (e) {}
   }
   function saveMemory() {
@@ -755,12 +756,38 @@
     var slim = {};
     top.forEach(function (k) { slim[k] = memory.topics[k]; });
     memory.topics = slim;
+    trackPrefs(text);
     saveMemory();
+  }
+  function trackPrefs(text) {
+    var t = text.toLowerCase();
+    if (!memory.prefs) memory.prefs = {};
+    if (/\b(bahasa indonesia|pakai bahasa|gunakan bahasa|indo|id)\b/i.test(t)) memory.prefs.lang = 'id';
+    if (/\b(bahasa inggris|english|use english|pakai english)\b/i.test(t)) memory.prefs.lang = 'en';
+    if (/\b(singkat|pendek|short|brief|to the point|langsung ke poin)\b/i.test(t)) memory.prefs.style = 'concise';
+    if (/\b(detail|lengkap|panjang|elaborate|jelaskan panjang|step by step)\b/i.test(t)) memory.prefs.style = 'detailed';
+    if (/\b(formal|baku|terstruktur|rapi)\b/i.test(t)) memory.prefs.tone = 'formal';
+    if (/\b(santai|gaul|casual|kasual|asik|fun)\b/i.test(t)) memory.prefs.tone = 'casual';
+    var prefKeys = Object.keys(memory.prefs);
+    if (prefKeys.length > 5) {
+      var newPrefs = {};
+      prefKeys.slice(-5).forEach(function (k) { newPrefs[k] = memory.prefs[k]; });
+      memory.prefs = newPrefs;
+    }
   }
   function getMemoryContext() {
     var top = Object.keys(memory.topics).sort(function (a, b) { return memory.topics[b] - memory.topics[a]; }).slice(0, 10);
-    if (!top.length) return '';
-    return 'Topik yang sering dibahas user: ' + top.join(', ') + '.';
+    var parts = [];
+    if (top.length) parts.push('Topik yang sering dibahas user: ' + top.join(', ') + '.');
+    if (memory.prefs) {
+      var p = memory.prefs;
+      if (p.lang === 'en') parts.push('User prefer bahasa Inggris untuk jawaban teknis.');
+      if (p.style === 'concise') parts.push('User suka jawaban singkat dan langsung.');
+      if (p.style === 'detailed') parts.push('User suka jawaban detail dan lengkap.');
+      if (p.tone === 'formal') parts.push('User suka nada formal dan terstruktur.');
+      if (p.tone === 'casual') parts.push('User suka nada santai dan akrab.');
+    }
+    return parts.length ? parts.join(' ') : '';
   }
 
   var summarizing = false;
@@ -1021,22 +1048,26 @@
     el.textContent = text || '';
   }
 
-  function getSystem(isAnalysis) {
+  function getSystem(isAnalysis, intent) {
     var s = SYSTEM + (PERSONAS[settings.persona] || '');
-    if (isAnalysis) {
-      s += '\n\n[MODE ANALISIS — WAJIB DIIKUTI]\n' +
-        'Pertanyaan ini membutuhkan analisis mendalam. Aturan khusus:\n' +
-        '1. TULIS SETIAP LANGKAH penalaran secara eksplisit (bernomor). Jangan lompat ke kesimpulan.\n' +
-        '2. MATEMATIKA: Tunjukkan semua operasi perhitungan, bukan hanya hasil akhir. Verifikasi jawaban dengan substitusi balik.\n' +
-        '3. KODE: Jelaskan pendekatan sebelum kode, analisis kompleksitas waktu/ruang, dan sebutkan edge cases.\n' +
-        '4. PERBANDINGAN: Gunakan tabel markdown terstruktur. Sebutkan kriteria, data, dan penilaian per kriteria.\n' +
-        '5. LOGIKA/BUKTI: Tulis hipotesis, asumsi, langkah deduksi, dan kesimpulan terpisah.\n' +
-        '6. AKHIRI dengan ringkasan 1-2 kalimat dari kesimpulan utama.\n' +
-        '7. Jika ada asumsi yang dibuat, sebutkan secara eksplisit.';
-    }
     if (translateEnabled) {
       s += '\nMode sekarang: PENERJEMAH. Terjemahkan teks user antara bahasa Indonesia dan Inggris (deteksi bahasa sumber otomatis). Jawab HANYA dengan hasil terjemahan, tanpa penjelasan atau pembuka. Jika sudah sama kedua arah, balas dengan "OK".';
+      return s;
     }
+    var INTENT_PROMPTS = {
+      math: '\n[MODE MATEMATIKA]\nTunjukkan SEMUA langkah perhitungan secara berurutan. Gunakan tanda operasi yang jelas. Verifikasi hasil dengan substitusi balik. Akhiri dengan ringkasan singkat.',
+      code: '\n[MODE PEMROGRAMAN]\nBeri kode yang bersih, lengkap, dan langsung bisa dipakai. Sertakan: (1) penjelasan pendekatan, (2) kode lengkap, (3) contoh pemakaian, (4) edge cases. Gunakan code block dengan bahasa yang sesuai.',
+      compare: '\n[MODE PERBANDINGAN]\nGunakan tabel markdown untuk perbandingan. Kolom: Kriteria | Opsi A | Opsi B. Akhiri dengan rekomendasi jelas berdasarkan use case yang berbeda.',
+      creative: '\n[MODE KREATIF]\nGunakan bahasa yang hidup, vivid, dan engaging. Hindari kalimat kaku. Ekspresikan ide dengan bebas namun tetap terstruktur. Berikan variasi jika diminta.',
+      explain: '\n[MODE PENJELASAN]\nGunakan analogi sederhana. Mulai dari konsep dasar, lalu tambah kedalaman. Ilustrasikan dengan contoh nyata. Akhiri dengan rangkuman 1-2 kalimat.',
+      factual: '\n[MODE FAKTUAL]\nSebutkan sumber informasi jika memungkinkan. Gunakan data yang spesifik (angka, tahun, nama). Jika ragu, akui keterbatasan informasi.',
+      analysis: '\n[MODE ANALISIS MENDALAM]\n1. Tulis SETIAP LANGKAH penalaran secara eksplisit (bernomor).\n2. Identifikasi asumsi di awal.\n3. Gunakan tabel untuk data perbandingan.\n4. Akhiri dengan kesimpulan + confidence level (tinggi/sedang/rendah).',
+      help: '\n[MODE BANTUAN]\nPahami apa yang user butuhkan. Jika pertanyaan kurang jelas, ajukan 1-2 klarifikasi singkat sebelum menjawab. Fokus pada solusi praktis.',
+      general: ''
+    };
+    if (intent && INTENT_PROMPTS[intent]) s += INTENT_PROMPTS[intent];
+    else if (isAnalysis) s += INTENT_PROMPTS.analysis;
+    s += getConfidenceHint(intent || 'general', '');
     return s;
   }
 
@@ -1278,10 +1309,11 @@
 
   function verifyAnswer(question, answer) {
     if (!settings.verifyEnabled) return;
-    var isLogic = LOGIC_RE.test(question) || ANALYSIS_RE.test(question);
+    var intent = classifyIntent(question);
+    var isLogic = intent === 'math' || intent === 'analysis' || intent === 'compare';
     var verifierSystem = isLogic
       ? 'Kamu adalah pemeriksa jawaban yang sangat teliti. Tugas kamu:\n1. Baca pertanyaan dan jawaban dengan seksama.\n2. Verifikasi SETIAP langkah penalaran, bukan hanya kesimpulan.\n3. Cek kebenaran fakta, perhitungan matematika, dan logika di setiap tahap.\n4. Jika jawaban BENAR dan langkahnya valid, balas HANYA: OK\n5. Jika ada kesalahan di langkah mana pun, sebutkan langkah yang salah dan berikan koreksi lengkap.\n6. Jika jawaban benar tapi langkah penalaran tidak diperlihatkan untuk soal matematika/logika, katakan: "Langkah penalaran tidak diperlihatkan — tambahkan untuk kejelasan."'
-      : 'Kamu adalah pemeriksa jawaban yang teliti. Tugas kamu:\n1. Bandingkan jawaban dengan pertanyaan.\n2. Cek kebenaran fakta, perhitungan matematika, dan logika.\n3. Jika jawaban BENAR, balas HANYA: OK\n4. Jika jawaban SALAH atau tidak lengkap, berikan koreksi yang jelas dan lengkap.';
+      : 'Kamu adalah pemeriksa jawaban yang teliti. Tugas kamu:\n1. Bandingkan jawaban dengan pertanyaan.\n2. Cek kebenaran fakta, perhitungan matematika, dan logika.\n3. Jika ada data spesifik (angka, tahun, nama), verifikasi akurasinya.\n4. Jika jawaban BENAR, balas HANYA: OK\n5. Jika jawaban SALAH atau tidak lengkap, berikan koreksi yang jelas dan lengkap.';
     fetch(apiUrl('/chat/completions'), {
       method: 'POST',
       headers: apiHeaders(),
@@ -1944,6 +1976,15 @@
 
   function loadSuggestions(model, question, answer) {
     if (!suggestEnabled) return;
+    var intent = classifyIntent(question);
+    var INTENT_SUGGEST = {
+      code: 'Berdasarkan kode berikut, buat 3 pertanyaan lanjutan yang relevan:\n- Minta penjelasan fungsi/variabel tertentu\n- Minta optimasi atau refactor\n- Minta tambahan fitur atau testing\n- Minta penjelasan kompleksitas\nFormat: HANYA pertanyaan, satu per baris, tanpa nomor. Maksimal 15 kata.',
+      math: 'Berdasarkan soal matematika berikut, buat 3 pertanyaan lanjutan:\n- Minta verifikasi dengan cara berbeda\n- Minta variasi soal dengan angka berbeda\n- Minta penjelasan konsep di balik rumus\nFormat: HANYA pertanyaan, satu per baris, tanpa nomor. Maksimal 15 kata.',
+      compare: 'Berdasarkan perbandingan berikut, buat 3 pertanyaan lanjutan:\n- Bandingkan aspek spesifik yang belum dibahas\n- Minta rekomendasi untuk use case tertentu\n- Minta analisis lebih dalam salah satu opsi\nFormat: HANYA pertanyaan, satu per baris, tanpa nomor. Maksimal 15 kata.',
+      explain: 'Berdasarkan penjelasan berikut, buat 3 pertanyaan lanjutan:\n- Minta analogi atau contoh kasus nyata\n- Minta hubungan dengan konsep lain\n- Minta latihan atau quiz kecil\nFormat: HANYA pertanyaan, satu per baris, tanpa nomor. Maksimal 15 kata.',
+      creative: 'Berdasarkan konten kreatif berikut, buat 3 pertanyaan lanjutan:\n- Minta variasi atau twist berbeda\n- Minta ekspansi salah satu bagian\n- Minta reinterpretasi dari sudut pandang berbeda\nFormat: HANYA pertanyaan, satu per baris, tanpa nomor. Maksimal 15 kata.'
+    };
+    var suggestPrompt = INTENT_SUGGEST[intent] || 'Kamu adalah asisten yang membantu user belajar lebih dalam. Berdasarkan percakapan berikut, buat 3 pertanyaan lanjutan yang ACTIONABLE dan relevan:\n- Jika ada kode: tawarkan untuk menjelaskan bagian tertentu, memodifikasi, atau menguji\n- Jika ada konsep: tawarkan analogi, contoh kasus, atau latihan\n- Jika ada data/angka: tawarkan analisis perbandingan atau visualisasi\n- Jika ada error: tawarkan debugging atau optimasi\nFormat: HANYA pertanyaan, satu per baris, tanpa nomor, tanpa penjelasan lain. Maksimal 15 kata per pertanyaan.';
     fetch(apiUrl('/chat/completions'), {
       method: 'POST',
       headers: apiHeaders(),
@@ -1954,7 +1995,7 @@
         temperature: 0.7,
         messages: [{
           role: 'system',
-          content: 'Kamu adalah asisten yang membantu user belajar lebih dalam. Berdasarkan percakapan berikut, buat 3 pertanyaan lanjutan yang ACTIONABLE dan relevan:\n- Jika ada kode: tawarkan untuk menjelaskan bagian tertentu, memodifikasi, atau menguji\n- Jika ada konsep: tawarkan analogi, contoh kasus, atau latihan\n- Jika ada data/angka: tawarkan analisis perbandingan atau visualisasi\n- Jika ada error: tawarkan debugging atau optimasi\nFormat: HANYA pertanyaan, satu per baris, tanpa nomor, tanpa penjelasan lain. Maksimal 15 kata per pertanyaan.'
+          content: suggestPrompt
         }, {
           role: 'user',
           content: 'Pertanyaan user: ' + question.slice(0, 500) + '\n\nJawaban yang diberikan: ' + String(answer).slice(0, 1500)
@@ -1991,7 +2032,8 @@
   }
 
   function searchWeb(query) {
-    var q = encodeURIComponent(query.replace(/[?""''!]/g, ' ').slice(0, 200));
+    var rawQuery = query.replace(/[?""''!]/g, ' ').replace(/\b(bagaimana|cara|mengapa|kenapa|apa|siapa|dimana|kapan|berapa|tolong|jelaskan|ceritakan|adalah|itu|ini|yang|dengan|untuk|dalam|dan|di|ke|dari)\b/gi, '').replace(/\s+/g, ' ').trim().slice(0, 120);
+    var q = encodeURIComponent(rawQuery || query.replace(/[?""''!]/g, ' ').slice(0, 200));
     var ddgUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://lite.duckduckgo.com/lite/?q=' + q + '&kl=id-id');
     var ddgPromise = fetch(ddgUrl, { signal: AbortSignal.timeout(12000) })
       .then(function (res) { return res.ok ? res.text() : ''; })
@@ -2001,6 +2043,7 @@
         tmp.innerHTML = html;
         var results = [];
         tmp.querySelectorAll('.result-snippet').forEach(function (el, i) { if (i < 5) results.push(el.textContent.trim()); });
+        tmp.querySelectorAll('.result-title').forEach(function (el, i) { if (i < 3) results.push('[Judul] ' + el.textContent.trim()); });
         return results.length ? results.join('\n\n').slice(0, 4000) : '';
       })
       .catch(function () { return ''; });
@@ -2050,11 +2093,35 @@
 
   var ANALYSIS_RE = /\b(hitung|hitunglah|jumlahkan|kalikan|bagikan|kurangkan|berapakah|berapa (hasil|angka|nilai|jumlah)|rumus|persamaan|akar|logaritma|persen|konversi|prosentase|rata.?rata|mean|median|modus|standar deviasi|variansi|probabilitas|peluang)\b|\d\s*[-+*/^]\s*\d|\d+[.,]\d+\s*[-+*/^=<>]\s*\d|\(\s*\d/i;
   var LOGIC_RE = /\b(logika|logical|analisa|analisis|bandingkan|bandingkanlah|buktikan|deriv|turunan|integral|persamaan|soal|case\b|debug|perbaiki kode|tulis kode|buatkan kode|pseudocode|algoritma|optimalkan|evaluasi|penjelasan kenapa|mengapa|sebab|akibat|perbandingan|kelebihan|kekurangan|pros\s*kon)\b/i;
+  var CODE_RE = /\b(kode|code|program|fungsi|function|class|api|debug|error|bug|compile|runtime|deploy|npm|pip|import|require|variable|loop|for|while|if else|switch|array|object|json|html|css|sql|query|database|regex|algorithm|typescript|javascript|python|java|golang|rust|react|vue|angular|node|express|flask|django)\b/i;
+  var CREATIVE_RE = /\b(tulis|buatkan|karang|cerita| puisi|dongeng|fabel|novel|artikel|blog|caption|deskripsi|deskripsikan|brainstorm|ide|konsep|name\s*game|nama\s*brand|slogan|tagline|copywriting|storytelling)\b/i;
+  var COMPARE_RE = /\b(bandingkan|perbandingan|versus|vs\.?|lebih (baik|unggul|cepat|murah|bagus|efisien)|kelebihan.*kekurangan|pros?\s*dan\s*cons?|mana yang|apa bedanya|beda|perbedaan|similaritas|persamaan)\b/i;
+  var EXPLAIN_RE = /\b(jelaskan|penjelasan|mengapa|kenapa|apa itu|apa\s* pengertian|definisi|arti|makna|konsep|bagaimana\s*cara|how\s+does|how\s+to|tutorial|langkah|step|cara)\b/i;
+  var FACTUAL_RE = /\b(siapa|dimana|kapan|berapa (orang|jumlah|populasi|luas|tinggi)|presiden|gubernur|ibukota|negara|provinsi|kota|tahun berapa|tanggal berapa|sejarah)\b/i;
+
+  function classifyIntent(text) {
+    var t = text.toLowerCase();
+    if (ANALYSIS_RE.test(t)) return 'math';
+    if (COMPARE_RE.test(t)) return 'compare';
+    if (CODE_RE.test(t)) return 'code';
+    if (CREATIVE_RE.test(t)) return 'creative';
+    if (EXPLAIN_RE.test(t)) return 'explain';
+    if (FACTUAL_RE.test(t)) return 'factual';
+    if (LOGIC_RE.test(t)) return 'analysis';
+    if (/\b(tolong|please|bisa tolong|could you|can you|help)\b/i.test(t)) return 'help';
+    return 'general';
+  }
+
+  function getConfidenceHint(intent, text) {
+    if (intent === 'math' || intent === 'code') return '';
+    if (intent === 'factual') return '\nJika tidak yakin dengan data spesifik, gunakan frasa "menurut sumber terpercaya" atau "data per tahun X" dan sebutkan keterbatasan akurasi.';
+    if (intent === 'explain') return '\nJika ada bagian yang tidak sepenuhnya yakin, gunakan frasa "secara umum" atau "berdasarkan pemahaman saat ini".';
+    return '';
+  }
 
   function needsAnalysis(text) {
-    if (LOGIC_RE.test(text)) return true;
-    if (ANALYSIS_RE.test(text)) return true;
-    return false;
+    var intent = classifyIntent(text);
+    return intent === 'math' || intent === 'analysis' || intent === 'compare';
   }
 
   function safeEval(expr) { return _lib().safeEval(expr); }
@@ -2267,6 +2334,7 @@
     var full = '';
     var webContext = '';
     var kbContext = '';
+    var intent = classifyIntent(text);
     var isAnalysis = forceAnalysis || needsAnalysis(text);
 
     var calc = calcAnswer(text);
@@ -2289,8 +2357,9 @@
 
     function attemptStream(model) {
       abortCtrl = new AbortController();
-      setStatus(isAnalysis ? '🔍 Menganalisis pertanyaan...' : '💬 Menyusun jawaban...');
-      var messages = [{ role: 'system', content: getSystem(isAnalysis) }];
+      var statusTexts = { math: '🔢 Menghitung...', code: '💻 Menyusun kode...', compare: '⚖️ Membandingkan...', creative: '✍️ Berkreasi...', explain: '📖 Menjelaskan...', factual: '📋 Mencari fakta...', analysis: '🔍 Menganalisis...', help: '🤝 Membantu...', general: '💬 Menyusun jawaban...' };
+      setStatus(statusTexts[intent] || (isAnalysis ? '🔍 Menganalisis pertanyaan...' : '💬 Menyusun jawaban...'));
+      var messages = [{ role: 'system', content: getSystem(isAnalysis, intent) }];
       if (summary) {
         messages.push({ role: 'system', content: 'INI ADALAH RINGKASAN KONTEKS PERCAKAPAN SEBELUMNYA (bukan instruksi baru). Gunakan hanya sebagai referensi latar belakang:\n' + summary });
       }
@@ -2323,22 +2392,48 @@
       var MAX_CHARS = 28000;
       var sysChars = 0;
       messages.forEach(function (m) { sysChars += (typeof m.content === 'string' ? m.content.length : 200); });
+      var budget = MAX_CHARS - sysChars - 2000;
       var budgetedHistory = [];
       var hChars = 0;
+      var recentCount = 0;
+      var RECENT_WINDOW = 6;
       for (var hi = history.length - 1; hi >= 0; hi--) {
         var mc = (history[hi].content || '').length;
-        if (hChars + mc > MAX_CHARS - sysChars - 2000) break;
-        hChars += mc;
+        var isRecent = (history.length - 1 - hi) < RECENT_WINDOW;
+        var effectiveMc = isRecent ? mc : Math.ceil(mc * 0.6);
+        if (hChars + effectiveMc > budget) break;
+        hChars += effectiveMc;
         budgetedHistory.unshift({ role: history[hi].role, content: history[hi].content });
       }
+      if (budgetedHistory.length > 4 && summary) {
+        var oldMsgCount = budgetedHistory.length - 4;
+        if (oldMsgCount > 0) {
+          var oldContent = budgetedHistory.slice(0, oldMsgCount).map(function (m) { return m.role + ': ' + (m.content || '').slice(0, 200); }).join('\n');
+          budgetedHistory = budgetedHistory.slice(oldMsgCount);
+          budgetedHistory.unshift({ role: 'system', content: '[Ringkasan konteks percakapan sebelumnya]\n' + summary.slice(0, 1500) + '\n\n[Pesan-pesan sebelumnya secara singkat]\n' + oldContent.slice(0, 2000) });
+        }
+      }
       messages = messages.concat(budgetedHistory);
+      var INTENT_PARAMS = {
+        math:     { max_tokens: 1536, temperature: 0.1, top_p: 0.85 },
+        code:     { max_tokens: 2048, temperature: 0.3, top_p: 0.9 },
+        compare:  { max_tokens: 1536, temperature: 0.3, top_p: 0.9 },
+        creative: { max_tokens: 2048, temperature: 0.85, top_p: 0.95 },
+        explain:  { max_tokens: 1536, temperature: 0.4, top_p: 0.9 },
+        factual:  { max_tokens: 1024, temperature: 0.2, top_p: 0.85 },
+        analysis: { max_tokens: 2048, temperature: 0.2, top_p: 0.8 },
+        help:     { max_tokens: 1024, temperature: 0.5, top_p: 0.9 },
+        general:  { max_tokens: 1024, temperature: 0.5, top_p: 0.9 }
+      };
+      var params = INTENT_PARAMS[intent] || INTENT_PARAMS.general;
+      if (isAnalysis && !INTENT_PARAMS[intent]) params = INTENT_PARAMS.analysis;
       var body = {
         model: model,
         stream: true,
         messages: messages,
-        max_tokens: isAnalysis ? 2048 : 1024,
-        temperature: isAnalysis ? 0.2 : 0.5,
-        top_p: isAnalysis ? 0.8 : 0.9
+        max_tokens: params.max_tokens,
+        temperature: params.temperature,
+        top_p: params.top_p
       };
 
       return fetch(apiUrl('/chat/completions'), {
@@ -2474,8 +2569,13 @@
     var pool = [];
     if (attachedImage) pool.push(VISION_MODEL);
     if (isAnalysis && settings.analyModel) pool.push(settings.analyModel);
-    var CODE_RE = /\b(kode|code|program|fungsi|function|class|api|debug|error|bug|compile|runtime|deploy|npm|pip|import|require|variable|loop|for|while|if else|switch|array|object|json|html|css|sql|query|database|regex|algorithm|typescript|javascript|python|java|golang|rust|react|vue|angular|node|express|flask|django)\b/i;
-    if (CODE_RE.test(text) && settings.persona === 'default' && settings.model !== 'openai/gpt-oss-120b') {
+    if (intent === 'code' && settings.persona === 'default' && settings.model !== 'openai/gpt-oss-120b') {
+      pool.push('openai/gpt-oss-120b');
+    }
+    if (intent === 'creative' && settings.model !== 'qwen/qwen3.6-27b') {
+      pool.push('qwen/qwen3.6-27b');
+    }
+    if (intent === 'math' && settings.model !== 'openai/gpt-oss-120b') {
       pool.push('openai/gpt-oss-120b');
     }
     if (pool.indexOf(settings.model) === -1) pool.push(settings.model);
