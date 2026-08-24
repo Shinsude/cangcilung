@@ -743,6 +743,7 @@
       var raw = localStorage.getItem(MEMORY_KEY);
       if (raw) memory = JSON.parse(raw);
       if (!memory.prefs) memory.prefs = {};
+      if (!memory.entities) memory.entities = { names: {}, dates: {}, facts: [] };
     } catch (e) {}
   }
   function saveMemory() {
@@ -757,6 +758,7 @@
     top.forEach(function (k) { slim[k] = memory.topics[k]; });
     memory.topics = slim;
     trackPrefs(text);
+    trackEntities(text);
     saveMemory();
   }
   function trackPrefs(text) {
@@ -775,6 +777,33 @@
       memory.prefs = newPrefs;
     }
   }
+  function trackEntities(text) {
+    if (!memory.entities) memory.entities = { names: {}, dates: {}, facts: [] };
+    var nameMatches = text.match(/\b(saya\s+namaku?|nama\s+saya|aku\s+namaku?|my\s+name\s+is|panggil\s+saya|call\s+me)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi);
+    if (nameMatches) {
+      nameMatches.forEach(function (m) {
+        var name = m.replace(/^(saya\s+namaku?|nama\s+saya|aku\s+namaku?|my\s+name\s+is|panggil\s+saya|call\s+me)\s+/i, '').trim();
+        if (name && name.length > 1 && name.length < 40) memory.entities.names[name.toLowerCase()] = (memory.entities.names[name.toLowerCase()] || 0) + 1;
+      });
+    }
+    var dateMatches = text.match(/\b(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4})\b/g);
+    if (dateMatches) {
+      dateMatches.forEach(function (d) { memory.entities.dates[d] = (memory.entities.dates[d] || 0) + 1; });
+      var topDates = Object.keys(memory.entities.dates).sort(function (a, b) { return memory.entities.dates[b] - memory.entities.dates[a]; }).slice(0, 10);
+      var slimDates = {};
+      topDates.forEach(function (k) { slimDates[k] = memory.entities.dates[k]; });
+      memory.entities.dates = slimDates;
+    }
+    var factMatches = text.match(/\b(saya\s+kerja|kerja\s+di|work\s+at|bekerja\s+di|tinggal\s+di|live\s+in|domisili|asal\s+dari|berasal\s+dari)\s+(.{3,40})/gi);
+    if (factMatches) {
+      factMatches.forEach(function (f) {
+        var fact = f.trim().toLowerCase();
+        if (memory.entities.facts.indexOf(fact) === -1 && memory.entities.facts.length < 20) {
+          memory.entities.facts.push(fact);
+        }
+      });
+    }
+  }
   function getMemoryContext() {
     var top = Object.keys(memory.topics).sort(function (a, b) { return memory.topics[b] - memory.topics[a]; }).slice(0, 10);
     var parts = [];
@@ -787,7 +816,32 @@
       if (p.tone === 'formal') parts.push('User suka nada formal dan terstruktur.');
       if (p.tone === 'casual') parts.push('User suka nada santai dan akrab.');
     }
+    if (memory.entities) {
+      var e = memory.entities;
+      var nameKeys = Object.keys(e.names || {});
+      if (nameKeys.length) parts.push('Nama yang disebut user: ' + nameKeys.join(', ') + '. Panggil dengan nama yang tepat.');
+      if (e.facts && e.facts.length) parts.push('Fakta tentang user: ' + e.facts.slice(0, 5).join('; ') + '.');
+    }
     return parts.length ? parts.join(' ') : '';
+  }
+
+  function detectSentiment(text) {
+    var t = text.toLowerCase();
+    if (/\b(marah|kesal|frustrasi|annoyed|tidak puas|buruk|jelek|parah|sampah|useless|gabisa|gak bisa|ga bisa|tidak bisa|bodo|bodoh|tolol|idiot|stupid|useless|memalukan)\b/i.test(t)) return 'frustrated';
+    if (/\b(mohon|please|tolong|bantuan|urgent|segera|cepat|penting|darurat|emergency|asap)\b/i.test(t)) return 'urgent';
+    if (/\b(keren|bagus|mantap|hebat|luar biasa|amazing|great|awesome|terbaik|top|suka|love)\b/i.test(t)) return 'positive';
+    if (/\b(bingung|confused|tidak mengerti|gak ngerti|kurang jelas|agak aneh|aneh|bingung\b)/i.test(t)) return 'confused';
+    return 'neutral';
+  }
+
+  function getSentimentHint(sentiment) {
+    var HINTS = {
+      frustrated: '\n[SENTIMEN: FRUSTRASI] User tampak kesal. Akui frustrasi dengan empati, fokus pada solusi langsung, hindari basa-basi. Mulai dengan: "Saya paham ini menjengkelkan." atau setara.',
+      urgent: '\n[SENTIMEN: URGENT] User membutuhkan bantuan segera. Jawab langsung ke poin, langkah-langkah konkret, tanpa penjelasan berlebihan. Mulai dengan solusi.',
+      positive: '\n[SENTIMEN: POSITIF] User antusias. Manfaatkan energi positif ini, berikan respons yang match dengan enthusiasm-nya.',
+      confused: '\n[SENTIMEN: BINGUNG] User tampak bingung. Mulai dari konsep paling dasar, gunakan analogi sederhana, langkah per langkah yang sangat jelas.'
+    };
+    return HINTS[sentiment] || '';
   }
 
   var summarizing = false;
@@ -1072,10 +1126,14 @@
       if (extra.isMultipart) s += '\n\n[PERTANYAAN MULTI-BAGIAN]\nPertanyaan ini punya beberapa bagian. Jawab SEMUA bagian secara berurutan dengan label yang jelas (Bagian 1, 2, 3...). Jangan lewatkan satu pun.';
       if (extra.isAmbiguous) s += '\n\n[PERTANYAAN SAMAR]\nPertanyaan ini terlalu singkat/vague. Berikan 1-2 opsi interpretasi singkat, lalu jawab opsi yang paling mungkin. Akhiri dengan: "Jika maksudmu berbeda, beri tahu saya."';
       if (extra.isCorrection) {
-        var lastUserMsg = history.length > 1 ? history[history.length - 2].content || '' : '';
         s += '\n\n[KOREKSI DARI USER]\nUser mengoreksi jawaban sebelumnya. Baca konteks percakapan sebelumnya dan perbaiki jawaban berdasarkan koreksi. Jangan ulangi kesalahan yang sama. Fokus pada bagian yang dikoreksi.';
       }
       if (extra.complexity === 'complex') s += '\n\n[PERTANYAAN KOMPLEKS]\nPertanyaan ini rumit. Gunakan pendekatan sistematis: definisi → analisis → solusi → verifikasi. Jangan lompat ke kesimpulan.';
+      if (extra.sentiment && extra.sentiment !== 'neutral') s += getSentimentHint(extra.sentiment);
+      if (extra.domain) s += getDomainDisclaimer(extra.domain);
+      if (extra.codePatterns && extra.codePatterns.length) {
+        s += '\n\n[KUALITAS KODE TERDETEKSI]\nPola bermasalah pada kode user: ' + extra.codePatterns.join(', ') + '. Berikan peringatan dan perbaikan yang sesuai.';
+      }
     }
     return s;
   }
@@ -2137,6 +2195,38 @@
     return 'general';
   }
 
+  var DOMAIN_RE = {
+    medical: /\b(dokter|sakit|penyakit|gejala|obat|operasi|diagnosa|kesehatan|hamil|bersalin|vitamin|suplemen|therapi|terapi|ramuan|herbal|asam lambung|diabetes|kolesterol|darah tinggi|asma|alergi|infeksi|vaksin|imunisasi)\b/i,
+    legal: /\b(hukum|undang.undang|pasal|peraturan|perjanjian|kontrak|sengketa|gugatan|pengacara|advokat|narapidana|hakim|pengadilan|polisi|tersangka|korban|tilang|denda|pidana|perdata|perceraian|warisan|ahli waris)\b/i,
+    financial: /\b(saham|investasi|reksa dana|crypto|bitcoin|trading|forex|bank|kredit|pinjaman|utang|pajak|pph|ppn|deviden|capital gain|rugilabih|portofolio|asing| obligasi|deposito|tabungan|angsuran|asuransi)\b/i
+  };
+
+  function detectDomain(text) {
+    if (DOMAIN_RE.medical.test(text)) return 'medical';
+    if (DOMAIN_RE.legal.test(text)) return 'legal';
+    if (DOMAIN_RE.financial.test(text)) return 'financial';
+    return null;
+  }
+
+  function getDomainDisclaimer(domain) {
+    var DISCLAIMERS = {
+      medical: '\n\n⚠️ DISCLAIMER MEDIS: Ini informasi umum, bukan pengganti konsultasi dokter. Selalu konsultasikan kondisi kesehatan dengan tenaga medis profesional.',
+      legal: '\n\n⚠️ DISCLAIMER HUKUM: Ini informasi umum, bukan pengganti konsultasi pengacara. Untuk masalah hukum spesifik, konsultasikan dengan advokat yang berwenang.',
+      financial: '\n\n⚠️ DISCLAIMER KEUANGAN: Ini informasi umum, bukan saran investasi profesional. Keputusan keuangan sebaiknya dikonsultasikan dengan penasihat keuangan bersertifikat.'
+    };
+    return DISCLAIMERS[domain] || '';
+  }
+
+  function detectCodePatterns(text) {
+    var patterns = [];
+    if (/\b(eval|innerHTML|document\.write|dangerouslySetInnerHTML)\b/i.test(text)) patterns.push('XSS_RISK');
+    if (/\b(password|secret|api.?key|token|credential)\b.*=.*['"][^'"]+['"]/i.test(text)) patterns.push('HARDCODED_SECRET');
+    if (/\b(catch\s*\(\s*\w*\s*\)\s*\{\s*\})\b/.test(text)) patterns.push('EMPTY_CATCH');
+    if (/\b(select\s+\*\s+from|SELECT\s+\*)\b/i.test(text)) patterns.push('SELECT_ALL');
+    if (/\b(concept:?\s*|idea:?\s*|gagasan:?\s*|menurut saya:?\s*|imo:?\s*|imo:?\s*|imho:?\s*)/i.test(text)) patterns.push('OPINION_PREFIX');
+    return patterns;
+  }
+
   function getConfidenceHint(intent, text) {
     if (intent === 'math' || intent === 'code') return '';
     if (intent === 'factual') return '\nJika tidak yakin dengan data spesifik, gunakan frasa "menurut sumber terpercaya" atau "data per tahun X" dan sebutkan keterbatasan akurasi.';
@@ -2362,11 +2452,17 @@
     var intent = classifyIntent(text);
     var isAnalysis = forceAnalysis || needsAnalysis(text);
     var complexity = getComplexity(text);
+    var sentiment = detectSentiment(text);
+    var domain = detectDomain(text);
+    var codePatterns = CODE_RE.test(text) ? detectCodePatterns(text) : [];
     var extra = {
       isMultipart: isMultipart(text),
       isAmbiguous: isAmbiguous(text),
       isCorrection: isCorrection(text),
-      complexity: complexity
+      complexity: complexity,
+      sentiment: sentiment,
+      domain: domain,
+      codePatterns: codePatterns
     };
 
     var calc = calcAnswer(text);
@@ -2441,12 +2537,11 @@
       var budget = MAX_CHARS - sysChars - 2000;
       var budgetedHistory = [];
       var hChars = 0;
-      var recentCount = 0;
       var RECENT_WINDOW = 6;
       for (var hi = history.length - 1; hi >= 0; hi--) {
         var mc = (history[hi].content || '').length;
         var isRecent = (history.length - 1 - hi) < RECENT_WINDOW;
-        var effectiveMc = isRecent ? mc : Math.ceil(mc * 0.6);
+        var effectiveMc = isRecent ? mc : Math.ceil(mc * 0.5);
         if (hChars + effectiveMc > budget) break;
         hChars += effectiveMc;
         budgetedHistory.unshift({ role: history[hi].role, content: history[hi].content });
@@ -2454,10 +2549,14 @@
       if (budgetedHistory.length > 4 && summary) {
         var oldMsgCount = budgetedHistory.length - 4;
         if (oldMsgCount > 0) {
-          var oldContent = budgetedHistory.slice(0, oldMsgCount).map(function (m) { return m.role + ': ' + (m.content || '').slice(0, 200); }).join('\n');
+          var oldMsgs = budgetedHistory.slice(0, oldMsgCount);
+          var oldContent = oldMsgs.map(function (m) { return m.role + ': ' + (m.content || '').slice(0, 150); }).join('\n');
           budgetedHistory = budgetedHistory.slice(oldMsgCount);
-          budgetedHistory.unshift({ role: 'system', content: '[Ringkasan konteks percakapan sebelumnya]\n' + summary.slice(0, 1500) + '\n\n[Pesan-pesan sebelumnya secara singkat]\n' + oldContent.slice(0, 2000) });
+          budgetedHistory.unshift({ role: 'system', content: '[Ringkasan konteks percakapan sebelumnya]\n' + summary.slice(0, 1500) + '\n\n[Pesan-pesan sebelumnya secara singkat]\n' + oldContent.slice(0, 1500) });
         }
+      }
+      if (memory.entities && memory.entities.facts && memory.entities.facts.length && budgetedHistory.length > 0) {
+        budgetedHistory.unshift({ role: 'system', content: '[KONTEKS USER]\n' + memory.entities.facts.slice(0, 3).join('; ') + '.' });
       }
       messages = messages.concat(budgetedHistory);
       var INTENT_PARAMS = {
