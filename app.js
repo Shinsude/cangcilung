@@ -2732,7 +2732,7 @@
     loadHistory();
     loadSummary();
     loadMemory();
-    window.addEventListener('beforeunload', function () { saveSessionsNow(); });
+    window.addEventListener('beforeunload', function () { if (!window.__skipSave) saveSessionsNow(); });
     els.btnSend = $('btn-send');
     els.chatInput = $('chat-input');
     els.chatMessages = $('chat-messages');
