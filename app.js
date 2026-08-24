@@ -866,7 +866,7 @@
         temperature: 0.3,
         messages: [{
           role: 'system',
-          content: 'Ringkas percakapan berikut dalam bahasa Indonesia, maksimal 300 kata. Fokus pada: topik utama, keputusan yang diambil, fakta penting, preferensi user, dan konteks yang relevan untuk pertanyaan lanjutan. Format poin-poin. Hanya hasil ringkasan, tanpa pembuka.'
+          content: 'Ringkas percakapan berikut dalam bahasa Indonesia, maksimal 300 kata. Fokus pada: topik utama, keputusan yang diambil, fakta penting, preferensi user, dan konteks yang relevan untuk pertanyaan lanjutan. Format poin-poin. Hanya hasil ringkasan, tanpa pembuka.\n\nTAMBAHAN: Di akhir ringkasan, tulis baris terpisah "[ENTITIES]" lalu daftar entitas yang disebut user: nama, tanggal, tempat kerja, atau fakta personal lainnya (format: entity1 | entity2 | ...). Jika tidak ada, tulis [ENTITIES] kosong.'
         }, {
           role: 'user',
           content: old.map(function (m) { return m.role + ': ' + (m.content || '').slice(0, 500); }).join('\n').slice(-8000)
@@ -879,7 +879,20 @@
         if (!txt) return;
         if (history.length !== histLen) return;
         if (currentSessionId !== snapSessionId) return;
-        summary = (summary ? summary + '\n' : '') + txt;
+        var entityMatch = txt.match(/\[ENTITIES\]\s*(.*)/i);
+        var summaryText = entityMatch ? txt.replace(/\[ENTITIES\][\s\S]*/, '').trim() : txt;
+        summary = (summary ? summary + '\n' : '') + summaryText;
+        if (entityMatch && entityMatch[1] && entityMatch[1].trim()) {
+          var entities = entityMatch[1].split('|').map(function (e) { return e.trim(); }).filter(Boolean);
+          if (!memory.entities) memory.entities = { names: {}, dates: {}, facts: [] };
+          entities.forEach(function (ent) {
+            var lower = ent.toLowerCase();
+            if (memory.entities.facts.indexOf(lower) === -1 && memory.entities.facts.length < 20) {
+              memory.entities.facts.push(lower);
+            }
+          });
+          saveMemory();
+        }
         if (summary.length > 3000) {
           var oldSummary = summary;
           summary = txt.slice(0, 2000);
@@ -2052,6 +2065,13 @@
       creative: 'Berdasarkan konten kreatif berikut, buat 3 pertanyaan lanjutan:\n- Minta variasi atau twist berbeda\n- Minta ekspansi salah satu bagian\n- Minta reinterpretasi dari sudut pandang berbeda\nFormat: HANYA pertanyaan, satu per baris, tanpa nomor. Maksimal 15 kata.'
     };
     var suggestPrompt = INTENT_SUGGEST[intent] || 'Kamu adalah asisten yang membantu user belajar lebih dalam. Berdasarkan percakapan berikut, buat 3 pertanyaan lanjutan yang ACTIONABLE dan relevan:\n- Jika ada kode: tawarkan untuk menjelaskan bagian tertentu, memodifikasi, atau menguji\n- Jika ada konsep: tawarkan analogi, contoh kasus, atau latihan\n- Jika ada data/angka: tawarkan analisis perbandingan atau visualisasi\n- Jika ada error: tawarkan debugging atau optimasi\nFormat: HANYA pertanyaan, satu per baris, tanpa nomor, tanpa penjelasan lain. Maksimal 15 kata per pertanyaan.';
+    var contextNote = '';
+    if (memory.entities && memory.entities.facts && memory.entities.facts.length) {
+      contextNote += '\n\n[Fakta tentang user]\n' + memory.entities.facts.slice(-3).join('; ') + '.';
+    }
+    if (memory.prefs && memory.prefs.style) {
+      contextNote += '\n\n[Gaya user]\n' + memory.prefs.style + ', bahasa: ' + (memory.prefs.lang || 'id');
+    }
     fetch(apiUrl('/chat/completions'), {
       method: 'POST',
       headers: apiHeaders(),
@@ -2062,7 +2082,7 @@
         temperature: 0.7,
         messages: [{
           role: 'system',
-          content: suggestPrompt
+          content: suggestPrompt + contextNote
         }, {
           role: 'user',
           content: 'Pertanyaan user: ' + question.slice(0, 500) + '\n\nJawaban yang diberikan: ' + String(answer).slice(0, 1500)
@@ -2378,11 +2398,21 @@
   function handleGreeting(text) {
     var GREET_RE = /^(hi|hai|hello|halo|hey|tes|test|oke|ok|ya|yo|assalam|selamat pagi|selamat siang|selamat malam|thanks|terima kasih|makasih|dah|bye|sampai)[\s!.]*$/i;
     if (!GREET_RE.test(text)) return false;
-    var quickReply = /^(hi|hai|hello|halo|hey|assalam)/i.test(text) ? 'Halo! Ada yang bisa saya bantu?'
-      : /^(oke|ok|ya|yo)/i.test(text) ? 'Baik, silakan lanjutkan.'
-      : /^(thanks|terima kasih|makasih)/i.test(text) ? 'Sama-sama! Senang bisa membantu.'
-      : /^(bye|dah|sampai)/i.test(text) ? 'Sampai jumpa!'
-      : 'Ya, ada yang perlu?';
+    var quickReply;
+    if (/^(hi|hai|hello|halo|hey|assalam)/i.test(text)) {
+      var lastTopic = memory.entities && memory.entities.facts && memory.entities.facts.length
+        ? '\nKali terakhir kamu cerita soal: ' + memory.entities.facts[memory.entities.facts.length - 1] + '. Mau lanjut atau ada yang baru?'
+        : '\nAda yang bisa saya bantu?';
+      quickReply = 'Halo!' + lastTopic;
+    } else if (/^(oke|ok|ya|yo)/i.test(text)) {
+      quickReply = 'Baik, silakan lanjutkan.';
+    } else if (/^(thanks|terima kasih|makasih)/i.test(text)) {
+      quickReply = 'Sama-sama! Senang bisa membantu.';
+    } else if (/^(bye|dah|sampai)/i.test(text)) {
+      quickReply = 'Sampai jumpa! Jangan lupa kalau ada yang perlu, saya di sini.';
+    } else {
+      quickReply = 'Ya, ada yang perlu?';
+    }
     history.push({ role: 'user', content: text, t: nowTime() });
     history.push({ role: 'assistant', content: quickReply, t: nowTime() });
     saveHistory();
@@ -2626,6 +2656,23 @@
               full = '';
               retryReason = 'Jawaban terlalu pendek, mencoba model lain...';
               return;
+            }
+            if (history.length > 0 && history[history.length - 1].role === 'assistant') {
+              var lastAns = history[history.length - 1].content || '';
+              if (lastAns && full && lastAns.length > 100 && full.length > 100) {
+                var overlap = 0;
+                var lastWords = lastAns.toLowerCase().split(/\s+/);
+                var curWords = full.toLowerCase().split(/\s+/);
+                var lastSet = {};
+                lastWords.forEach(function (w) { if (w.length > 3) lastSet[w] = 1; });
+                curWords.forEach(function (w) { if (lastSet[w]) overlap++; });
+                var overlapRatio = overlap / (Math.min(lastWords.length, curWords.length) || 1);
+                if (overlapRatio > 0.7 && full.length < lastAns.length * 1.3) {
+                  full = '';
+                  retryReason = 'Jawaban terlalu mirip dengan sebelumnya, mencoba model lain...';
+                  return;
+                }
+              }
             }
             history.push({ role: 'assistant', content: full, t: nowTime() });
             saveHistory();
