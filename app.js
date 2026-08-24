@@ -520,6 +520,7 @@
     }
     if (cloudNotify) cloudNotify('sessions');
   }
+  window.saveSessionsNow = saveSessionsNow;
 
   function currentSession() {
     for (var i = 0; i < sessions.length; i++) {
