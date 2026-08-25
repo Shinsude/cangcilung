@@ -424,9 +424,12 @@
     var el = $('input-count');
     if (!el) return;
     var v = ($('chat-input').value || '').trim();
-    if (!v) { el.textContent = ''; return; }
+    if (!v) { el.textContent = ''; el.style.color = ''; return; }
     var words = v.split(/\s+/).filter(function (w) { return w.length; }).length;
     el.textContent = v.length + ' karakter · ' + words + ' kata';
+    if (v.length > 25000) { el.style.color = '#ef4444'; el.textContent += ' (dekat batas 30.000)'; }
+    else if (v.length > 20000) { el.style.color = '#f59e0b'; el.textContent += ' (' + Math.round((1 - v.length / 30000) * 100) + '% tersisa)'; }
+    else { el.style.color = ''; }
   }
 
   function cycleTheme() {
@@ -779,7 +782,7 @@
   }
   function trackEntities(text) {
     if (!memory.entities) memory.entities = { names: {}, dates: {}, facts: [] };
-    var nameMatches = text.match(/\b(saya\s+namaku?|nama\s+saya|aku\s+namaku?|my\s+name\s+is|panggil\s+saya|call\s+me)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi);
+    var nameMatches = text.match(/\b(saya\s+namaku?|nama\s+saya|aku\s+namaku?|my\s+name\s+is|panggil\s+saya|call\s+me)\s+([a-zA-Z][a-zA-Z\s]{1,39})/gi);
     if (nameMatches) {
       nameMatches.forEach(function (m) {
         var name = m.replace(/^(saya\s+namaku?|nama\s+saya|aku\s+namaku?|my\s+name\s+is|panggil\s+saya|call\s+me)\s+/i, '').trim();
@@ -796,9 +799,18 @@
     }
     var factMatches = text.match(/\b(saya\s+kerja|kerja\s+di|work\s+at|bekerja\s+di|tinggal\s+di|live\s+in|domisili|asal\s+dari|berasal\s+dari)\s+(.{3,40})/gi);
     if (factMatches) {
+      var FACT_CATEGORIES = { 'kerja di': 'pekerjaan', 'work at': 'pekerjaan', 'bekerja di': 'pekerjaan', 'saya kerja': 'pekerjaan', 'tinggal di': 'domisili', 'live in': 'domisili', 'domisili': 'domisili', 'asal dari': 'asal', 'berasal dari': 'asal' };
       factMatches.forEach(function (f) {
         var fact = f.trim().toLowerCase();
-        if (memory.entities.facts.indexOf(fact) === -1 && memory.entities.facts.length < 20) {
+        var cat = null;
+        Object.keys(FACT_CATEGORIES).forEach(function (k) { if (fact.indexOf(k) !== -1) cat = FACT_CATEGORIES[k]; });
+        if (cat) {
+          memory.entities.facts = memory.entities.facts.filter(function (ef) {
+            if (!cat) return true;
+            return !FACT_CATEGORIES[Object.keys(FACT_CATEGORIES).find(function (k) { return ef.indexOf(k) !== -1; })] || FACT_CATEGORIES[Object.keys(FACT_CATEGORIES).find(function (k) { return ef.indexOf(k) !== -1; })] !== cat;
+          });
+        }
+        if (memory.entities.facts.indexOf(fact) === -1 && memory.entities.facts.length < 15) {
           memory.entities.facts.push(fact);
         }
       });
@@ -1135,6 +1147,8 @@
     if (intent && INTENT_PROMPTS[intent]) s += INTENT_PROMPTS[intent];
     else if (isAnalysis) s += INTENT_PROMPTS.analysis;
     s += getConfidenceHint(intent || 'general', '');
+    var memCtx = getMemoryContext();
+    if (memCtx) s += '\n\n[CONTEKS USER]\n' + memCtx;
     if (extra) {
       if (extra.isMultipart) s += '\n\n[PERTANYAAN MULTI-BAGIAN]\nPertanyaan ini punya beberapa bagian. Jawab SEMUA bagian secara berurutan dengan label yang jelas (Bagian 1, 2, 3...). Jangan lewatkan satu pun.';
       if (extra.isAmbiguous) s += '\n\n[PERTANYAAN SAMAR]\nPertanyaan ini terlalu singkat/vague. Berikan 1-2 opsi interpretasi singkat, lalu jawab opsi yang paling mungkin. Akhiri dengan: "Jika maksudmu berbeda, beri tahu saya."';
@@ -1661,7 +1675,16 @@
   function renderHistory(forceFull) {
     var box = $('chat-messages');
     if (!box) return;
-    var isFull = forceFull || searchActive || _renderedCount > history.length || _renderedCount === 0;
+    if (!forceFull && _renderedCount > 0 && _renderedCount <= history.length) {
+      while (_renderedCount < history.length) {
+        var m = history[_renderedCount];
+        var b = addBubble(m.role, m.content, _renderedCount, m.t);
+        if (m.role === 'assistant') addRunButtons(b);
+        _renderedCount++;
+      }
+      return;
+    }
+    var isFull = forceFull || searchActive || _renderedCount === 0;
 
     if (isFull) {
       box.innerHTML = '';
@@ -2668,9 +2691,14 @@
                 curWords.forEach(function (w) { if (lastSet[w]) overlap++; });
                 var overlapRatio = overlap / (Math.min(lastWords.length, curWords.length) || 1);
                 if (overlapRatio > 0.7 && full.length < lastAns.length * 1.3) {
-                  full = '';
-                  retryReason = 'Jawaban terlalu mirip dengan sebelumnya, mencoba model lain...';
-                  return;
+                  if (antiRepeatCount >= 2) {
+                    antiRepeatCount = 0;
+                  } else {
+                    antiRepeatCount++;
+                    full = '';
+                    retryReason = 'Jawaban terlalu mirip dengan sebelumnya, mencoba model lain...';
+                    return;
+                  }
                 }
               }
             }
@@ -2718,6 +2746,7 @@
           }
           var renderQueued = false;
           var retryReason = '';
+          var antiRepeatCount = 0;
           return pump().then(function () {
             if (retryReason) return Promise.reject({ _retry: true, msg: retryReason });
           });
@@ -2781,21 +2810,6 @@
       _nextRunning = true;
       var model = pool.shift();
       if (!model) return fail(new Error('Semua model gagal.'));
-      if ((webMode || needsWeb(text)) && !webContext && !webFetching) {
-        webFetching = true;
-        setStatus('🌐 Mencari info di web...');
-        searchWeb(text).then(function (ctx) {
-          webContext = ctx;
-          if (!ctx) setStatus('Mode web: tidak ada hasil, lanjut jawab biasa.');
-        }).catch(function () {
-          setStatus('Mode web: gagal mencari, lanjut jawab biasa.');
-        }).finally(function () {
-          webFetching = false;
-          _nextRunning = false;
-          next();
-        });
-        return;
-      }
       attemptStream(model)
         .catch(function (err) {
           if (err && err.name === 'AbortError') return fail(err);
@@ -2818,14 +2832,36 @@
         });
     }
 
-    if (window.__kb && window.__kb.canRetrieve && window.__kb.canRetrieve()) {
-      setStatus('📚 Mencari di pengetahuan tersimpan...');
-      window.__kb.retrieve(text).then(function (c) {
-        if (kbCancel) return;
-        kbContext = c || '';
-        _nextRunning = false;
-        next();
-      }).catch(function () { if (!kbCancel) { _nextRunning = false; next(); } });
+    var needKB = window.__kb && window.__kb.canRetrieve && window.__kb.canRetrieve();
+    var needWeb = (webMode || needsWeb(text)) && !webContext;
+    if (needKB || needWeb) {
+      var pending = [];
+      if (needKB) {
+        setStatus('📚 Mencari di pengetahuan tersimpan...');
+        pending.push(window.__kb.retrieve(text).then(function (c) {
+          if (!kbCancel) kbContext = c || '';
+        }).catch(function () {}));
+      }
+      if (needWeb) {
+        webFetching = true;
+        var webStart = Date.now();
+        setStatus('🌐 Mencari info di web...');
+        var webProgress = setInterval(function () {
+          var sec = Math.round((Date.now() - webStart) / 1000);
+          if (sec > 3 && sec < 12) setStatus('🌐 Mencari info di web... (' + sec + ' detik)');
+        }, 2000);
+        pending.push(searchWeb(text).then(function (ctx) {
+          clearInterval(webProgress);
+          if (!kbCancel) webContext = ctx;
+          if (!ctx) setStatus('Mode web: tidak ada hasil, lanjut jawab biasa.');
+        }).catch(function () {
+          clearInterval(webProgress);
+          setStatus('Mode web: gagal mencari, lanjut jawab biasa.');
+        }).finally(function () { webFetching = false; clearInterval(webProgress); }));
+      }
+      Promise.all(pending).then(function () {
+        if (!kbCancel) { _nextRunning = false; next(); }
+      });
     } else {
       next();
     }
@@ -3272,6 +3308,17 @@
       if (s.suggestEnabled !== undefined) { settings.suggestEnabled = s.suggestEnabled; suggestEnabled = s.suggestEnabled; }
       if (s.embedBaseUrl) settings.embedBaseUrl = s.embedBaseUrl;
       if (s.embedModel) settings.embedModel = s.embedModel;
+      if (s.memory && typeof s.memory === 'object') {
+        var cloudMem = s.memory;
+        if (cloudMem.prefs) memory.prefs = cloudMem.prefs;
+        if (cloudMem.entities) {
+          if (!memory.entities) memory.entities = { names: {}, dates: {}, facts: [] };
+          if (cloudMem.entities.names) Object.keys(cloudMem.entities.names).forEach(function (k) { memory.entities.names[k] = Math.max(memory.entities.names[k] || 0, cloudMem.entities.names[k] || 0); });
+          if (cloudMem.entities.facts) cloudMem.entities.facts.forEach(function (f) { if (memory.entities.facts.indexOf(f) === -1 && memory.entities.facts.length < 15) memory.entities.facts.push(f); });
+        }
+        if (cloudMem.topics) Object.keys(cloudMem.topics).forEach(function (k) { memory.topics[k] = Math.max(memory.topics[k] || 0, cloudMem.topics[k] || 0); });
+        saveMemory();
+      }
       saveSettings();
       applyTheme(settings.theme);
       applyFont();

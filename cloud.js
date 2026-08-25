@@ -70,6 +70,10 @@
     var c = {};
     ['baseUrl', 'model', 'analyModel', 'persona', 'verifyEnabled', 'theme', 'voice', 'fontSize', 'soundEnabled', 'suggestEnabled', 'embedBaseUrl', 'embedModel']
       .forEach(function (k) { if (s[k] !== undefined) c[k] = s[k]; });
+    try {
+      var memRaw = localStorage.getItem('cangcilung_memory');
+      if (memRaw) c.memory = JSON.parse(memRaw);
+    } catch (e) {}
     return c;
   }
 
