@@ -2732,6 +2732,7 @@
     }
 
     var fallbackNote = '';
+    var clarificationRetry = false;
 
     function addFallbackNote(name) {
       fallbackNote = '→ otomatis pindah ke ' + name + ' (model sebelumnya sibuk/limit)';
@@ -2862,7 +2863,6 @@
           var decoder = new TextDecoder();
           var buffer = { text: '', thinking: false };
           var done = false;
-          var clarificationRetry = false;
           var finish = function () {
             if (done) return;
             done = true;
