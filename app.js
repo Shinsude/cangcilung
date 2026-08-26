@@ -1163,7 +1163,18 @@
       if (extra.sentiment && extra.sentiment !== 'neutral') s += getSentimentHint(extra.sentiment);
       if (extra.domain) s += getDomainDisclaimer(extra.domain);
       if (extra.codePatterns && extra.codePatterns.length) {
-        s += '\n\n[KUALITAS KODE TERDETEKSI]\nPola bermasalah pada kode user: ' + extra.codePatterns.join(', ') + '. Berikan peringatan dan perbaikan yang sesuai.';
+        var DEPRECATED_PATTERNS = extra.codePatterns.filter(function (p) { return ['VAR_LEAK', 'JQUERY_DEPRECATED', 'ALERT_USAGE', 'AVOID_WITH', 'COMPLEX_ASYNC', 'DIRECT_DOM'].indexOf(p) !== -1; });
+        var SECURITY_PATTERNS = extra.codePatterns.filter(function (p) { return ['XSS_RISK', 'HARDCODED_SECRET', 'EMPTY_CATCH', 'SELECT_ALL'].indexOf(p) !== -1; });
+        if (SECURITY_PATTERNS.length) s += '\n\n[KEAMANAN KODE]\nPola berisiko: ' + SECURITY_PATTERNS.join(', ') + '. Berikan peringatan keamanan dan perbaikan.';
+        if (DEPRECATED_PATTERNS.length) s += '\n\n[POLA DEPRECATED]\nPola usang terdeteksi: ' + DEPRECATED_PATTERNS.join(', ') + '. Sarankan alternatif modern yang sesuai.';
+        if (extra.codePatterns.indexOf('OPINION_PREFIX') !== -1) s += '\n\n[OPINI USER]\nUser memberikan opini pribadi. Akui perspektif mereka, lalu berikan fakta objektif sebagai pelengkap.';
+      }
+      s += getResponseStructure(text, intent, extra.complexity);
+      if (extra.followUp && extra.followUp.isFollowUp) {
+        s += '\n\n[MELANJUTKAN PERCAKAPAN]\nIni adalah pertanyaan lanjutan. Hubungkan dengan konteks percakapan sebelumnya. Jangan ulangi penjelasan yang sudah diberikan.';
+      }
+      if (extra.topicJump && extra.topicJump.isJump) {
+        s += '\n\n[TOPIK BERUBAH]\n' + extra.topicJump.topicHint + ' Anggap ini pertanyaan baru, tapi sesekali referensikan konteks sebelumnya jika relevan.';
       }
     }
     return s;
@@ -2274,7 +2285,67 @@
     if (/\b(catch\s*\(\s*\w*\s*\)\s*\{\s*\})\b/.test(text)) patterns.push('EMPTY_CATCH');
     if (/\b(select\s+\*\s+from|SELECT\s+\*)\b/i.test(text)) patterns.push('SELECT_ALL');
     if (/\b(concept:?\s*|idea:?\s*|gagasan:?\s*|menurut saya:?\s*|imo:?\s*|imo:?\s*|imho:?\s*)/i.test(text)) patterns.push('OPINION_PREFIX');
+    var DEPRECATED = [
+      { re: /\b(var\s+|window\.\w+\s*=)\b.*\b(addEventListener|setTimeout|setInterval)\b/i, name: 'VAR_LEAK', tip: 'Gunakan const/let, hindari var.' },
+      { re: /\b\$\(document\)\.ready\b/i, name: 'JQUERY_DEPRECATED', tip: '$(document).ready sudah deprecated. Gunakan document.addEventListener("DOMContentLoaded", ...).' },
+      { re: /\balert\s*\(/i, name: 'ALERT_USAGE', tip: 'Hindari alert() di production. Gunakan UI notification atau toast.' },
+      { re: /\b(String\.raw|with\s*\()\b/i, name: 'AVOID_WITH', tip: 'with() dilarang di strict mode. Gunakan destructuring atau variabel eksplisit.' },
+      { re: /\b(async\s+function\s*\*|yield\s*\*)\b/i, name: 'COMPLEX_ASYNC', tip: 'async generator mungkin overkill. Pertimbangkan async iter biasa.' },
+      { re: /\bdocument\.getElementById\s*\(\s*['"][^'"]+['"]\s*\)/g, name: 'DIRECT_DOM', tip: 'Pertimbangkan abstraksi DOM untuk maintainability.' }
+    ];
+    DEPRECATED.forEach(function (d) { if (d.re.test(text)) patterns.push(d.name); });
     return patterns;
+  }
+
+  function getResponseStructure(text, intent, complexity) {
+    if (complexity === 'simple' && intent !== 'code') {
+      return '\n[FORMAT: RINGKAS]\nJawab langsung dalam 1-3 kalimat. Tanpa heading atau poin-poin. Langsung ke inti.';
+    }
+    if (complexity === 'complex' || intent === 'analysis' || intent === 'compare') {
+      return '\n[FORMAT: TERSTRUKTUR]\nGunakan: (1) Ringkasan 1 kalimat di awal, (2) Isi dengan heading/bold/tabel, (3) Kesimpulan dengan rekomendasi. Pisahkan section dengan ---.';
+    }
+    if (intent === 'code') {
+      return '\n[FORMAT: KODE]\nStruktur: Analisis singkat → Kode lengkap dengan komentar → Contoh pemakaian → Edge cases.';
+    }
+    if (intent === 'creative') {
+      return '\n[FORMAT: KREATIF]\nGunakan paragraf mengalir. Hindari heading formal. Gunakan bold untuk penekanan. Akhiri dengan pertanyaan reflektif.';
+    }
+    return '';
+  }
+
+  function detectFollowUpChain(text, history) {
+    if (history.length < 4) return { isFollowUp: false, chainDepth: 0 };
+    var chainKeywords = /\b(lalu|kemudian|selanjutnya|bagaimana kalau|terus|next|setelah itu|lanjut|how about|what if|and then|also|additionally|moreover|furthermore)\b/i;
+    var isFollowUp = chainKeywords.test(text);
+    var chainDepth = 0;
+    for (var i = history.length - 1; i >= Math.max(0, history.length - 10); i--) {
+      if (history[i].role === 'user' && chainKeywords.test(history[i].content || '')) chainDepth++;
+      else if (history[i].role === 'user') break;
+    }
+    return { isFollowUp: isFollowUp, chainDepth: chainDepth };
+  }
+
+  function detectTopicJump(text, history) {
+    if (history.length < 6) return { isJump: false, topicHint: '' };
+    var prevUserMsg = '';
+    for (var i = history.length - 2; i >= Math.max(0, history.length - 10); i--) {
+      if (history[i].role === 'user') { prevUserMsg = history[i].content || ''; break; }
+    }
+    if (!prevUserMsg) return { isJump: false, topicHint: '' };
+    var getWords = function (t) {
+      return (t.toLowerCase().match(/\b[a-z]{4,}\b/g) || []).filter(function (w) {
+        return ['yang', 'dengan', 'untuk', 'dalam', 'adalah', 'ini', 'itu', 'apa', 'bagaimana', 'mengapa', 'tolong', 'jelaskan', 'buatkan', 'bisa', 'akan', 'sudah', 'belum', 'cara'].indexOf(w) === -1;
+      });
+    };
+    var prevWords = getWords(prevUserMsg);
+    var curWords = getWords(text);
+    if (!prevWords.length || !curWords.length) return { isJump: false, topicHint: '' };
+    var overlap = curWords.filter(function (w) { return prevWords.indexOf(w) !== -1; });
+    var overlapRatio = overlap.length / Math.min(prevWords.length, curWords.length);
+    if (overlapRatio < 0.1 && prevWords.length >= 2 && curWords.length >= 2) {
+      return { isJump: true, topicHint: 'Topik berubah dari "' + prevWords.slice(0, 3).join(', ') + '" ke "' + curWords.slice(0, 3).join(', ') + '".' };
+    }
+    return { isJump: false, topicHint: '' };
   }
 
   function getConfidenceHint(intent, text) {
@@ -2517,6 +2588,8 @@
     var sentiment = detectSentiment(text);
     var domain = detectDomain(text);
     var codePatterns = CODE_RE.test(text) ? detectCodePatterns(text) : [];
+    var followUp = detectFollowUpChain(text, history);
+    var topicJump = detectTopicJump(text, history);
     var extra = {
       isMultipart: isMultipart(text),
       isAmbiguous: isAmbiguous(text),
@@ -2524,7 +2597,9 @@
       complexity: complexity,
       sentiment: sentiment,
       domain: domain,
-      codePatterns: codePatterns
+      codePatterns: codePatterns,
+      followUp: followUp,
+      topicJump: topicJump
     };
 
     var calc = calcAnswer(text);
