@@ -1,4 +1,4 @@
-const CACHE = 'cangcilung-v20';
+const CACHE = 'cangcilung-v21';
 const CORE = [
   '/',
   '/index.html',
@@ -12,6 +12,7 @@ const CORE = [
   '/lib/render.js',
   '/lib/ui.js',
   '/lib/idb-storage.js',
+  '/lib/ta.js',
   '/kb.js',
   '/cloud.js',
   '/manifest.webmanifest',
@@ -21,7 +22,8 @@ const CORE = [
   'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
   'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js',
-  'https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/highlight.min.js'
+  'https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/highlight.min.js',
+  'https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js'
 ];
 
 self.addEventListener('install', function (e) {

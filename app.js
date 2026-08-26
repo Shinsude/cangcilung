@@ -2594,6 +2594,127 @@
     setStatus('');
   }
 
+  function openChartModal(title) {
+    var overlay = $('chart-modal');
+    var titleEl = $('chart-title');
+    var container = $('chart-container');
+    var closeBtn = $('btn-chart-close');
+    if (!overlay || !container) return null;
+    titleEl.textContent = title || 'Chart';
+    overlay.hidden = false;
+    closeBtn.onclick = function () { overlay.hidden = true; };
+    overlay.onclick = function (e) { if (e.target === overlay) overlay.hidden = true; };
+    return container;
+  }
+
+  function handleChart(symbol, interval) {
+    if (!window.CC || !window.CC.ta) {
+      setStatus('Technical Analysis tidak dimuat.', true);
+      return;
+    }
+    var ta = window.CC.ta;
+    var container = openChartModal(symbol.toUpperCase() + ' — ' + interval);
+    if (!container) return;
+    container.innerHTML = '<div style="padding:40px;text-align:center;color:#a0a0b0">⏳ Mengambil data ' + symbol + '...</div>';
+    ta.fetchYahoo(symbol, interval).then(function (result) {
+      var indicators = {
+        ema20: ta.calcEMA(result.data, 20),
+        ema50: ta.calcEMA(result.data, 50),
+        bb: ta.calcBollinger(result.data, 20, 2),
+        volume: result.data.map(function (d) { return { time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }; })
+      };
+      ta.renderChart(container, result.data, indicators, result.name + ' (' + interval + ')');
+      $('chart-title').textContent = result.name + ' — ' + interval;
+    }).catch(function (err) {
+      container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444">Gagal mengambil data: ' + (err.message || err) + '</div>';
+    });
+  }
+
+  function handleRSI(symbol, period) {
+    if (!window.CC || !window.CC.ta) {
+      setStatus('Technical Analysis tidak dimuat.', true);
+      return;
+    }
+    var ta = window.CC.ta;
+    var container = openChartModal(symbol.toUpperCase() + ' RSI(' + period + ')');
+    if (!container) return;
+    container.innerHTML = '<div style="padding:40px;text-align:center;color:#a0a0b0">⏳ Mengambil data ' + symbol + '...</div>';
+    ta.fetchYahoo(symbol, '1d').then(function (result) {
+      var rsiData = ta.calcRSI(result.data, period);
+      var validRSI = rsiData.filter(function (r) { return r !== null; });
+      var lastRSI = validRSI.length ? validRSI[validRSI.length - 1].value : '-';
+      var chart = LightweightCharts.createChart(container, {
+        width: container.clientWidth, height: 300,
+        layout: { background: { type: 'solid', color: '#1a1a2e' }, textColor: '#a0a0b0' },
+        grid: { vertLines: { color: '#2a2a3e' }, horzLines: { color: '#2a2a3e' } },
+        timeScale: { timeVisible: true },
+        rightPriceScale: { borderColor: '#2a2a3e' }
+      });
+      var rsiSeries = chart.addLineSeries({ color: '#f59e0b', lineWidth: 2, title: 'RSI(' + period + ')' });
+      rsiSeries.setData(validRSI);
+      var obLine = chart.addLineSeries({ color: '#ef4444', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: 'Overbought' });
+      var osLine = chart.addLineSeries({ color: '#22c55e', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: 'Oversold' });
+      var midLine = chart.addLineSeries({ color: '#6b7280', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dotted, title: '50' });
+      if (validRSI.length > 0) {
+        var ts = validRSI.map(function (r) { return r.time; });
+        obLine.setData(ts.map(function (t) { return { time: t, value: 70 }; }));
+        osLine.setData(ts.map(function (t) { return { time: t, value: 30 }; }));
+        midLine.setData(ts.map(function (t) { return { time: t, value: 50 }; }));
+      }
+      chart.timeScale().fitContent();
+      $('chart-title').textContent = symbol.toUpperCase() + ' RSI(' + period + ') = ' + lastRSI;
+      var ro = new ResizeObserver(function () { chart.applyOptions({ width: container.clientWidth }); });
+      ro.observe(container);
+    }).catch(function (err) {
+      container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444">Gagal: ' + (err.message || err) + '</div>';
+    });
+  }
+
+  function handleTA(symbol) {
+    if (!window.CC || !window.CC.ta) {
+      setStatus('Technical Analysis tidak dimuat.', true);
+      return;
+    }
+    var ta = window.CC.ta;
+    busy = true;
+    setSendUI(true);
+    setStatus('Mengambil data ' + symbol + '...');
+    var bubble = addBubble('assistant', null);
+    showTyping(bubble);
+    ta.fetchYahoo(symbol, '1d').then(function (result) {
+      var analysis = ta.analyze(result.data);
+      removeTyping(bubble);
+      history.push({ role: 'assistant', content: analysis, t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+      busy = false;
+      setSendUI(false);
+      setStatus('');
+      openChartModal(symbol.toUpperCase() + ' — Chart');
+      var container = $('chart-container');
+      if (container) {
+        var indicators = {
+          ema20: ta.calcEMA(result.data, 20),
+          ema50: ta.calcEMA(result.data, 50),
+          bb: ta.calcBollinger(result.data, 20, 2),
+          volume: result.data.map(function (d) { return { time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }; })
+        };
+        ta.renderChart(container, result.data, indicators, symbol.toUpperCase());
+      }
+    }).catch(function (err) {
+      removeTyping(bubble);
+      var msg = '⚠️ Gagal mengambil data: ' + (err.message || err);
+      history.push({ role: 'assistant', content: msg, t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+      busy = false;
+      setSendUI(false);
+      setStatus('');
+    });
+  }
+
   function handleGreeting(text) {
     var GREET_RE = /^(hi|hai|hello|halo|hey|tes|test|oke|ok|ya|yo|assalam|selamat pagi|selamat siang|selamat malam|thanks|terima kasih|makasih|dah|bye|sampai)[\s!.]*$/i;
     if (!GREET_RE.test(text)) return false;
@@ -2666,6 +2787,29 @@
     var webProgressId = null;
     var input = $('chat-input');
     var text = input.value.trim();
+    if (/^\/(chart|grafik)\b/i.test(text)) {
+      var m = text.match(/^\/(?:chart|grafik)\s+(\S+)\s*(\S*)/i);
+      var sym = m ? m[1] : 'XAUUSD';
+      var iv = m && m[2] ? m[2] : '1d';
+      input.value = '';
+      handleChart(sym, iv);
+      return;
+    }
+    if (/^\/rsi\b/i.test(text)) {
+      var m = text.match(/^\/rsi\s+(\S+)\s*(\d*)/i);
+      var sym = m ? m[1] : 'XAUUSD';
+      var period = m && m[2] ? parseInt(m[2]) : 14;
+      input.value = '';
+      handleRSI(sym, period);
+      return;
+    }
+    if (/^\/(ta|analyze)\s*(xau|gold|emas|ndx|nasdaq|dji|dow|spx)/i.test(text)) {
+      var m = text.match(/^\/(?:ta|analyze)\s+(\S+)/i);
+      var sym = m ? m[1] : 'XAUUSD';
+      input.value = '';
+      handleTA(sym);
+      return;
+    }
     var forceAnalysis = false;
     if (/^\/analyze\b/i.test(text)) {
       forceAnalysis = true;

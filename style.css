@@ -762,3 +762,5 @@ body.drag-over::after {
   .attach-btn { width: 40px; height: 40px; }
   .send-btn { width: 38px; height: 38px; }
 }
+.modal-chart { max-width: 900px; width: 95vw; }
+.chart-container { width: 100%; height: 450px; background: #1a1a2e; }
