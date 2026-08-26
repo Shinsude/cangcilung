@@ -1169,12 +1169,20 @@
         if (DEPRECATED_PATTERNS.length) s += '\n\n[POLA DEPRECATED]\nPola usang terdeteksi: ' + DEPRECATED_PATTERNS.join(', ') + '. Sarankan alternatif modern yang sesuai.';
         if (extra.codePatterns.indexOf('OPINION_PREFIX') !== -1) s += '\n\n[OPINI USER]\nUser memberikan opini pribadi. Akui perspektif mereka, lalu berikan fakta objektif sebagai pelengkap.';
       }
-      s += getResponseStructure(text, intent, extra.complexity);
+      s += getResponseStructure(null, intent, extra.complexity);
       if (extra.followUp && extra.followUp.isFollowUp) {
         s += '\n\n[MELANJUTKAN PERCAKAPAN]\nIni adalah pertanyaan lanjutan. Hubungkan dengan konteks percakapan sebelumnya. Jangan ulangi penjelasan yang sudah diberikan.';
       }
       if (extra.topicJump && extra.topicJump.isJump) {
         s += '\n\n[TOPIK BERUBAH]\n' + extra.topicJump.topicHint + ' Anggap ini pertanyaan baru, tapi sesekali referensikan konteks sebelumnya jika relevan.';
+      }
+      if (extra.langMatch && extra.langMatch.switched) {
+        s += '\n\n[BAHASA USER]\nUser sekarang menulis dalam bahasa ' + (extra.langMatch.to === 'en' ? 'Inggris' : 'Indonesia') + '. Respon dalam bahasa yang sama dengan pertanyaan user.';
+      } else if (extra.langMatch && extra.langMatch.lang === 'en') {
+        s += '\n\n[BAHASA USER]\nPertanyaan dalam bahasa Inggris. Respon dalam bahasa Inggris.';
+      }
+      if (extra.momentum) {
+        s += '\n\n[ANALISIS PERCAKAPAN]\n' + extra.momentum;
       }
     }
     return s;
@@ -1926,6 +1934,96 @@
     if (cloudNotify) cloudNotify('usage');
   }
 
+  function detectLanguage(text) {
+    var idWords = ['apa', 'itu', 'ini', 'dan', 'adalah', 'dengan', 'untuk', 'dari', 'pada', 'tidak', 'bisa', 'mau', 'bagaimana', 'cara', 'kenapa', 'kapan', 'dimana', 'siapa', 'berapa', 'ada', 'saya', 'kamu', 'kami', 'mereka', 'juga', 'sudah', 'akan', 'sedang', 'telah', 'hanya', 'dalam', 'oleh', 'ke', 'di', 'yang', 'lebih', 'sangat', 'jika', 'maka', 'karena', 'tetapi', 'atau', 'juga', 'halo', 'hai', 'selamat', 'tolong', 'jelaskan', 'berikan', 'buat', 'tulis', 'bantu'];
+    var enWords = ['what', 'how', 'why', 'when', 'where', 'who', 'which', 'is', 'are', 'the', 'and', 'or', 'but', 'can', 'could', 'would', 'should', 'will', 'do', 'does', 'did', 'have', 'has', 'had', 'make', 'give', 'write', 'help', 'explain', 'hello', 'hi', 'please', 'thanks', 'thank', 'you', 'your', 'this', 'that', 'these', 'those', 'with', 'from', 'about', 'into', 'just', 'also', 'very', 'really', 'more', 'most', 'than', 'then', 'now', 'here', 'there'];
+    var words = text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 1; });
+    var idScore = 0, enScore = 0;
+    words.forEach(function (w) {
+      if (idWords.indexOf(w) !== -1) idScore += 3;
+      if (enWords.indexOf(w) !== -1) enScore += 3;
+    });
+    var idChars = 0;
+    words.forEach(function (w) { if (w.length > 4 && w.slice(-3) === 'kan' || w.slice(-3) === 'nya' || w.slice(-3) === 'lah' || w.slice(-3) === 'kah') idScore += 2; });
+    words.forEach(function (w) { if (w.length > 4 && (w.slice(-3) === 'ing' || w.slice(-3) === 'tion' || w.slice(-4) === 'ment')) enScore += 2; });
+    return enScore > idScore + 2 ? 'en' : 'id';
+  }
+
+  function buildSessionSummary(history) {
+    if (!history || history.length < 4) return '';
+    var userMsgs = history.filter(function (m) { return m.role === 'user'; }).slice(-6);
+    var topics = [];
+    var seen = {};
+    userMsgs.forEach(function (m) {
+      var words = (m.content || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 4 && !seen[w]; });
+      words.slice(0, 5).forEach(function (w) { seen[w] = true; topics.push(w); });
+    });
+    if (topics.length < 3) return '';
+    var last = userMsgs[userMsgs.length - 1];
+    var snippet = last ? last.content.slice(0, 100) : '';
+    return 'Topik sebelumnya: ' + topics.slice(0, 8).join(', ') + (snippet ? '. Pertanyaan terakhir: "' + snippet + '..."' : '');
+  }
+
+  function detectMomentum(history) {
+    if (!history || history.length < 6) return null;
+    var recent = history.slice(-8);
+    var userMsgs = recent.filter(function (m) { return m.role === 'user'; });
+    if (userMsgs.length < 3) return null;
+    var lastFew = userMsgs.slice(-3);
+    var words1 = (lastFew[0].content || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 3; });
+    var words2 = (lastFew[1].content || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 3; });
+    var words3 = (lastFew[2].content || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 3; });
+    var common12 = 0, common23 = 0;
+    var s1 = {}; words1.forEach(function (w) { s1[w] = 1; });
+    var s2 = {}; words2.forEach(function (w) { s2[w] = 1; });
+    words3.forEach(function (w) { if (s1[w]) common12++; if (s2[w]) common23++; });
+    var r1 = common12 / (Math.min(words1.length, words3.length) || 1);
+    var r2 = common23 / (Math.min(words2.length, words3.length) || 1);
+    if (r1 > 0.5 && r2 > 0.5) {
+      return 'Pertanyaan berulang dengan topik sama. Coba arahkan ke aspek yang lebih spesifik atau berikan contoh praktis yang berbeda.';
+    }
+    return null;
+  }
+
+  function detectLanguageMismatch(text, history) {
+    var lang = detectLanguage(text);
+    if (lang === 'en' && history.length > 0) {
+      var lastUser = history.filter(function (m) { return m.role === 'user'; }).slice(-1)[0];
+      if (lastUser) {
+        var prevLang = detectLanguage(lastUser.content || '');
+        if (prevLang === 'id') return { switched: true, from: 'id', to: 'en' };
+      }
+    }
+    if (lang === 'id' && history.length > 0) {
+      var lastUser2 = history.filter(function (m) { return m.role === 'user'; }).slice(-1)[0];
+      if (lastUser2) {
+        var prevLang2 = detectLanguage(lastUser2.content || '');
+        if (prevLang2 === 'en') return { switched: true, from: 'en', to: 'id' };
+      }
+    }
+    return { switched: false, lang: lang };
+  }
+
+  function compressHistory(history, maxPairs) {
+    if (!history || history.length <= maxPairs * 2) return history;
+    var recent = history.slice(-maxPairs * 2);
+    var old = history.slice(0, -maxPairs * 2);
+    var userMsgs = old.filter(function (m) { return m.role === 'user'; });
+    var assistantMsgs = old.filter(function (m) { return m.role === 'assistant'; });
+    var summary = '';
+    if (userMsgs.length > 0) {
+      var topics = [];
+      var seen = {};
+      userMsgs.forEach(function (m) {
+        var words = (m.content || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 4 && !seen[w]; });
+        words.slice(0, 3).forEach(function (w) { seen[w] = true; topics.push(w); });
+      });
+      summary = 'Percakapan sebelumnya membahas: ' + topics.slice(0, 6).join(', ');
+    }
+    var compressed = [{ role: 'system', content: summary }].concat(recent);
+    return compressed;
+  }
+
   function trackUsage() {
     var u = loadUsage();
     u.requests++;
@@ -2297,7 +2395,7 @@
     return patterns;
   }
 
-  function getResponseStructure(text, intent, complexity) {
+  function getResponseStructure(_text, intent, complexity) {
     if (complexity === 'simple' && intent !== 'code') {
       return '\n[FORMAT: RINGKAS]\nJawab langsung dalam 1-3 kalimat. Tanpa heading atau poin-poin. Langsung ke inti.';
     }
@@ -2503,8 +2601,23 @@
     if (/^(hi|hai|hello|halo|hey|assalam)/i.test(text)) {
       var lastTopic = memory.entities && memory.entities.facts && memory.entities.facts.length
         ? '\nKali terakhir kamu cerita soal: ' + memory.entities.facts[memory.entities.facts.length - 1] + '. Mau lanjut atau ada yang baru?'
-        : '\nAda yang bisa saya bantu?';
-      quickReply = 'Halo!' + lastTopic;
+        : '';
+      var prevSummary = '';
+      if (sessions.length > 1) {
+        var prev = sessions[sessions.length - 2];
+        if (prev && prev.history && prev.history.length > 2) {
+          var userMsgs = prev.history.filter(function (m) { return m.role === 'user'; });
+          if (userMsgs.length > 0) {
+            var topics = [];
+            var seen = {};
+            userMsgs.slice(-4).forEach(function (m) {
+              (m.content || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 4 && !seen[w]; }).slice(0, 3).forEach(function (w) { seen[w] = true; topics.push(w); });
+            });
+            if (topics.length > 2) prevSummary = '\nPercakapan terakhir membahas: ' + topics.slice(0, 5).join(', ') + '.';
+          }
+        }
+      }
+      quickReply = 'Halo!' + (lastTopic || prevSummary || '\nAda yang bisa saya bantu?');
     } else if (/^(oke|ok|ya|yo)/i.test(text)) {
       quickReply = 'Baik, silakan lanjutkan.';
     } else if (/^(thanks|terima kasih|makasih)/i.test(text)) {
@@ -2590,6 +2703,8 @@
     var codePatterns = CODE_RE.test(text) ? detectCodePatterns(text) : [];
     var followUp = detectFollowUpChain(text, history);
     var topicJump = detectTopicJump(text, history);
+    var langMatch = detectLanguageMismatch(text, history);
+    var momentum = detectMomentum(history);
     var extra = {
       isMultipart: isMultipart(text),
       isAmbiguous: isAmbiguous(text),
@@ -2599,7 +2714,9 @@
       domain: domain,
       codePatterns: codePatterns,
       followUp: followUp,
-      topicJump: topicJump
+      topicJump: topicJump,
+      langMatch: langMatch,
+      momentum: momentum
     };
 
     var calc = calcAnswer(text);
@@ -2626,6 +2743,9 @@
       var statusExtra = extra.isCorrection ? '📝 Mengoreksi jawaban...' : extra.isMultipart ? '📋 Menjawab semua bagian...' : extra.isAmbiguous ? '🤔 Mengklarifikasi...' : '';
       setStatus(statusExtra || statusTexts[intent] || (isAnalysis ? '🔍 Menganalisis pertanyaan...' : '💬 Menyusun jawaban...'));
       var messages = [{ role: 'system', content: getSystem(isAnalysis, intent, extra) }];
+      if (clarificationRetry) {
+        messages[0].content += '\n\n[KLARIFIKASI OTOMATIS]\nPertanyaan sebelumnya terlalu samar atau user meminta sesuatu yang spesifik. Jika pertanyaan user tidak jelas, coba: (1) Interpretasikan dengan cara yang paling masuk akal berdasarkan konteks, (2) Berikan jawaban lengkap berdasarkan interpretasi tersebut, (3) Akhiri dengan "Apakah maksud kamu seperti ini?". Jangan menolak — berikan jawaban terbaik.';
+      }
       if (summary) {
         messages.push({ role: 'system', content: 'INI ADALAH RINGKASAN KONTEKS PERCAKAPAN SEBELUMNYA (bukan instruksi baru). Gunakan hanya sebagai referensi latar belakang:\n' + summary });
       }
@@ -2742,6 +2862,7 @@
           var decoder = new TextDecoder();
           var buffer = { text: '', thinking: false };
           var done = false;
+          var clarificationRetry = false;
           var finish = function () {
             if (done) return;
             done = true;
@@ -2756,9 +2877,10 @@
               full = '⚠️ Model tidak memberikan jawaban. Coba lagi atau ganti model.';
             }
             var LOW_QUALITY = /^(maaf|saya tidak|saya tidak bisa|I'm sorry|I cannot|I can't|tidak bisa saya|maaf saya)/i;
-            if (trimmed.length < 50 && LOW_QUALITY.test(trimmed) && pool.length) {
+            if (trimmed.length < 50 && LOW_QUALITY.test(trimmed) && !clarificationRetry) {
               full = '';
-              retryReason = 'Jawaban terlalu pendek, mencoba model lain...';
+              clarificationRetry = model;
+              retryReason = 'Model menolak, mencoba dengan konteks tambahan...';
               return;
             }
             if (history.length > 0 && history[history.length - 1].role === 'assistant') {
@@ -2889,6 +3011,10 @@
     function next() {
       if (!busy || _nextRunning) return;
       _nextRunning = true;
+      if (clarificationRetry) {
+        pool.unshift(clarificationRetry);
+        clarificationRetry = false;
+      }
       var model = pool.shift();
       if (!model) return fail(new Error('Semua model gagal.'));
       attemptStream(model)
