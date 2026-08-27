@@ -2621,7 +2621,10 @@
         ema20: ta.calcEMA(result.data, 20),
         ema50: ta.calcEMA(result.data, 50),
         bb: ta.calcBollinger(result.data, 20, 2),
-        volume: result.data.map(function (d) { return { time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }; })
+        volume: result.data.map(function (d) { return { time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }; }),
+        sr: ta.detectSR(result.data),
+        fib: ta.calcFibonacci(result.data),
+        pivots: ta.calcPivots(result.data)
       };
       ta.renderChart(container, result.data, indicators, result.name + ' (' + interval + ')');
       $('chart-title').textContent = result.name + ' — ' + interval;
@@ -2698,7 +2701,10 @@
           ema20: ta.calcEMA(result.data, 20),
           ema50: ta.calcEMA(result.data, 50),
           bb: ta.calcBollinger(result.data, 20, 2),
-          volume: result.data.map(function (d) { return { time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }; })
+          volume: result.data.map(function (d) { return { time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }; }),
+          sr: ta.detectSR(result.data),
+          fib: ta.calcFibonacci(result.data),
+          pivots: ta.calcPivots(result.data)
         };
         ta.renderChart(container, result.data, indicators, symbol.toUpperCase());
       }
