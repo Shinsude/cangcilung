@@ -2681,11 +2681,14 @@
     var ta = window.CC.ta;
     busy = true;
     setSendUI(true);
-    setStatus('Mengambil data ' + symbol + '...');
+    setStatus('Mengambil data multi-timeframe ' + symbol + '...');
     var bubble = addBubble('assistant', null);
     showTyping(bubble);
-    ta.fetchYahoo(symbol, '1d').then(function (result) {
-      var analysis = ta.analyze(result.data);
+    ta.fetchMultiTF(symbol).then(function (mTF) {
+      var daily = mTF['1d'];
+      if (!daily || !daily.data) throw new Error('Data harian tidak tersedia');
+      var analysis = ta.analyze(daily.data);
+      var session = ta.getCurrentSession();
       removeTyping(bubble);
       history.push({ role: 'assistant', content: analysis, t: nowTime() });
       saveHistory();
@@ -2694,19 +2697,19 @@
       busy = false;
       setSendUI(false);
       setStatus('');
-      openChartModal(symbol.toUpperCase() + ' — Chart');
+      openChartModal(symbol.toUpperCase() + ' — Chart (all TF cached)');
       var container = $('chart-container');
       if (container) {
         var indicators = {
-          ema20: ta.calcEMA(result.data, 20),
-          ema50: ta.calcEMA(result.data, 50),
-          bb: ta.calcBollinger(result.data, 20, 2),
-          volume: result.data.map(function (d) { return { time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }; }),
-          sr: ta.detectSR(result.data),
-          fib: ta.calcFibonacci(result.data),
-          pivots: ta.calcPivots(result.data)
+          ema20: ta.calcEMA(daily.data, 20),
+          ema50: ta.calcEMA(daily.data, 50),
+          bb: ta.calcBollinger(daily.data, 20, 2),
+          volume: daily.data.map(function (d) { return { time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }; }),
+          sr: ta.detectSR(daily.data),
+          fib: ta.calcFibonacci(daily.data),
+          pivots: ta.calcPivots(daily.data)
         };
-        ta.renderChart(container, result.data, indicators, symbol.toUpperCase());
+        ta.renderChart(container, daily.data, indicators, symbol.toUpperCase());
       }
     }).catch(function (err) {
       removeTyping(bubble);
@@ -2718,6 +2721,180 @@
       busy = false;
       setSendUI(false);
       setStatus('');
+    });
+  }
+
+  function handleSessionCommand() {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var s = window.CC.ta.getCurrentSession();
+    var out = '## Sesi Market (UTC ' + s.utcHour + ':00)\n';
+    out += '- Aktif: **' + s.label + '**\n\n';
+    out += '### Jadwal Sesi (UTC)\n';
+    out += '- Tokyo: 00:00 - 09:00\n';
+    out += '- London: 08:00 - 17:00\n';
+    out += '- New York: 13:00 - 22:00\n';
+    out += '- Sydney: 22:00 - 07:00\n\n';
+    if (s.overlap) {
+      out += '### TIP\nSaat ini terjadi **overlap sesi** — ini waktu terbaik untuk trading (volatilitas tinggi, likuiditas kuat).';
+    } else {
+      out += 'Saat ini bukan overlap session — volatilitas lebih rendah. Hati-hati saat spread melebar.';
+    }
+    history.push({ role: 'assistant', content: out, t: nowTime() });
+    saveHistory();
+    renderHistory();
+    busy = false;
+    setSendUI(false);
+    setStatus('');
+  }
+
+  function handleHelpCommand() {
+    var out = '## Perintah CangCilung 📊\n\n';
+    out += '### Trading / Market\n';
+    out += '- `/ta XAUUSD` — analisis lengkap semua indikator + SMC + verdict\n';
+    out += '- `/chart XAUUSD 1h` — tampilkan chart (interval: 5m/15m/30m/1h/1d/1w)\n';
+    out += '- `/rsi XAUUSD 14` — RSI + MACD + BB\n';
+    out += '- `/structure XAUUSD` — market structure (HH/HL/LH/LL)\n';
+    out += '- `/session` — sesi market aktif & jadwal\n';
+    out += '- `/profile XAUUSD 1h` — volume profile (POC/HVN/LVN)\n';
+    out += '- `/risk XAUUSD 10000 1` — risk management (SL/TP/lot)\n';
+    out += '- `/corr XAUUSD` — korelasi XAU vs DXY (atau NDX vs VIX)\n\n';
+    out += 'Simbol: `XAUUSD`, `NDX`, `US30`, `SPX`, `DXY`, `VIX`\n\n';
+    out += '### Umum: ketik `help` untuk bantuan AI';
+    history.push({ role: 'assistant', content: out, t: nowTime() });
+    saveHistory();
+    renderHistory();
+    busy = false;
+    setSendUI(false);
+    setStatus('');
+  }
+
+  function handleStructure(symbol) {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var ta = window.CC.ta;
+    busy = true; setSendUI(true);
+    setStatus('Analisis struktur market ' + symbol + '...');
+    var bubble = addBubble('assistant', null);
+    showTyping(bubble);
+    ta.fetchYahoo(symbol, '1d').then(function (result) {
+      var ms = ta.detectMarketStructure(result.data);
+      var session = ta.getCurrentSession();
+      var out = '## Market Structure ' + symbol.toUpperCase() + '\n';
+      out += '**Struktur:** ' + ms.structure + '\n\n';
+      out += '- HH: ' + ms.hh + ' | HL: ' + ms.hl + ' | LH: ' + ms.lh + ' | LL: ' + ms.ll + '\n';
+      out += '- Swing High terakhir: ' + ms.swingHighs.slice(-3).map(function (s) { return s.price.toFixed(2); }).join(' → ') + '\n';
+      out += '- Swing Low terakhir: ' + ms.swingLows.slice(-3).map(function (s) { return s.price.toFixed(2); }).join(' → ') + '\n';
+      out += '- Sesi: ' + session.label + '\n';
+      removeTyping(bubble);
+      history.push({ role: 'assistant', content: out, t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+      busy = false; setSendUI(false); setStatus('');
+    }).catch(function (err) {
+      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
+      history.push({ role: 'assistant', content: '⚠️ Gagal: ' + (err.message || err), t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+    });
+  }
+
+  function handleRisk(symbol, accSize, riskPct) {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var ta = window.CC.ta;
+    busy = true; setSendUI(true);
+    setStatus('Kalkulasi risk management ' + symbol + '...');
+    var bubble = addBubble('assistant', null);
+    showTyping(bubble);
+    ta.fetchYahoo(symbol, '1d').then(function (result) {
+      var rm = ta.calcRiskManagement(result.data, accSize, riskPct);
+      var out = '## Risk Management ' + symbol.toUpperCase() + '\n';
+      out += 'Akun $' + accSize.toLocaleString() + ' | Risk ' + riskPct + '%\n';
+      out += '- **Entry:** ' + rm.entry + '\n';
+      out += '- **Stop Loss:** ' + rm.stopLoss + ' (' + rm.slDistance + ' dari entry)\n';
+      out += '- **Take Profit:** ' + rm.takeProfit + ' (' + rm.tpDistance + ' dari entry)\n';
+      out += '- **Risk:Reward:** 1 : ' + rm.riskReward + '\n';
+      out += '- **Risk Amount:** $' + rm.riskAmount.toLocaleString() + '\n';
+      out += '- **Lot Size (100oz):** ' + rm.lotSize + '\n';
+      out += '- **ATR(14):** ' + rm.atr + '\n';
+      removeTyping(bubble);
+      history.push({ role: 'assistant', content: out, t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+      busy = false; setSendUI(false); setStatus('');
+    }).catch(function (err) {
+      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
+      history.push({ role: 'assistant', content: '⚠️ Gagal: ' + (err.message || err), t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+    });
+  }
+
+  function handleCorrelation(symbol) {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var ta = window.CC.ta;
+    busy = true; setSendUI(true);
+    setStatus('Analisis korelasi ' + symbol + '...');
+    var bubble = addBubble('assistant', null);
+    showTyping(bubble);
+    Promise.all([ta.fetchYahoo(symbol, '1d'), ta.fetchCorrelation(symbol)]).then(function (r) {
+      var main = r[0], corr = r[1];
+      if (!corr) throw new Error('Tidak ada korelasi untuk ' + symbol + '. Gunakan /corr XAUUSD atau /corr NDX');
+      var c = ta.calcCorrelation(main.data, corr.data);
+      var mainLast = main.data[main.data.length - 1];
+      var corrLast = corr.data[corr.data.length - 1];
+      var out = '## Korelasi ' + main.name + ' vs ' + corr.name + '\n';
+      out += '- Korelasi: **' + c.label + '**\n';
+      out += '- ' + main.name + ': ' + mainLast.close.toFixed(2) + '\n';
+      out += '- ' + corr.name + ': ' + corrLast.close.toFixed(2) + '\n\n';
+      if (c.direction === 'negatif') out += '- Ini berarti saat ' + corr.name + ' naik, ' + main.name + ' cenderung turun (dan sebaliknya).';
+      else out += '- Ini berarti saat ' + corr.name + ' naik, ' + main.name + ' cenderung ikut naik.';
+      removeTyping(bubble);
+      history.push({ role: 'assistant', content: out, t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+      busy = false; setSendUI(false); setStatus('');
+    }).catch(function (err) {
+      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
+      history.push({ role: 'assistant', content: '⚠️ Gagal: ' + (err.message || err), t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+    });
+  }
+
+  function handleProfile(symbol, tf) {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var ta = window.CC.ta;
+    busy = true; setSendUI(true);
+    setStatus('Menghitung Volume Profile ' + symbol + '...');
+    var bubble = addBubble('assistant', null);
+    showTyping(bubble);
+    ta.fetchYahoo(symbol, tf || '1d').then(function (result) {
+      var vp = ta.calcVolumeProfile(result.data);
+      var last = result.data[result.data.length - 1];
+      if (!vp) throw new Error('Data tidak cukup untuk Volume Profile');
+      var out = '## Volume Profile ' + symbol.toUpperCase() + ' (' + (tf || '1d') + ')\n';
+      out += '- **POC:** ' + vp.poc.mid.toFixed(2) + ' (harga ' + (last.close > vp.poc.mid ? 'di atas' : 'di bawah') + ' POC)\n';
+      out += '- **High Volume Nodes (HVN):** ' + vp.hvn.slice(0, 4).map(function (h) { return h.mid.toFixed(2) + ' (' + h.volume + ')'; }).join(' | ') + '\n';
+      out += '- **Low Volume Nodes (LVN):** ' + vp.lvn.slice(0, 4).map(function (l) { return l.mid.toFixed(2) + ' (' + l.volume + ')'; }).join(' | ') + '\n';
+      out += '- **Value Area:** ' + vp.valueArea[0].low.toFixed(2) + ' - ' + vp.valueArea[vp.valueArea.length - 1].high.toFixed(2) + '\n\n';
+      out += 'HVN = area hemat keuntungan (support/resistance kuat). LVN = area magnet (harga bergerak cepat).';
+      removeTyping(bubble);
+      history.push({ role: 'assistant', content: out, t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+      busy = false; setSendUI(false); setStatus('');
+    }).catch(function (err) {
+      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
+      history.push({ role: 'assistant', content: '⚠️ Gagal: ' + (err.message || err), t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
     });
   }
 
@@ -2814,6 +2991,47 @@
       var sym = m ? m[1] : 'XAUUSD';
       input.value = '';
       handleTA(sym);
+      return;
+    }
+    if (/^\/(structure|struktur)\b/i.test(text)) {
+      var m = text.match(/^\/(?:structure|struktur)\s+(\S+)/i);
+      var sym = m ? m[1] : 'XAUUSD';
+      input.value = '';
+      handleStructure(sym);
+      return;
+    }
+    if (/^\/(risk|rm)\b/i.test(text)) {
+      var m = text.match(/^\/(?:risk|rm)\s+(\S+)\s*(\d*)\s*(\d*)/i);
+      var sym = m && m[1] ? m[1] : 'XAUUSD';
+      var acc = m && m[2] ? parseInt(m[2]) : 10000;
+      var riskPct = m && m[3] ? parseFloat(m[3]) : 1;
+      input.value = '';
+      handleRisk(sym, acc, riskPct);
+      return;
+    }
+    if (/^\/(corr|correlation)\b/i.test(text)) {
+      var m = text.match(/^\/(?:corr|correlation)\s+(\S+)/i);
+      var sym = m ? m[1] : 'XAUUSD';
+      input.value = '';
+      handleCorrelation(sym);
+      return;
+    }
+    if (/^\/(profile|vp|volume|vol)\b/i.test(text)) {
+      var m = text.match(/^\/(?:profile|vp|volume|vol)\s+(\S+)\s*(\S*)/i);
+      var sym = m && m[1] ? m[1] : 'XAUUSD';
+      var tf = m && m[2] ? m[2] : '1d';
+      input.value = '';
+      handleProfile(sym, tf);
+      return;
+    }
+    if (/^\/session\b/i.test(text)) {
+      input.value = '';
+      handleSessionCommand();
+      return;
+    }
+    if (/^\/help\b/i.test(text)) {
+      input.value = '';
+      handleHelpCommand();
       return;
     }
     var forceAnalysis = false;
