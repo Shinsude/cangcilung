@@ -57,7 +57,7 @@
   var history = [];
   var summary = '';
   var memory = { topics: {} };
-  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true, embedBaseUrl: DEFAULT_EMBED_BASE, embedKey: '', embedModel: DEFAULT_EMBED_MODEL };
+  var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true, embedBaseUrl: DEFAULT_EMBED_BASE, embedKey: '', embedModel: DEFAULT_EMBED_MODEL, newsKey: '' };
   var busy = false;
   var alertChecking = false;
   var abortCtrl = null;
@@ -196,6 +196,7 @@
         settings.embedBaseUrl = s.embedBaseUrl || DEFAULT_EMBED_BASE;
         settings.embedKey = s.embedKey || '';
         settings.embedModel = s.embedModel || DEFAULT_EMBED_MODEL;
+        settings.newsKey = s.newsKey || '';
       }
     } catch (e) {}
   }
@@ -2798,7 +2799,7 @@
     setStatus('Mengambil berita terbaru ' + symbol + '...');
     var bubble = addBubble('assistant', null);
     showTyping(bubble);
-    ta.fetchNewsSentiment(symbol).then(function (ns) {
+    ta.fetchNewsSentiment(symbol, { newsKey: settings.newsKey || '' }).then(function (ns) {
       var out = ta.formatNewsSentiment(ns);
       removeTyping(bubble);
       history.push({ role: 'assistant', content: out, t: nowTime() });
@@ -2844,6 +2845,41 @@
     busy = false; setSendUI(false); setStatus('');
   }
 
+  function playAlertSound() {
+    try {
+      if (settings.soundEnabled === false) return;
+      var ctx = window.__alertAudioCtx || (window.__alertAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+      var now = ctx.currentTime;
+      [880, 660, 880].forEach(function (freq, i) {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, now + i * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.3, now + i * 0.15 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.15 + 0.14);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.15);
+        osc.stop(now + i * 0.15 + 0.15);
+      });
+    } catch (e) {}
+  }
+
+  function showAlertNotification(f) {
+    try {
+      if (typeof Notification === 'undefined') return;
+      if (Notification.permission === 'granted') {
+        new Notification('🔔 Alert Harga: ' + f.symbol, {
+          body: f.symbol + ' mencapai ' + f.price + (f.label ? ' (' + f.label + ')' : ''),
+          tag: 'cangcilung-alert'
+        });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+    } catch (e) {}
+  }
+
   function startAlertChecker() {
     if (window.__alertTimer) return;
     function tick() {
@@ -2860,12 +2896,15 @@
             var res = ta.checkAlerts(r);
             res.fired.forEach(function (f) {
               if (window.CC && window.CC.ui) window.CC.ui.showToast('🔔 Alert: ' + f.symbol + ' mencapai ' + f.price);
+              playAlertSound();
+              showAlertNotification(f);
             });
             alertChecking = false;
           }).catch(function () { alertChecking = false; });
         });
       }
     }
+    tick();
     window.__alertTimer = setInterval(tick, 60000);
   }
 
@@ -3629,6 +3668,7 @@
     $('set-embed-baseurl').value = settings.embedBaseUrl || DEFAULT_EMBED_BASE;
     $('set-embed-key').value = settings.embedKey || '';
     $('set-embed-model').value = settings.embedModel || DEFAULT_EMBED_MODEL;
+    if ($('set-news-key')) $('set-news-key').value = settings.newsKey || '';
     $('set-status').textContent = '';
     openModal('settings-modal');
     $('set-baseurl').focus();
@@ -3650,6 +3690,7 @@
     settings.embedBaseUrl = $('set-embed-baseurl').value.trim() || DEFAULT_EMBED_BASE;
     settings.embedKey = $('set-embed-key').value.trim();
     settings.embedModel = $('set-embed-model').value.trim() || DEFAULT_EMBED_MODEL;
+    if ($('set-news-key')) settings.newsKey = $('set-news-key').value.trim();
     saveSettings();
     syncPersonaButton();
     connSub();
