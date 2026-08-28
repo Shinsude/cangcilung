@@ -3084,6 +3084,16 @@
   }
 
   function sendChat() {
+    var input = $('chat-input');
+    var text = (input && input.value || '').trim();
+    if (/^\/(alerts|alert-del|help|session)/i.test(text)) {
+      input.value = '';
+      if (/^\/help\b/i.test(text)) { handleHelpCommand(); return; }
+      if (/^\/session\b/i.test(text)) { handleSessionCommand(); return; }
+      if (/^\/alert-del\b/i.test(text)) { handleAlertDelete(text.replace(/^\/alert-del\s*/i, '').trim()); return; }
+      if (/^\/alerts\b/i.test(text)) { handleAlertsList(); return; }
+      return;
+    }
     if (busy) {
       kbCancel = true;
       webFetching = false;
