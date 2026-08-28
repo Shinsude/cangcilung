@@ -3086,12 +3086,17 @@
   function sendChat() {
     var input = $('chat-input');
     var text = (input && input.value || '').trim();
-    if (/^\/(alerts|alert-del|help|session)/i.test(text)) {
+    if (/^\/(alerts|alert|alert-del|help|session)/i.test(text)) {
       input.value = '';
       if (/^\/help\b/i.test(text)) { handleHelpCommand(); return; }
       if (/^\/session\b/i.test(text)) { handleSessionCommand(); return; }
       if (/^\/alert-del\b/i.test(text)) { handleAlertDelete(text.replace(/^\/alert-del\s*/i, '').trim()); return; }
       if (/^\/alerts\b/i.test(text)) { handleAlertsList(); return; }
+      if (/^\/alert\b/i.test(text)) {
+        var am = text.match(/^\/alert\s+(\S+)\s+(\S+)(?:\s+(.+))?/i);
+        handleAlertAdd(am && am[1] ? am[1] : 'XAUUSD', am && am[2] ? am[2] : '', am && am[3] ? am[3].trim() : '');
+        return;
+      }
       return;
     }
     if (busy) {
