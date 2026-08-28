@@ -59,6 +59,7 @@
   var memory = { topics: {} };
   var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true, embedBaseUrl: DEFAULT_EMBED_BASE, embedKey: '', embedModel: DEFAULT_EMBED_MODEL };
   var busy = false;
+  var alertChecking = false;
   var abortCtrl = null;
   var lastUsedModel = '';
 
@@ -2769,7 +2770,36 @@
     showTyping(bubble);
     ta.fetchYahoo(symbol, params.tf || '1d').then(function (result) {
       var r = ta.backtest(result.data, strategy, params);
+      if (r.error) throw new Error(r.error);
       var out = ta.formatBacktest(r, symbol) + '\n\n*Sumber: ' + (result.source || 'yahoo') + ' — 1 setel per-TF. Semua sinyal dihitung dari data historis.*';
+      removeTyping(bubble);
+      history.push({ role: 'assistant', content: out, t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+      busy = false; setSendUI(false); setStatus('');
+      if (r.equityCurve && r.equityCurve.length > 2) {
+        var container = openChartModal(symbol.toUpperCase() + ' — Equity Curve (' + r.strategy + ')');
+        if (container && ta.renderEquityCurve) ta.renderEquityCurve(container, r.equityCurve, 'Equity');
+      }
+    }).catch(function (err) {
+      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
+      history.push({ role: 'assistant', content: '⚠️ Gagal backtest: ' + (err.message || err), t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+    });
+  }
+
+  function handleNews(symbol) {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var ta = window.CC.ta;
+    busy = true; setSendUI(true);
+    setStatus('Mengambil berita terbaru ' + symbol + '...');
+    var bubble = addBubble('assistant', null);
+    showTyping(bubble);
+    ta.fetchNewsSentiment(symbol).then(function (ns) {
+      var out = ta.formatNewsSentiment(ns);
       removeTyping(bubble);
       history.push({ role: 'assistant', content: out, t: nowTime() });
       saveHistory();
@@ -2778,11 +2808,65 @@
       busy = false; setSendUI(false); setStatus('');
     }).catch(function (err) {
       removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
-      history.push({ role: 'assistant', content: '⚠️ Gagal backtest: ' + (err.message || err), t: nowTime() });
+      history.push({ role: 'assistant', content: '⚠️ Gagal ambil berita: ' + (err.message || err), t: nowTime() });
       saveHistory();
       if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
       renderHistory();
     });
+  }
+
+  function handleAlertsList() {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var out = window.CC.ta.formatAlerts();
+    history.push({ role: 'assistant', content: out, t: nowTime() });
+    saveHistory(); renderHistory();
+    busy = false; setSendUI(false); setStatus('');
+  }
+
+  function handleAlertAdd(symbol, target, label) {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var ta = window.CC.ta;
+    var r = ta.addAlert(symbol, target, label);
+    var out;
+    if (r.error) out = '⚠️ ' + r.error;
+    else out = '✅ Alert terpasang: **' + r.alert.symbol + ' @ ' + r.alert.target + '**' + (r.alert.label ? ' (' + r.alert.label + ')' : '') + '\nTotal alert aktif: ' + r.count;
+    history.push({ role: 'assistant', content: out, t: nowTime() });
+    saveHistory(); renderHistory();
+    busy = false; setSendUI(false); setStatus('');
+  }
+
+  function handleAlertDelete(id) {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var r = window.CC.ta.removeAlert(id);
+    var out = r.removed ? '🗑️ Alert dihapus.' : '⚠️ Alert tidak ditemukan.';
+    history.push({ role: 'assistant', content: out, t: nowTime() });
+    saveHistory(); renderHistory();
+    busy = false; setSendUI(false); setStatus('');
+  }
+
+  function startAlertChecker() {
+    if (window.__alertTimer) return;
+    function tick() {
+      if (window.CC && window.CC.ta && window.CC.ta.listAlerts) {
+        var alerts = window.CC.ta.listAlerts();
+        if (!alerts.length) return;
+        var checked = {};
+        alerts.forEach(function (a) {
+          if (checked[a.symbol] || alertChecking) return;
+          checked[a.symbol] = true;
+          alertChecking = true;
+          var ta = window.CC.ta;
+          ta.fetchYahoo(a.symbol, '1d').then(function (r) {
+            var res = ta.checkAlerts(r);
+            res.fired.forEach(function (f) {
+              if (window.CC && window.CC.ui) window.CC.ui.showToast('🔔 Alert: ' + f.symbol + ' mencapai ' + f.price);
+            });
+            alertChecking = false;
+          }).catch(function () { alertChecking = false; });
+        });
+      }
+    }
+    window.__alertTimer = setInterval(tick, 60000);
   }
 
   function handleHelpCommand() {
@@ -2796,7 +2880,10 @@
     out += '- `/profile XAUUSD 1h` — volume profile (POC/HVN/LVN)\n';
     out += '- `/risk XAUUSD 10000 1` — risk management (SL/TP/lot)\n';
     out += '- `/corr XAUUSD` — korelasi XAU vs DXY (atau NDX vs VIX)\n';
-    out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/macd/bb/sma/all)\n\n';
+    out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/macd/bb/sma/all)\n';
+    out += '- `/news XAUUSD` — sentimen berita terbaru\n';
+    out += '- `/alert XAUUSD 3200` — pasang alert harga\n';
+    out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n\n';
     out += 'Simbol: `XAUUSD`, `NDX`, `US30`, `SPX`, `DXY`, `VIX`\n\n';
     out += '### Umum: ketik `help` untuk bantuan AI';
     history.push({ role: 'assistant', content: out, t: nowTime() });
@@ -3066,6 +3153,33 @@
     if (/^\/session\b/i.test(text)) {
       input.value = '';
       handleSessionCommand();
+      return;
+    }
+    if (/^\/alert-del\b/i.test(text)) {
+      var id = text.replace(/^\/alert-del\s*/i, '').trim();
+      input.value = '';
+      handleAlertDelete(id);
+      return;
+    }
+    if (/^\/alerts\b/i.test(text)) {
+      input.value = '';
+      handleAlertsList();
+      return;
+    }
+    if (/^\/alert\b/i.test(text)) {
+      var m = text.match(/^\/alert\s+(\S+)\s+(\S+)(?:\s+(.+))?/i);
+      var sym = m && m[1] ? m[1] : 'XAUUSD';
+      var target = m && m[2] ? m[2] : '';
+      var label = m && m[3] ? m[3].trim() : '';
+      input.value = '';
+      handleAlertAdd(sym, target, label);
+      return;
+    }
+    if (/^\/news\b/i.test(text)) {
+      var m = text.match(/^\/news\s+(\S+)/i);
+      var sym = m && m[1] ? m[1] : 'XAUUSD';
+      input.value = '';
+      handleNews(sym);
       return;
     }
     if (/^\/backtest\b/i.test(text)) {
@@ -3715,6 +3829,8 @@
       });
     }
     loadPinned();
+    
+    startAlertChecker();
     
     if ($('btn-stats-close')) $('btn-stats-close').addEventListener('click', function () { closeModal('stats-modal'); });
     if ($('stats-modal')) $('stats-modal').addEventListener('click', function (e) { if (e.target === $('stats-modal')) closeModal('stats-modal'); });
