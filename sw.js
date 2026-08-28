@@ -1,4 +1,4 @@
-const CACHE = 'cangcilung-v28';
+const CACHE = 'cangcilung-v29';
 const CORE = [
   '/',
   '/index.html',

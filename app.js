@@ -3900,7 +3900,7 @@
     
     if ($('btn-stats-close')) $('btn-stats-close').addEventListener('click', function () { closeModal('stats-modal'); });
     if ($('stats-modal')) $('stats-modal').addEventListener('click', function (e) { if (e.target === $('stats-modal')) closeModal('stats-modal'); });
-    $('btn-pins').addEventListener('click', openPins);
+    if ($('btn-pins')) $('btn-pins').addEventListener('click', openPins);
     $('btn-pins-close').addEventListener('click', closePins);
     $('pins-modal').addEventListener('click', function (e) { if (e.target === $('pins-modal')) closePins(); });
     $('btn-backup').addEventListener('click', openBackup);
@@ -3968,7 +3968,7 @@
     });
     $('btn-export').addEventListener('click', openExportMenu);
     $('btn-persona').addEventListener('click', cyclePersona);
-    $('btn-search').addEventListener('click', toggleSearch);
+    if ($('btn-search')) $('btn-search').addEventListener('click', toggleSearch);
     $('search-close').addEventListener('click', clearSearch);
     $('search-prev').addEventListener('click', function () { searchNav(-1); });
     $('search-next').addEventListener('click', function () { searchNav(1); });
@@ -4040,8 +4040,8 @@
     // ── Sidebar events ──
     $('btn-sidebar-toggle').addEventListener('click', toggleSidebar);
     $('btn-new-chat').addEventListener('click', function () { newSession(); closeSidebar(); });
-    $('sidebar-search').addEventListener('click', function () { toggleSearch(); closeSidebar(); });
-    $('sidebar-pins').addEventListener('click', function () { openPins(); closeSidebar(); });
+    if ($('sidebar-search')) $('sidebar-search').addEventListener('click', function () { toggleSearch(); closeSidebar(); });
+    if ($('sidebar-pins')) $('sidebar-pins').addEventListener('click', function () { openPins(); closeSidebar(); });
     $('sidebar-export').addEventListener('click', function () { openExportMenu(); closeSidebar(); });
     $('sidebar-backup').addEventListener('click', function () { openBackup(); closeSidebar(); });
     $('sidebar-kb').addEventListener('click', function () { if (window.__kb && window.__kb.openKb) window.__kb.openKb(); closeSidebar(); });
