@@ -2602,8 +2602,13 @@
     if (!overlay || !container) return null;
     titleEl.textContent = title || 'Chart';
     overlay.hidden = false;
-    closeBtn.onclick = function () { overlay.hidden = true; };
-    overlay.onclick = function (e) { if (e.target === overlay) overlay.hidden = true; };
+    function doClose() {
+      overlay.hidden = true;
+      if (window.CC && window.CC.ta && window.CC.ta.destroyChart) window.CC.ta.destroyChart(container);
+      container.innerHTML = '';
+    }
+    closeBtn.onclick = doClose;
+    overlay.onclick = function (e) { if (e.target === overlay) doClose(); };
     return container;
   }
 
@@ -2688,6 +2693,8 @@
       var daily = mTF['1d'];
       if (!daily || !daily.data) throw new Error('Data harian tidak tersedia');
       var analysis = ta.analyze(daily.data);
+      var mtf = ta.multiTFAnalysis(mTF['1d'], mTF['1h'], mTF['15m']);
+      analysis += '\n\n' + ta.formatConfluence(mtf);
       var session = ta.getCurrentSession();
       removeTyping(bubble);
       history.push({ role: 'assistant', content: analysis, t: nowTime() });
@@ -2747,6 +2754,37 @@
     setStatus('');
   }
 
+  function handleBacktest(symbol, strategy, rawParams) {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var ta = window.CC.ta;
+    var params = {};
+    (rawParams || []).forEach(function (p) {
+      var m = p.split(':');
+      if (m.length === 2 && !isNaN(parseFloat(m[1]))) params[m[0]] = parseFloat(m[1]);
+    });
+    var quant = (params.quant || 0) > 0 ? 100 : 50;
+    busy = true; setSendUI(true);
+    setStatus('Backtest ' + symbol + ' dengan strategi ' + strategy + '...');
+    var bubble = addBubble('assistant', null);
+    showTyping(bubble);
+    ta.fetchYahoo(symbol, params.tf || '1d').then(function (result) {
+      var r = ta.backtest(result.data, strategy, params);
+      var out = ta.formatBacktest(r, symbol) + '\n\n*Sumber: ' + (result.source || 'yahoo') + ' — 1 setel per-TF. Semua sinyal dihitung dari data historis.*';
+      removeTyping(bubble);
+      history.push({ role: 'assistant', content: out, t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+      busy = false; setSendUI(false); setStatus('');
+    }).catch(function (err) {
+      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
+      history.push({ role: 'assistant', content: '⚠️ Gagal backtest: ' + (err.message || err), t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+    });
+  }
+
   function handleHelpCommand() {
     var out = '## Perintah CangCilung 📊\n\n';
     out += '### Trading / Market\n';
@@ -2757,7 +2795,8 @@
     out += '- `/session` — sesi market aktif & jadwal\n';
     out += '- `/profile XAUUSD 1h` — volume profile (POC/HVN/LVN)\n';
     out += '- `/risk XAUUSD 10000 1` — risk management (SL/TP/lot)\n';
-    out += '- `/corr XAUUSD` — korelasi XAU vs DXY (atau NDX vs VIX)\n\n';
+    out += '- `/corr XAUUSD` — korelasi XAU vs DXY (atau NDX vs VIX)\n';
+    out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/macd/bb/sma/all)\n\n';
     out += 'Simbol: `XAUUSD`, `NDX`, `US30`, `SPX`, `DXY`, `VIX`\n\n';
     out += '### Umum: ketik `help` untuk bantuan AI';
     history.push({ role: 'assistant', content: out, t: nowTime() });
@@ -3001,9 +3040,9 @@
       return;
     }
     if (/^\/(risk|rm)\b/i.test(text)) {
-      var m = text.match(/^\/(?:risk|rm)\s+(\S+)\s*(\d*)\s*(\d*)/i);
+      var m = text.match(/^\/(?:risk|rm)\s+(\S+)(?:\s+([\d,.]+))?(?:\s+([\d.]+))?/i);
       var sym = m && m[1] ? m[1] : 'XAUUSD';
-      var acc = m && m[2] ? parseInt(m[2]) : 10000;
+      var acc = m && m[2] ? parseFloat(String(m[2]).replace(/,/g, '')) : 10000;
       var riskPct = m && m[3] ? parseFloat(m[3]) : 1;
       input.value = '';
       handleRisk(sym, acc, riskPct);
@@ -3027,6 +3066,15 @@
     if (/^\/session\b/i.test(text)) {
       input.value = '';
       handleSessionCommand();
+      return;
+    }
+    if (/^\/backtest\b/i.test(text)) {
+      var m = text.match(/^\/backtest\s+(\S+)\s+(\S+)\s*(.*)/i);
+      var sym = m && m[1] ? m[1] : 'XAUUSD';
+      var strat = m && m[2] ? m[2].toLowerCase() : 'rsi';
+      var rawParams = m && m[3] ? m[3].trim().split(/\s+/).filter(Boolean) : [];
+      input.value = '';
+      handleBacktest(sym, strat, rawParams);
       return;
     }
     if (/^\/help\b/i.test(text)) {
