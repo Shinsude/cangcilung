@@ -1,4 +1,4 @@
-const CACHE = 'cangcilung-v29';
+const CACHE = 'cangcilung-v30';
 const CORE = [
   '/',
   '/index.html',
@@ -23,7 +23,7 @@ const CORE = [
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
   'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js',
   'https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/highlight.min.js',
-  'https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js'
+  'https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js'
 ];
 
 self.addEventListener('install', function (e) {
