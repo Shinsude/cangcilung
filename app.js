@@ -3166,9 +3166,20 @@
       handleRSI(sym, period);
       return;
     }
-    if (/^\/(ta|analyze)\s*(xau|gold|emas|ndx|nasdaq|dji|dow|spx)/i.test(text)) {
+    if (/^\/(ta|analyze)\s*(xau|gold|emas|ndx|nasdaq|dji|dow|spx|dxy|vix|us30|s&p)/i.test(text)) {
       var m = text.match(/^\/(?:ta|analyze)\s+(\S+)/i);
       var sym = m ? m[1] : 'XAUUSD';
+      input.value = '';
+      handleTA(sym);
+      return;
+    }
+    var taIntent = text.match(/^\s*(analisa|analisis|analyse|analyze)\s+(xau|gold|emas|ndx|nasdaq|dji|dow|spx|dxy|vix|us30|s&p)/i);
+    if (taIntent) {
+      var sym = taIntent[2].toUpperCase();
+      if (sym === 'S&P') sym = 'SPX';
+      if (sym === 'XAU' || sym === 'GOLD' || sym === 'EMAS') sym = 'XAUUSD';
+      if (sym === 'NDX' || sym === 'NASDAQ') sym = 'NDX';
+      if (sym === 'DJI' || sym === 'DOW') sym = 'US30';
       input.value = '';
       handleTA(sym);
       return;
@@ -3255,8 +3266,7 @@
       forceAnalysis = true;
       text = text.replace(/^\/analyze\s*/i, '').trim();
       input.value = text;
-    }
-    if (!text) return;
+    }    if (!text) return;
     if (handleGreeting(text)) return;
     if (!settings.model) {
       setStatus('Atur model dulu di ⚙️ Pengaturan.', true);
