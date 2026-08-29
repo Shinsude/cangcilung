@@ -3173,13 +3173,15 @@
       handleTA(sym);
       return;
     }
-    var taIntent = text.match(/^\s*(analisa|analisis|analyse|analyze)\s+(xau|gold|emas|ndx|nasdaq|dji|dow|spx|dxy|vix|us30|s&p)/i);
-    if (taIntent) {
-      var sym = taIntent[2].toUpperCase();
-      if (sym === 'S&P') sym = 'SPX';
-      if (sym === 'XAU' || sym === 'GOLD' || sym === 'EMAS') sym = 'XAUUSD';
-      if (sym === 'NDX' || sym === 'NASDAQ') sym = 'NDX';
-      if (sym === 'DJI' || sym === 'DOW') sym = 'US30';
+    var taIntent = text.match(/(analisa|analisis|analyse|analyze)/i);
+    var taSym = text.match(/(xau(?:usd)?|gold|emas|ndx|nasdaq|ixic|dji|dow\b|djia|spx|s&p|dxy|dollar index|vix|us30)/i);
+    if (taIntent && taSym && text.length <= 80) {
+      var sym = taSym[1].toUpperCase();
+      if (sym === 'S&P' || sym === 'SPX') sym = 'SPX';
+      if (sym === 'XAU' || sym === 'XAUUSD' || sym === 'GOLD' || sym === 'EMAS') sym = 'XAUUSD';
+      if (sym === 'NDX' || sym === 'NASDAQ' || sym === 'IXIC') sym = 'NDX';
+      if (sym === 'DJI' || sym === 'DJIA' || sym === 'DOW' || sym === 'US30') sym = 'US30';
+      if (sym === 'DOLLAR INDEX' || sym === 'DXY') sym = 'DXY';
       input.value = '';
       handleTA(sym);
       return;
