@@ -767,7 +767,37 @@
     memory.topics = slim;
     trackPrefs(text);
     trackEntities(text);
+    trackTrading(text);
     saveMemory();
+  }
+  function trackTrading(text) {
+    if (!memory.trading) memory.trading = { risk: '', capital: 0, symbols: [], style: '' };
+    var t = text.toLowerCase();
+    var m;
+    if (/\b(risk (?:3|2|1)|risiko (?:3|2|1)|agresif|konservatif|moderat|safe|aman)\b/i.test(t)) {
+      if (/\bagresif\b/.test(t)) memory.trading.risk = 'agresif';
+      else if (/\bkonservatif\b/.test(t) || /\b(aman|safe)\b/.test(t)) memory.trading.risk = 'konservatif';
+      else { m = t.match(/\brisk\s+(\d)\b|\brisiko\s+(\d)\b/); memory.trading.risk = m && (m[1] || m[2]) ? 'level ' + (m[1] || m[2]) : 'moderat'; }
+    }
+    m = t.match(/\b(modal|capital|deposit)\s*(?:saya|aku)?\s*(?::|=|dari|nya)?\s*(?:rp\s*|idr\s*|\$\s*)?([\d.,]+)\s*k?\b/i);
+    if (m && m[1]) {
+      var num = parseFloat(String(m[1]).replace(/,/g, ''));
+      if (!isNaN(num) && num > 0 && num < 1e12) {
+        memory.trading.capital = /\b(rp|idr)\b|\./i.test(t) ? num : num;
+      }
+    }
+    var symStrings = t.match(/\b(xau(?:usd)?|gold|emas|ndx|nasdaq|dji|dow|spx|s&p|dxy|vix|us30)\b/g);
+    if (symStrings) {
+      var canonical = { gold: 'XAUUSD', emas: 'XAUUSD', xau: 'XAUUSD', xauusd: 'XAUUSD', ndx: 'NDX', nasdaq: 'NDX', dji: 'US30', dow: 'US30', us30: 'US30', spx: 'SPX', 's&p': 'SPX', dxy: 'DXY', vix: 'VIX' };
+      symStrings.forEach(function (s) { var c = canonical[s.toLowerCase()]; if (c && memory.trading.symbols.indexOf(c) === -1) memory.trading.symbols.push(c); });
+      memory.trading.symbols = memory.trading.symbols.slice(-5);
+    }
+    if (/\b(day trading|intraday|scalping|swing|position trading|long term|jangka panjang|hari ini)\b/i.test(t)) {
+      if (/\b(day trading|intraday)\b/.test(t)) memory.trading.style = 'intraday';
+      else if (/\bscalping\b/.test(t)) memory.trading.style = 'scalping';
+      else if (/\b(swing)\b/.test(t)) memory.trading.style = 'swing';
+      else if (/\b(long term|jangka panjang)\b/.test(t)) memory.trading.style = 'long term';
+    }
   }
   function trackPrefs(text) {
     var t = text.toLowerCase();
@@ -839,6 +869,15 @@
       var nameKeys = Object.keys(e.names || {});
       if (nameKeys.length) parts.push('Nama yang disebut user: ' + nameKeys.join(', ') + '. Panggil dengan nama yang tepat.');
       if (e.facts && e.facts.length) parts.push('Fakta tentang user: ' + e.facts.slice(0, 5).join('; ') + '.');
+    }
+    if (memory.trading) {
+      var tr = memory.trading;
+      var trParts = [];
+      if (tr.risk) trParts.push('toleransi risiko ' + tr.risk);
+      if (tr.capital) trParts.push('modal sekitar ' + tr.capital.toLocaleString('id-ID'));
+      if (tr.symbols && tr.symbols.length) trParts.push('aset favorit: ' + tr.symbols.join(', '));
+      if (tr.style) trParts.push('gaya trading ' + tr.style);
+      if (trParts.length) parts.push('Profil trading user: ' + trParts.join('; ') + '. Sesuaikan saran pasar (risiko/manajemen modal) dengan profil ini.');
     }
     return parts.length ? parts.join(' ') : '';
   }
@@ -2680,6 +2719,16 @@
     });
   }
 
+  function buildTANote(symbol) {
+    var _mem = memory && memory.trading;
+    if (!_mem) return '';
+    var parts = [];
+    if (_mem.risk && !_mem.style) parts.push('Profil risiko kamu (' + _mem.risk + ') — sesuaikan ukuran posisi: risiko ' + (_mem.risk === 'konservatif' ? 'rendah (1% atau kurang)' : _mem.risk === 'agresif' ? 'tinggi (boleh lebih dari 2%)' : 'sedang (1-2%)') + ' per trade.');
+    if (_mem.capital) parts.push('Dengan modal ±' + _mem.capital.toLocaleString('id-ID') + ', hindari risiko lebih dari ' + ( ( _mem.risk === 'konservatif' ? 5 : _mem.risk === 'agresif' ? 20 : 10 ) ) + '% modal per posisi.');
+    if (_mem.style) parts.push('Gaya ' + _mem.style + ' — fokus timeframe ' + (_mem.style === 'intraday' ? '5m-1h' : _mem.style === 'scalping' ? '1m-5m' : _mem.style === 'swing' ? '1h-1d' : '1d-1w') + '.');
+    return parts.length ? '### 📌 Catatan personal untuk kamu\n' + parts.join(' ') : '';
+  }
+
   function handleTA(symbol) {
     if (!window.CC || !window.CC.ta) {
       setStatus('Technical Analysis tidak dimuat.', true);
@@ -2697,6 +2746,8 @@
       var analysis = ta.analyze(daily.data);
       var mtf = ta.multiTFAnalysis(mTF['1d'], mTF['1h'], mTF['15m']);
       analysis += '\n\n' + ta.formatConfluence(mtf);
+      var taNote = buildTANote(symbol.toUpperCase());
+      if (taNote) analysis += '\n\n' + taNote;
       var session = ta.getCurrentSession();
       removeTyping(bubble);
       history.push({ role: 'assistant', content: analysis, t: nowTime() });
@@ -3173,9 +3224,23 @@
       handleTA(sym);
       return;
     }
-    var taIntent = text.match(/(analisa|analisis|analyse|analyze)/i);
-    var taSym = text.match(/(xau(?:usd)?|gold|emas|ndx|nasdaq|ixic|dji|dow\b|djia|spx|s&p|dxy|dollar index|vix|us30)/i);
-    if (taIntent && taSym && text.length <= 80) {
+    var taIntent = text.match(/(analisa|analisis|analyse|analyze|prediksi|ramal|proyeksi|forecast)/i);
+    var taSymbol = /(xau(?:usd)?|gold|emas|ndx|nasdaq|ixic|dji|dow\b|djia|spx|s&p|dxy|dollar index|vix|us30)/i;
+    var taSym = text.match(taSymbol);
+    var taDir = /(melesat|anjlok|menguat|melemah|breakout|breakdown|naik apa turun|naik atau turun|akan naik|akan turun|naik nggak|turun gak|turun nggak|harga (?:emas|gold|ndx|nasdaq|dji|dow|spx|s&p|naik|turun|hari ini|sekarang)\b|(?:emas|gold|ndx|nasdaq|dji|dow|spx|s&p)\s+(?:naik\??|turun\??|menguat\??|melemah\??))/i;
+    var taHasDir = taDir.test(text);
+    if (taSym && taSym[1] && text.length <= 80 && taIntent) {
+      var sym = taSym[1].toUpperCase();
+      if (sym === 'S&P' || sym === 'SPX') sym = 'SPX';
+      if (sym === 'XAU' || sym === 'XAUUSD' || sym === 'GOLD' || sym === 'EMAS') sym = 'XAUUSD';
+      if (sym === 'NDX' || sym === 'NASDAQ' || sym === 'IXIC') sym = 'NDX';
+      if (sym === 'DJI' || sym === 'DJIA' || sym === 'DOW' || sym === 'US30') sym = 'US30';
+      if (sym === 'DOLLAR INDEX' || sym === 'DXY') sym = 'DXY';
+      input.value = '';
+      handleTA(sym);
+      return;
+    }
+    if (taSym && taSym[1] && taHasDir && text.length <= 70 && !/\b(kenapa|why|sejarah|history|contoh|contohnya|inflasi|misal|misalnya|kapan|semenjak|belajar|tutorial|arti|apa itu)\b/i.test(text)) {
       var sym = taSym[1].toUpperCase();
       if (sym === 'S&P' || sym === 'SPX') sym = 'SPX';
       if (sym === 'XAU' || sym === 'XAUUSD' || sym === 'GOLD' || sym === 'EMAS') sym = 'XAUUSD';

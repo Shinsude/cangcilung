@@ -94,22 +94,38 @@
   function retrieve(query) {
     if (!canRetrieve()) return Promise.resolve('');
     var nq = normalizeQuery(query);
+    var qWords = (query.toLowerCase().match(/[a-z0-9]{3,}/g) || []).filter(function (w) {
+      return ['yang','dan','di','ke','dari','ini','itu','untuk','dengan','pada','adalah','ialah','akan','juga','sudah','telah','bisa','dapat','tidak','bukan','apan','apa','berapa','bagaimana','tolong','jelaskan','saya','aku','kamu','anda'].indexOf(w) === -1;
+    });
     return embedTexts([nq]).then(function (vecs) {
       var v = toVec(vecs[0]);
-      return state.client.rpc('match_chunks', { query_embedding: v, match_count: 10, uid: state.user.id })
-        .then(function (r) { if (r.error) throw r.error; return (r.data || []).filter(function (x) { return (x.similarity || 0) >= 0.55; }); });
+      return state.client.rpc('match_chunks', { query_embedding: v, match_count: 20, uid: state.user.id })
+        .then(function (r) { if (r.error) throw r.error; return (r.data || []); });
     }).then(function (rows) {
       if (!rows || !rows.length) return '';
+      var scored = rows.map(function (x) {
+        var sim = (x.similarity || 0);
+        var boost = 0;
+        var cLow = (x.content || '').toLowerCase();
+        qWords.forEach(function (w) { if (cLow.indexOf(w) !== -1) boost += 0.04; });
+        boost = Math.min(boost, 0.2);
+        return { row: x, sim: sim, score: sim + boost };
+      }).sort(function (a, b) { return b.score - a.score; });
+      var matched = scored.filter(function (s) { return s.sim >= 0.55; });
+      var chosen = matched.length >= 3 ? matched : matched.concat(scored.slice(0, Math.max(0, 3 - matched.length)));
+      if (!chosen.length) return '';
       var ids = [], seen = {};
-      rows.forEach(function (x) { if (!seen[x.document_id]) { seen[x.document_id] = 1; ids.push(x.document_id); } });
+      chosen.forEach(function (s) { if (!seen[s.row.document_id]) { seen[s.row.document_id] = 1; ids.push(s.row.document_id); } });
       return state.client.from('documents').select('id,title').in('id', ids).then(function (r) {
         var titles = {};
         if (!r.error) (r.data || []).forEach(function (d) { titles[d.id] = d.title; });
-        return rows.map(function (x) {
-          return '[' + (titles[x.document_id] || 'Dokumen') + ' · skor ' + Math.round((x.similarity || 0) * 100) + '%]\n' + x.content;
+        return chosen.map(function (s) {
+          var pct = Math.round(s.sim * 100);
+          var note = s.sim >= 0.55 ? '' : ' (mungkin relevan)';
+          return '[' + (titles[s.row.document_id] || 'Dokumen') + ' · skor ' + pct + '%' + note + ']\n' + s.row.content;
         }).join('\n\n---\n\n');
       }).catch(function () {
-        return rows.map(function (x) { return x.content; }).join('\n\n---\n\n');
+        return chosen.map(function (s) { return s.row.content; }).join('\n\n---\n\n');
       });
     }).catch(function () { return ''; });
   }
