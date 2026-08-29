@@ -361,7 +361,7 @@
   function backupData() {
     var safeSettings = {};
     for (var k in settings) {
-      if (settings.hasOwnProperty(k) && k !== 'apiKey' && k !== 'embedKey') safeSettings[k] = settings[k];
+      if (settings.hasOwnProperty(k) && k !== 'apiKey' && k !== 'embedKey' && k !== 'newsKey') safeSettings[k] = settings[k];
     }
     var data = {
       app: 'cangcilung',
