@@ -55,6 +55,7 @@
 
   var els = {};
   var history = [];
+  var _taSuggestText = '';
   var summary = '';
   var memory = { topics: {} };
   var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true, embedBaseUrl: DEFAULT_EMBED_BASE, embedKey: '', embedModel: DEFAULT_EMBED_MODEL, newsKey: '' };
@@ -2767,6 +2768,8 @@
       analysis += '\n\n' + ta.formatConfluence(mtf);
       var taNote = buildTANote(symbol.toUpperCase());
       if (taNote) analysis += '\n\n' + taNote;
+      var bSug = bundleSuggest(_taSuggestText, symbol);
+      if (bSug) analysis += bSug;
       var session = ta.getCurrentSession();
       removeTyping(bubble);
       history.push({ role: 'assistant', content: analysis, t: nowTime() });
@@ -2978,6 +2981,116 @@
     window.__alertTimer = setInterval(tick, 60000);
   }
 
+  /* ---- Skills & Bundles (pola MANTRA: katalog + bundel terurut) ---- */
+  var SKILLS = {
+    ta:        { cmd: '/ta SYM',                    desc: 'analisis lengkap semua indikator + SMC + verdict',          tags: ['analisa', 'prediksi', 'analisis'] },
+    chart:     { cmd: '/chart SYM TF',              desc: 'tampilkan chart (5m/15m/30m/1h/1d/1w)',                   tags: ['grafik', 'chart', 'candle'] },
+    rsi:       { cmd: '/rsi SYM N',                 desc: 'RSI + MACD + Bollinger',                                  tags: ['rsi', 'macd', 'indikator', 'momentum'] },
+    structure: { cmd: '/structure SYM',             desc: 'market structure (HH/HL/LH/LL)',                          tags: ['struktur', 'support', 'resistance', 'smc'] },
+    session:   { cmd: '/session',                   desc: 'sesi market aktif & jadwal',                              tags: ['sesi', 'session', 'jadwal'] },
+    profile:   { cmd: '/profile SYM TF',            desc: 'volume profile (POC/HVN/LVN)',                             tags: ['profile', 'volume', 'poc'] },
+    risk:      { cmd: '/risk SYM ACC PCT',          desc: 'risk management (SL/TP/lot)',                              tags: ['risk', 'risiko', 'modal', 'manajemen'] },
+    corr:      { cmd: '/corr SYM',                  desc: 'korelasi XAU vs DXY (atau NDX vs VIX)',                    tags: ['korelasi', 'correlation', 'dxy'] },
+    backtest:  { cmd: '/backtest SYM STRAT PARAMS', desc: 'uji strategi (rsi/macd/bb/sma/all)',                      tags: ['backtest', 'strategi', 'uji'] },
+    news:      { cmd: '/news SYM',                  desc: 'sentimen berita terbaru',                                 tags: ['news', 'berita', 'sentimen'] },
+    alert:     { cmd: '/alert SYM TARGET',          desc: 'pasang alert harga',                                      tags: ['alert', 'notifikasi', 'sinyal'] },
+    alerts:    { cmd: '/alerts',                    desc: 'lihat alert aktif (hapus: /alert-del ID)',                tags: ['alerts', 'daftar alert'] }
+  };
+  var BUNDLES = {
+    analisa:   { skills: ['ta', 'structure', 'risk'],        desc: 'analisis market lengkap: tren → struktur → risiko' },
+    risiko:    { skills: ['risk', 'corr', 'alerts'],         desc: 'manajemen risiko menyeluruh: posisi → korelasi → alert' },
+    teknikal:  { skills: ['rsi', 'chart', 'profile'],        desc: 'kajian indikator teknis + konfirmasi chart' },
+    berita:    { skills: ['news', 'ta'],                     desc: 'sentimen berita lalu konfirmasi bias harga' },
+    sinyal:    { skills: ['backtest', 'alert'],              desc: 'uji strategi lalu pasang alert sinyal' }
+  };
+  function executeSkill(handler, args) {
+    switch (handler) {
+      case 'ta': return handleTA((args[0] || 'XAUUSD'));
+      case 'chart': return handleChart((args[0] || 'XAUUSD'), (args[1] || '1d'));
+      case 'rsi': return handleRSI((args[0] || 'XAUUSD'), (parseInt(args[1]) || 14));
+      case 'structure': return handleStructure((args[0] || 'XAUUSD'));
+      case 'session': return handleSessionCommand();
+      case 'profile': return handleProfile((args[0] || 'XAUUSD'), (args[1] || '1d'));
+      case 'risk': return handleRisk((args[0] || 'XAUUSD'), (parseFloat(String(args[1] || '10000').replace(/,/g, '')) || 10000), (parseFloat(args[2]) || 1));
+      case 'corr': return handleCorrelation((args[0] || 'XAUUSD'));
+      case 'backtest': return handleBacktest((args[0] || 'XAUUSD'), (args[1] || 'rsi'), (args[2] || ''));
+      case 'news': return handleNews((args[0] || 'XAUUSD'));
+      case 'alert': return handleAlertAdd((args[0] || 'XAUUSD'), (args[1] || ''), '');
+      case 'alerts': return handleAlertsList();
+      default: return false;
+    }
+  }
+  function bundleRecommend(text) {
+    var t = (text || '').toLowerCase();
+    var matches = [];
+    Object.keys(BUNDLES).forEach(function (bn) { matches.push([bn, 0]); });
+    Object.keys(BUNDLES).forEach(function (bn) {
+      var score = 0;
+      BUNDLES[bn].skills.forEach(function (s) {
+        var tags = SKILLS[s].tags;
+        tags.forEach(function (tg) { if (t.indexOf(tg) !== -1) score++; });
+      });
+      if (_bundleNameMatch(bn, t)) score += 2;
+      matches[Object.keys(BUNDLES).indexOf(bn)][1] = score;
+    });
+    matches.sort(function (a, b) { return b[1] - a[1]; });
+    if (matches[0] && matches[0][1] >= 1) return matches[0][0];
+    return null;
+  }
+  function _bundleNameMatch(bundleName, t) {
+    return t.indexOf(bundleName.toLowerCase()) !== -1;
+  }
+  function bundleSuggest(text, symbol) {
+    var bn = bundleRecommend(text || '');
+    if (!bn) return '';
+    return renderBundle(bn, (symbol || 'XAUUSD').toUpperCase(), bn === 'analisa' ? 'ta' : null);
+  }
+  function renderBundle(bundleName, symbol, triggerSkill) {
+    var b = BUNDLES[bundleName];
+    if (!b) return '';
+    var out = '\n\n### 🧩 Bundel (alur ' + bundleName + ')\n';
+    out += b.desc + '\n';
+    var seq = b.skills.map(function (s) {
+      var line = SKILLS[s].cmd.replace('SYM', symbol).replace('TF', '1h').replace('N', '14').replace('ACC', '10000').replace('PCT', '1');
+      return '- `' + line + '` — ' + SKILLS[s].desc;
+    }).join('\n');
+    out += seq;
+    if (triggerSkill) out += '\n\n> 💡 Mulai dari `' + triggerSkill + '` (sudah dijalankan). Lanjutkan dengan langkah berikutnya untuk analisis menyeluruh.';
+    return out;
+  }
+  function pushMessage(content) {
+    history.push({ role: 'assistant', content: content, t: nowTime() });
+    saveHistory();
+    renderHistory();
+    busy = false;
+    setSendUI(false);
+    setStatus('');
+  }
+  function handleSkillsCommand(raw) {
+    var rest = (raw || '').replace(/^\/skills/, '').trim();
+    var arg = rest.split(/\s+/).filter(Boolean);
+    var symbol = 'XAUUSD';
+    var mSym = raw.match(/\b(xau(?:usd)?|gold|emas|ndx|nasdaq|dji|dow|us30|spx|dxy|vix)\b/i);
+    if (mSym) { symbol = mSym[1].toUpperCase(); if (symbol === 'S&P' || symbol === 'SPX') symbol = 'SPX'; if (symbol === 'XAU' || symbol === 'XAUUSD' || symbol === 'GOLD' || symbol === 'EMAS') symbol = 'XAUUSD'; if (symbol === 'NDX' || symbol === 'NASDAQ') symbol = 'NDX'; if (symbol === 'DJI' || symbol === 'DOW' || symbol === 'US30') symbol = 'US30'; }
+    var bundleName = arg[1] && BUNDLES[arg[1].toLowerCase()] ? arg[1].toLowerCase() : (arg[0] && BUNDLES[arg[0].toLowerCase()] ? arg[0].toLowerCase() : null);
+    var skillName = null;
+    if (!bundleName && arg[0] && SKILLS[arg[0].toLowerCase()]) skillName = arg[0].toLowerCase();
+    if (bundleName) {
+      var trigger = bundleName === 'analisa' ? 'ta' : bundleName === 'risiko' ? 'risk' : bundleName === 'teknikal' ? 'rsi' : bundleName === 'berita' ? 'news' : 'backtest';
+      executeSkill(trigger, [symbol]);
+      return;
+    }
+    if (skillName) {
+      executeSkill(skillName, [symbol, arg[1], arg[2]]);
+      return;
+    }
+    var out = '## 🧩 Katalog Skill & Bundel\n\n### Perintah (skill)\n';
+    Object.keys(SKILLS).forEach(function (n) { out += '- `/skills ' + n + ' SYM` → `' + SKILLS[n].cmd + '` — ' + SKILLS[n].desc + '\n'; });
+    out += '\n### Bundel (alur terurut)\n';
+    Object.keys(BUNDLES).forEach(function (n) { out += '- `/skills ' + n + ' SYM` — ' + BUNDLES[n].desc + '\n'; });
+    out += '\nContoh: `/skills analisa XAUUSD` (tren → struktur → risiko). Ketik `/help` untuk daftar lengkap.';
+    pushMessage(out);
+  }
   function handleHelpCommand() {
     var out = '## Perintah CangCilung 📊\n\n';
     out += '### Trading / Market\n';
@@ -2993,6 +3106,13 @@
     out += '- `/news XAUUSD` — sentimen berita terbaru\n';
     out += '- `/alert XAUUSD 3200` — pasang alert harga\n';
     out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n\n';
+    out += '### Bundel (alur analisis, baru)\n';
+    out += '- `/skills` — katalog skill & bundel\n';
+    out += '- `/skills analisa XAUUSD` — tren → struktur → risiko\n';
+    out += '- `/skills risiko XAUUSD` — posisi → korelasi → alert\n';
+    out += '- `/skills teknikal XAUUSD` — indikator → chart → profile\n';
+    out += '- `/skills berita XAUUSD` — sentimen → bias harga\n';
+    out += '- `/skills sinyal XAUUSD` — backtest → alert\n\n';
     out += 'Simbol: `XAUUSD`, `NDX`, `US30`, `SPX`, `DXY`, `VIX`\n\n';
     out += '### Umum: ketik `help` untuk bantuan AI';
     history.push({ role: 'assistant', content: out, t: nowTime() });
@@ -3195,9 +3315,10 @@
   function sendChat() {
     var input = $('chat-input');
     var text = (input && input.value || '').trim();
-    if (/^\/(alerts|alert|alert-del|help|session)/i.test(text)) {
+    if (/^\/(alerts|alert|alert-del|help|session|skills)/i.test(text)) {
       input.value = '';
       if (/^\/help\b/i.test(text)) { handleHelpCommand(); return; }
+      if (/^\/skills\b/i.test(text)) { handleSkillsCommand(text); return; }
       if (/^\/session\b/i.test(text)) { handleSessionCommand(); return; }
       if (/^\/alert-del\b/i.test(text)) { handleAlertDelete(text.replace(/^\/alert-del\s*/i, '').trim()); return; }
       if (/^\/alerts\b/i.test(text)) { handleAlertsList(); return; }
@@ -3220,6 +3341,7 @@
     var webProgressId = null;
     var input = $('chat-input');
     var text = input.value.trim();
+    _taSuggestText = text;
     if (/^\/(chart|grafik)\b/i.test(text)) {
       var m = text.match(/^\/(?:chart|grafik)\s+(\S+)\s*(\S*)/i);
       var sym = m ? m[1] : 'XAUUSD';
@@ -3346,6 +3468,11 @@
     if (/^\/help\b/i.test(text)) {
       input.value = '';
       handleHelpCommand();
+      return;
+    }
+    if (/^\/skills\b/i.test(text)) {
+      input.value = '';
+      handleSkillsCommand(text);
       return;
     }
     var forceAnalysis = false;
@@ -4279,6 +4406,12 @@
     confirmCb:   { get: function () { return confirmCb; },   set: function (v) { confirmCb = v; },   enumerable: true },
     renameSessionId: { get: function () { return renameSessionId; }, set: function (v) { renameSessionId = v; }, enumerable: true }
   });
+  window.CC.skills = {
+    catalog: function () { return JSON.parse(JSON.stringify(SKILLS)); },
+    bundles: function () { return JSON.parse(JSON.stringify(BUNDLES)); },
+    recommend: function (text) { return bundleRecommend(text); },
+    suggest: function (text, symbol) { return bundleSuggest(text, symbol); }
+  };
 
   document.addEventListener('DOMContentLoaded', init);
 })();
