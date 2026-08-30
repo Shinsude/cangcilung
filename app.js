@@ -3478,9 +3478,12 @@
         var mc = (history[hi].content || '').length;
         var isRecent = (history.length - 1 - hi) < RECENT_WINDOW;
         var effectiveMc = isRecent ? mc : Math.ceil(mc * 0.5);
-        if (hChars + effectiveMc > budget) break;
+        if (hChars + effectiveMc > budget && budgetedHistory.length >= 2) break;
         hChars += effectiveMc;
         budgetedHistory.unshift({ role: history[hi].role, content: history[hi].content });
+      }
+      while (budgetedHistory.length > 0 && budgetedHistory[0].role === 'assistant') {
+        budgetedHistory.shift();
       }
       if (budgetedHistory.length > 4 && summary) {
         var oldMsgCount = budgetedHistory.length - 4;
