@@ -755,7 +755,19 @@
     } catch (e) {}
   }
   function saveMemory() {
-    try { safeSetItem(MEMORY_KEY, JSON.stringify(memory)); } catch (e) {}
+    try {
+      var v = JSON.stringify(memory);
+      if (v && v.length > 20000) {
+        var ks = Object.keys(memory.topics || {}).sort(function (a, b) { return (memory.topics[b] || 0) - (memory.topics[a] || 0); });
+        while (ks.length && v.length > 15000) {
+          var drop = ks.pop();
+          if (!drop) break;
+          delete memory.topics[drop];
+          v = JSON.stringify(memory);
+        }
+      }
+      safeSetItem(MEMORY_KEY, JSON.stringify(memory));
+    } catch (e) {}
   }
   function trackTopic(text) {
     var words = (text.toLowerCase().match(/[a-z0-9]{4,}/g) || []);
@@ -774,22 +786,25 @@
     if (!memory.trading) memory.trading = { risk: '', capital: 0, symbols: [], style: '' };
     var t = text.toLowerCase();
     var m;
+    var changed = false;
     if (/\b(risk (?:3|2|1)|risiko (?:3|2|1)|agresif|konservatif|moderat|safe|aman)\b/i.test(t)) {
       if (/\bagresif\b/.test(t)) memory.trading.risk = 'agresif';
       else if (/\bkonservatif\b/.test(t) || /\b(aman|safe)\b/.test(t)) memory.trading.risk = 'konservatif';
       else { m = t.match(/\brisk\s+(\d)\b|\brisiko\s+(\d)\b/); memory.trading.risk = m && (m[1] || m[2]) ? 'level ' + (m[1] || m[2]) : 'moderat'; }
+      changed = true;
     }
     m = t.match(/\b(modal|capital|deposit)\s*(?:saya|aku)?\s*(?::|=|dari|nya)?\s*(?:rp\s*|idr\s*|\$\s*)?([\d.,]+)\s*k?\b/i);
     if (m && m[1]) {
       var num = parseFloat(String(m[1]).replace(/,/g, ''));
       if (!isNaN(num) && num > 0 && num < 1e12) {
         memory.trading.capital = /\b(rp|idr)\b|\./i.test(t) ? num : num;
+        changed = true;
       }
     }
     var symStrings = t.match(/\b(xau(?:usd)?|gold|emas|ndx|nasdaq|dji|dow|spx|s&p|dxy|vix|us30)\b/g);
     if (symStrings) {
       var canonical = { gold: 'XAUUSD', emas: 'XAUUSD', xau: 'XAUUSD', xauusd: 'XAUUSD', ndx: 'NDX', nasdaq: 'NDX', dji: 'US30', dow: 'US30', us30: 'US30', spx: 'SPX', 's&p': 'SPX', dxy: 'DXY', vix: 'VIX' };
-      symStrings.forEach(function (s) { var c = canonical[s.toLowerCase()]; if (c && memory.trading.symbols.indexOf(c) === -1) memory.trading.symbols.push(c); });
+      symStrings.forEach(function (s) { var c = canonical[s.toLowerCase()]; if (c && memory.trading.symbols.indexOf(c) === -1) { memory.trading.symbols.push(c); changed = true; } });
       memory.trading.symbols = memory.trading.symbols.slice(-5);
     }
     if (/\b(day trading|intraday|scalping|swing|position trading|long term|jangka panjang|hari ini)\b/i.test(t)) {
@@ -797,6 +812,10 @@
       else if (/\bscalping\b/.test(t)) memory.trading.style = 'scalping';
       else if (/\b(swing)\b/.test(t)) memory.trading.style = 'swing';
       else if (/\b(long term|jangka panjang)\b/.test(t)) memory.trading.style = 'long term';
+      changed = true;
+    }
+    if (changed) {
+      memory.trading.updatedAt = nowTime();
     }
   }
   function trackPrefs(text) {
@@ -3224,12 +3243,13 @@
       handleTA(sym);
       return;
     }
-    var taIntent = text.match(/(analisa|analisis|analyse|analyze|prediksi|ramal|proyeksi|forecast)/i);
+    var taIntent = text.match(/(analisa|analisis|analyse|analyze|prediksi|ramal|proyeksi|forecast|breakout|breakdown|resistance|support|candlestick|sinyal (?:beli|jual)|momentum|trend(?:line)?)/i);
     var taSymbol = /(xau(?:usd)?|gold|emas|ndx|nasdaq|ixic|dji|dow\b|djia|spx|s&p|dxy|dollar index|vix|us30)/i;
     var taSym = text.match(taSymbol);
     var taDir = /(melesat|anjlok|menguat|melemah|breakout|breakdown|naik apa turun|naik atau turun|akan naik|akan turun|naik nggak|turun gak|turun nggak|harga (?:emas|gold|ndx|nasdaq|dji|dow|spx|s&p|naik|turun|hari ini|sekarang)\b|(?:emas|gold|ndx|nasdaq|dji|dow|spx|s&p)\s+(?:naik\??|turun\??|menguat\??|melemah\??))/i;
     var taHasDir = taDir.test(text);
-    if (taSym && taSym[1] && text.length <= 80 && taIntent) {
+    var taNotDef = /\b(kenapa|why|sejarah|history|contoh|contohnya|inflasi|misal|misalnya|kapan|semenjak|belajar|tutorial|arti|apa itu|definisi|pengertian|jelaskan apa)\b/i;
+    if (taSym && taSym[1] && text.length <= 80 && taIntent && !taNotDef.test(text)) {
       var sym = taSym[1].toUpperCase();
       if (sym === 'S&P' || sym === 'SPX') sym = 'SPX';
       if (sym === 'XAU' || sym === 'XAUUSD' || sym === 'GOLD' || sym === 'EMAS') sym = 'XAUUSD';
@@ -3240,7 +3260,7 @@
       handleTA(sym);
       return;
     }
-    if (taSym && taSym[1] && taHasDir && text.length <= 70 && !/\b(kenapa|why|sejarah|history|contoh|contohnya|inflasi|misal|misalnya|kapan|semenjak|belajar|tutorial|arti|apa itu)\b/i.test(text)) {
+    if (taSym && taSym[1] && taHasDir && text.length <= 70 && !taNotDef.test(text)) {
       var sym = taSym[1].toUpperCase();
       if (sym === 'S&P' || sym === 'SPX') sym = 'SPX';
       if (sym === 'XAU' || sym === 'XAUUSD' || sym === 'GOLD' || sym === 'EMAS') sym = 'XAUUSD';
