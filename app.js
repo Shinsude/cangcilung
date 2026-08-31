@@ -3675,7 +3675,8 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
 
     var needKB = window.__kb && window.__kb.canRetrieve && window.__kb.canRetrieve();
     var needWeb = (webMode || needsWeb(text)) && !webContext;
-    if (needKB || needWeb) {
+    var needQuote = !!chartSymbol(text);
+    if (needKB || needWeb || needQuote) {
       var pending = [];
       if (needKB) {
         setStatus('📚 Mencari di pengetahuan tersimpan...');
@@ -3699,6 +3700,8 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
           if (webProgressId) { clearInterval(webProgressId); webProgressId = null; }
           setStatus('Mode web: gagal mencari, lanjut jawab biasa.');
         }).finally(function () { webFetching = false; if (webProgressId) { clearInterval(webProgressId); webProgressId = null; } }));
+      }
+      if (needQuote) {
         pending.push(quoteContext(text).then(function (q) {
           if (q && !kbCancel) {
             webContext = webContext ? webContext + '\n\n[Data pasar real-time]\n' + q : '[Data pasar real-time]\n' + q;
