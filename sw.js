@@ -45,7 +45,7 @@ self.addEventListener('activate', function (e) {
 self.addEventListener('fetch', function (e) {
   var url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;
-  if (url.origin === self.location.origin && url.pathname === '/api/config') return;
+  if (url.origin === self.location.origin && (url.pathname === '/api/config' || url.pathname === '/api/quote')) return;
   if (url.origin === self.location.origin) {
     e.respondWith(
       caches.match(e.request).then(function (hit) {

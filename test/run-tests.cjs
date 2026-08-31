@@ -57,6 +57,9 @@ const w2 = loadBrowser('lib/search.js');
   assert(s.extractTicker('cara membuat nasi goreng') === '', 'non-ticker -> ""');
   assert(s.chartSymbol('harga usa100') === 'NASDAQ:NDX', 'chartSymbol usa100 -> NASDAQ:NDX');
   assert(s.chartSymbol('chart xauusd') === 'OANDA:XAUUSD', 'chartSymbol xauusd -> OANDA:XAUUSD');
+  assert(s.extractTicker('analisis USA100') === '^NDX', 'analisis USA100 -> ^NDX (tanpa kata kunci web)');
+  assert(s.chartSymbol('analisis USA100') === 'NASDAQ:NDX', 'chartSymbol analisis USA100 -> NASDAQ:NDX');
+  assert(s.extractTicker('analisis properti amerika') === '', 'analisis non-ticker -> ""');
 })();
 
 /* ---------- stream.js ---------- */
