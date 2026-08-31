@@ -203,6 +203,9 @@ html { scrollbar-width: thin; scrollbar-color: #424242 transparent; }
   color: var(--text-dim); font-size: 11px; margin-top: 1px;
   display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.pane-sub.offline {
+  color: var(--warn, #f5a623); font-weight: 600;
+}
 .header-actions { display: flex; align-items: center; gap: 2px; }
 
 /* ── Buttons ── */

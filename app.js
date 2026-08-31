@@ -3907,6 +3907,22 @@
       window.speechSynthesis.onvoiceschanged = populateVoices;
     }
     connSub();
+    var applyOnline = (function () {
+      return function () {
+        var cs = $('conn-sub');
+        if (!cs) return;
+        if (navigator.onLine === false) {
+          cs.textContent = '📴 Offline — tanpa internet (chat mungkin tak tersedia)';
+          cs.classList.add('offline');
+        } else {
+          cs.classList.remove('offline');
+          connSub();
+        }
+      };
+    })();
+    window.addEventListener('offline', applyOnline);
+    window.addEventListener('online', applyOnline);
+    applyOnline();
     renderHistory();
     renderUsage();
     syncPersonaButton();
