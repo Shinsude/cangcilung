@@ -6,6 +6,11 @@
 (function () {
   'use strict';
 
+  /* Cegah clickjacking/framing (melengkapi header CSP frame-ancestors di vercel.json). */
+  try {
+    if (window.self !== window.top) { window.top.location.href = window.location.href; }
+  } catch (e) { window.location.href = window.location.href; }
+
   var SYSTEM = [
     'Kamu adalah cangcilung, asisten AI Indonesia yang cerdas, ramah, dan sangat membantu.',
     'Pahami bahasa gaul/singkatan, jawab dengan bahasa baku yang baik.',
