@@ -3702,11 +3702,18 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
         }).finally(function () { webFetching = false; if (webProgressId) { clearInterval(webProgressId); webProgressId = null; } }));
       }
       if (needQuote) {
+        var qt = SEARCH && SEARCH.extractTicker ? SEARCH.extractTicker(text) : '';
+        setStatus('📊 Mengambil harga pasar (' + (qt || chartSymbol(text)) + ')...');
         pending.push(quoteContext(text).then(function (q) {
           if (q && !kbCancel) {
             webContext = webContext ? webContext + '\n\n[Data pasar real-time]\n' + q : '[Data pasar real-time]\n' + q;
+            console.log('[quote] OK, data pasar dimuat: ', q.slice(0, 160));
+          } else if (!kbCancel) {
+            console.warn('[quote] TIDAK ada data pasar dikembalikan (quoteContext kosong)');
           }
-        }).catch(function () {}));
+        }).catch(function (e) {
+          console.warn('[quote] GAGAL load data pasar:', e && e.message || e);
+        }));
       }
       Promise.all(pending).then(function () {
         if (!kbCancel) { _nextRunning = false; next(); }
