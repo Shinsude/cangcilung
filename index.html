@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https: http://localhost:* http://127.0.0.1:* data:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
   <title>cangcilung - Asisten AI</title>
   <meta name="description" content="Asisten AI gratis: chat, analisa file/gambar, web search, suara.">
   <link rel="manifest" href="manifest.webmanifest">
@@ -13,6 +14,14 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%237c3aed'/></svg>">
 </head>
 <body>
+  <script>
+    /* Cegah clickjacking/framing (lapisan tambahan selain CSP frame-ancestors) */
+    (function () {
+      try {
+        if (self !== top) { top.location.href = self.location.href; }
+      } catch (e) { self.location.href = location.href; }
+    })();
+  </script>
   <div class="app">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-top">
@@ -428,6 +437,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3/dist/umd/supabase.min.js" defer></script>
   <script src="lib/fileparse.js"></script>
   <script src="lib/safeeval.js"></script>
+  <script src="lib/mantra.js"></script>
   <script src="lib/utils.js"></script>
   <script src="lib/stream.js"></script>
   <script src="lib/search.js"></script>

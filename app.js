@@ -64,7 +64,7 @@
   var abortCtrl = null;
   var lastUsedModel = '';
 
-  var MAX_HISTORY = 200;
+  var MAX_HISTORY = 500;
   var RAG_CHUNK_SIZE = 2000;
   var RAG_CHUNK_OVERLAP = 200;
   var RAG_BUDGET = 24000;
@@ -482,7 +482,7 @@
       currentSessionId = 's1';
       try {
         var legacy = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-        if (Array.isArray(legacy) && legacy.length) sessions[0].history = legacy.slice(-200);
+        if (Array.isArray(legacy) && legacy.length) sessions[0].history = legacy.slice(-MAX_HISTORY);
         var legacySum = localStorage.getItem(SUMMARY_KEY) || '';
         if (legacySum) sessions[0].summary = legacySum;
       } catch (e2) {}
@@ -743,7 +743,7 @@
   function saveHistory() {
     try {
       var s = currentSession();
-      if (s) { s.history = history.slice(-200); touchSession(); saveSessions(); }
+      if (s) { s.history = history.slice(-MAX_HISTORY); touchSession(); saveSessions(); }
     } catch (e) {}
   }
 
@@ -1135,12 +1135,22 @@
 
   function apiHeaders() {
     var h = { 'Content-Type': 'application/json' };
-    if (settings.apiKey) h.Authorization = 'Bearer ' + settings.apiKey;
+    if (settings.apiKey && isSecureServer(baseUrl())) h.Authorization = 'Bearer ' + settings.apiKey;
     if (/openrouter\.ai/i.test(baseUrl())) {
       h['HTTP-Referer'] = window.location.origin;
       h['X-Title'] = 'cangcilung';
     }
     return h;
+  }
+
+  /* Hanya izinkan API key dikirim ke HTTPS atau server lokal, tidak ke HTTP publik (anti bocor/MITM). */
+  function isSecureServer(url) {
+    try {
+      var u = new URL(url);
+      if (u.protocol === 'https:') return true;
+      if (u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '::1') return true;
+      return false;
+    } catch (e) { return false; }
   }
 
   function connSub() {
@@ -2334,13 +2344,30 @@
         return results.length ? results.join('\n\n').slice(0, 4000) : '';
       })
       .catch(function () { return ''; });
+    var iaPromise = fetch('https://api.duckduckgo.com/?q=' + q + '&format=json&no_html=1&skip_disambig=1&t=cangcilung', { signal: AbortSignal.timeout(10000) })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (j) {
+        if (!j) return '';
+        var out = '';
+        if (j.AbstractText) out += j.AbstractText.slice(0, 1200);
+        if (j.Answer) out += (out ? '\n' : '') + j.Answer.slice(0, 800);
+        if (j.RelatedTopics && j.RelatedTopics.length) {
+          j.RelatedTopics.slice(0, 3).forEach(function (t) {
+            if (t && t.Text) out += (out ? '\n' : '') + '- ' + t.Text.slice(0, 300);
+          });
+        }
+        return out;
+      })
+      .catch(function () { return ''; });
     var wikiPromise = searchWebWikipedia(query).catch(function () { return ''; });
-    return Promise.all([ddgPromise, wikiPromise]).then(function (parts) {
+    return Promise.all([ddgPromise, iaPromise, wikiPromise]).then(function (parts) {
       var ddg = parts[0] || '';
-      var wiki = parts[1] || '';
-      if (!ddg && !wiki) return '';
+      var ia = parts[1] || '';
+      var wiki = parts[2] || '';
+      if (!ddg && !ia && !wiki) return '';
       var out = [];
       if (ddg) out.push('[Informasi dari DuckDuckGo]\n' + ddg);
+      if (ia) out.push('[Jawaban cepat DuckDuckGo]\n' + ia);
       if (wiki) out.push('[Referensi dari Wikipedia]\n' + wiki);
       return out.join('\n\n').slice(0, 8000);
     });
@@ -2520,19 +2547,7 @@
   }
 
   function safeEval(expr) { return _lib().safeEval(expr); }
-
-  function calcAnswer(text) {
-    var trimmed = text.trim();
-    trimmed = trimmed.replace(/^(berapa|hitung|jumlahkan|hasil\s+dari)\s*/i, '').trim();
-    if (/^[?]/.test(trimmed)) trimmed = trimmed.slice(1).trim();
-    if (!/^\d/.test(trimmed) && !/^[(]/.test(trimmed)) return null;
-    var expr = trimmed.replace(/%/g, '/100').replace(/,/g, '.').replace(/\^/g, '**').replace(/\s+/g, '');
-    if (/\D{4,}/.test(expr.replace(/\/100/g, ''))) return null;
-    var result = safeEval(expr);
-    if (result == null) return null;
-    var display = Number.isInteger(result) ? result : parseFloat(result.toFixed(10));
-    return 'Hasil hitung pasti (kalkulator internal): ' + trimmed + ' = ' + display;
-  }
+  function calcAnswer(text) { return _lib().calcAnswer(text); }
 
   var STOPWORDS = ['yang', 'dan', 'di', 'ke', 'dari', 'untuk', 'dengan', 'pada', 'ini', 'itu', 'apa', 'bagaimana', 'berapa', 'apakah', 'kenapa', 'mengapa', 'saya', 'kamu', 'aku', 'mau', 'tolong', 'jelaskan', 'dalam', 'secara', 'akan', 'tidak', 'bisa', 'please'];
 
@@ -2981,28 +2996,11 @@
     window.__alertTimer = setInterval(tick, 60000);
   }
 
-  /* ---- Skills & Bundles (pola MANTRA: katalog + bundel terurut) ---- */
-  var SKILLS = {
-    ta:        { cmd: '/ta SYM',                    desc: 'analisis lengkap semua indikator + SMC + verdict',          tags: ['analisa', 'prediksi', 'analisis'] },
-    chart:     { cmd: '/chart SYM TF',              desc: 'tampilkan chart (5m/15m/30m/1h/1d/1w)',                   tags: ['grafik', 'chart', 'candle'] },
-    rsi:       { cmd: '/rsi SYM N',                 desc: 'RSI + MACD + Bollinger',                                  tags: ['rsi', 'macd', 'indikator', 'momentum'] },
-    structure: { cmd: '/structure SYM',             desc: 'market structure (HH/HL/LH/LL)',                          tags: ['struktur', 'support', 'resistance', 'smc'] },
-    session:   { cmd: '/session',                   desc: 'sesi market aktif & jadwal',                              tags: ['sesi', 'session', 'jadwal'] },
-    profile:   { cmd: '/profile SYM TF',            desc: 'volume profile (POC/HVN/LVN)',                             tags: ['profile', 'volume', 'poc'] },
-    risk:      { cmd: '/risk SYM ACC PCT',          desc: 'risk management (SL/TP/lot)',                              tags: ['risk', 'risiko', 'modal', 'manajemen'] },
-    corr:      { cmd: '/corr SYM',                  desc: 'korelasi XAU vs DXY (atau NDX vs VIX)',                    tags: ['korelasi', 'correlation', 'dxy'] },
-    backtest:  { cmd: '/backtest SYM STRAT PARAMS', desc: 'uji strategi (rsi/macd/bb/sma/all)',                      tags: ['backtest', 'strategi', 'uji'] },
-    news:      { cmd: '/news SYM',                  desc: 'sentimen berita terbaru',                                 tags: ['news', 'berita', 'sentimen'] },
-    alert:     { cmd: '/alert SYM TARGET',          desc: 'pasang alert harga',                                      tags: ['alert', 'notifikasi', 'sinyal'] },
-    alerts:    { cmd: '/alerts',                    desc: 'lihat alert aktif (hapus: /alert-del ID)',                tags: ['alerts', 'daftar alert'] }
-  };
-  var BUNDLES = {
-    analisa:   { skills: ['ta', 'structure', 'risk'],        desc: 'analisis market lengkap: tren → struktur → risiko' },
-    risiko:    { skills: ['risk', 'corr', 'alerts'],         desc: 'manajemen risiko menyeluruh: posisi → korelasi → alert' },
-    teknikal:  { skills: ['rsi', 'chart', 'profile'],        desc: 'kajian indikator teknis + konfirmasi chart' },
-    berita:    { skills: ['news', 'ta'],                     desc: 'sentimen berita lalu konfirmasi bias harga' },
-    sinyal:    { skills: ['backtest', 'alert'],              desc: 'uji strategi lalu pasang alert sinyal' }
-  };
+  /* ---- Skills & Bundles (pola MANTRA: katalog + bundel terurut) ----
+     Data + rekomendasi murni diekstrak ke lib/mantra.js. */
+  var MANTRA = window.cangcilungMantra || {};
+  var SKILLS = MANTRA.SKILLS || {};
+  var BUNDLES = MANTRA.BUNDLES || {};
   function executeSkill(handler, args) {
     switch (handler) {
       case 'ta': return handleTA((args[0] || 'XAUUSD'));
@@ -3021,24 +3019,10 @@
     }
   }
   function bundleRecommend(text) {
-    var t = (text || '').toLowerCase();
-    var matches = [];
-    Object.keys(BUNDLES).forEach(function (bn) { matches.push([bn, 0]); });
-    Object.keys(BUNDLES).forEach(function (bn) {
-      var score = 0;
-      BUNDLES[bn].skills.forEach(function (s) {
-        var tags = SKILLS[s].tags;
-        tags.forEach(function (tg) { if (t.indexOf(tg) !== -1) score++; });
-      });
-      if (_bundleNameMatch(bn, t)) score += 2;
-      matches[Object.keys(BUNDLES).indexOf(bn)][1] = score;
-    });
-    matches.sort(function (a, b) { return b[1] - a[1]; });
-    if (matches[0] && matches[0][1] >= 1) return matches[0][0];
-    return null;
+    return MANTRA.bundleRecommend ? MANTRA.bundleRecommend(text, SKILLS, BUNDLES) : null;
   }
   function _bundleNameMatch(bundleName, t) {
-    return t.indexOf(bundleName.toLowerCase()) !== -1;
+    return MANTRA._bundleNameMatch ? MANTRA._bundleNameMatch(bundleName, t) : t.indexOf(bundleName.toLowerCase()) !== -1;
   }
   function bundleSuggest(text, symbol) {
     var bn = bundleRecommend(text || '');
