@@ -1,10 +1,12 @@
 name: Deploy ke Vercel
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Ketik yes untuk deploy via Actions (butuh VERCEL_TOKEN valid)'
+        required: true
+        default: ''
 
 jobs:
   deploy:
