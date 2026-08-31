@@ -907,24 +907,10 @@
     return parts.length ? parts.join(' ') : '';
   }
 
-  function detectSentiment(text) {
-    var t = text.toLowerCase();
-    if (/\b(marah|kesal|frustrasi|annoyed|tidak puas|buruk|jelek|parah|sampah|useless|gabisa|gak bisa|ga bisa|tidak bisa|bodo|bodoh|tolol|idiot|stupid|useless|memalukan)\b/i.test(t)) return 'frustrated';
-    if (/\b(mohon|please|tolong|bantuan|urgent|segera|cepat|penting|darurat|emergency|asap)\b/i.test(t)) return 'urgent';
-    if (/\b(keren|bagus|mantap|hebat|luar biasa|amazing|great|awesome|terbaik|top|suka|love)\b/i.test(t)) return 'positive';
-    if (/\b(bingung|confused|tidak mengerti|gak ngerti|kurang jelas|agak aneh|aneh|bingung\b)/i.test(t)) return 'confused';
-    return 'neutral';
-  }
-
-  function getSentimentHint(sentiment) {
-    var HINTS = {
-      frustrated: '\n[SENTIMEN: FRUSTRASI] User tampak kesal. Akui frustrasi dengan empati, fokus pada solusi langsung, hindari basa-basi. Mulai dengan: "Saya paham ini menjengkelkan." atau setara.',
-      urgent: '\n[SENTIMEN: URGENT] User membutuhkan bantuan segera. Jawab langsung ke poin, langkah-langkah konkret, tanpa penjelasan berlebihan. Mulai dengan solusi.',
-      positive: '\n[SENTIMEN: POSITIF] User antusias. Manfaatkan energi positif ini, berikan respons yang match dengan enthusiasm-nya.',
-      confused: '\n[SENTIMEN: BINGUNG] User tampak bingung. Mulai dari konsep paling dasar, gunakan analogi sederhana, langkah per langkah yang sangat jelas.'
-    };
-    return HINTS[sentiment] || '';
-  }
+  /* Utilitas bahasa/sentimen didelegasikan ke lib/langti.js (sumber tunggal). */
+  var LANG = window.cangcilungLang || {};
+  function detectSentiment(text) { return LANG.detectSentiment ? LANG.detectSentiment(text) : 'neutral'; }
+  function getSentimentHint(sentiment) { return LANG.getSentimentHint ? LANG.getSentimentHint(sentiment) : ''; }
 
   var summarizing = false;
   var attachedFile = null;
@@ -2010,75 +1996,10 @@
     if (cloudNotify) cloudNotify('usage');
   }
 
-  function detectLanguage(text) {
-    var idWords = ['apa', 'itu', 'ini', 'dan', 'adalah', 'dengan', 'untuk', 'dari', 'pada', 'tidak', 'bisa', 'mau', 'bagaimana', 'cara', 'kenapa', 'kapan', 'dimana', 'siapa', 'berapa', 'ada', 'saya', 'kamu', 'kami', 'mereka', 'juga', 'sudah', 'akan', 'sedang', 'telah', 'hanya', 'dalam', 'oleh', 'ke', 'di', 'yang', 'lebih', 'sangat', 'jika', 'maka', 'karena', 'tetapi', 'atau', 'juga', 'halo', 'hai', 'selamat', 'tolong', 'jelaskan', 'berikan', 'buat', 'tulis', 'bantu'];
-    var enWords = ['what', 'how', 'why', 'when', 'where', 'who', 'which', 'is', 'are', 'the', 'and', 'or', 'but', 'can', 'could', 'would', 'should', 'will', 'do', 'does', 'did', 'have', 'has', 'had', 'make', 'give', 'write', 'help', 'explain', 'hello', 'hi', 'please', 'thanks', 'thank', 'you', 'your', 'this', 'that', 'these', 'those', 'with', 'from', 'about', 'into', 'just', 'also', 'very', 'really', 'more', 'most', 'than', 'then', 'now', 'here', 'there'];
-    var words = text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 1; });
-    var idScore = 0, enScore = 0;
-    words.forEach(function (w) {
-      if (idWords.indexOf(w) !== -1) idScore += 3;
-      if (enWords.indexOf(w) !== -1) enScore += 3;
-    });
-    var idChars = 0;
-    words.forEach(function (w) { if (w.length > 4 && w.slice(-3) === 'kan' || w.slice(-3) === 'nya' || w.slice(-3) === 'lah' || w.slice(-3) === 'kah') idScore += 2; });
-    words.forEach(function (w) { if (w.length > 4 && (w.slice(-3) === 'ing' || w.slice(-3) === 'tion' || w.slice(-4) === 'ment')) enScore += 2; });
-    return enScore > idScore + 2 ? 'en' : 'id';
-  }
-
-  function buildSessionSummary(history) {
-    if (!history || history.length < 4) return '';
-    var userMsgs = history.filter(function (m) { return m.role === 'user'; }).slice(-6);
-    var topics = [];
-    var seen = {};
-    userMsgs.forEach(function (m) {
-      var words = (m.content || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 4 && !seen[w]; });
-      words.slice(0, 5).forEach(function (w) { seen[w] = true; topics.push(w); });
-    });
-    if (topics.length < 3) return '';
-    var last = userMsgs[userMsgs.length - 1];
-    var snippet = last ? last.content.slice(0, 100) : '';
-    return 'Topik sebelumnya: ' + topics.slice(0, 8).join(', ') + (snippet ? '. Pertanyaan terakhir: "' + snippet + '..."' : '');
-  }
-
-  function detectMomentum(history) {
-    if (!history || history.length < 6) return null;
-    var recent = history.slice(-8);
-    var userMsgs = recent.filter(function (m) { return m.role === 'user'; });
-    if (userMsgs.length < 3) return null;
-    var lastFew = userMsgs.slice(-3);
-    var words1 = (lastFew[0].content || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 3; });
-    var words2 = (lastFew[1].content || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 3; });
-    var words3 = (lastFew[2].content || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 3; });
-    var common12 = 0, common23 = 0;
-    var s1 = {}; words1.forEach(function (w) { s1[w] = 1; });
-    var s2 = {}; words2.forEach(function (w) { s2[w] = 1; });
-    words3.forEach(function (w) { if (s1[w]) common12++; if (s2[w]) common23++; });
-    var r1 = common12 / (Math.min(words1.length, words3.length) || 1);
-    var r2 = common23 / (Math.min(words2.length, words3.length) || 1);
-    if (r1 > 0.5 && r2 > 0.5) {
-      return 'Pertanyaan berulang dengan topik sama. Coba arahkan ke aspek yang lebih spesifik atau berikan contoh praktis yang berbeda.';
-    }
-    return null;
-  }
-
-  function detectLanguageMismatch(text, history) {
-    var lang = detectLanguage(text);
-    if (lang === 'en' && history.length > 0) {
-      var lastUser = history.filter(function (m) { return m.role === 'user'; }).slice(-1)[0];
-      if (lastUser) {
-        var prevLang = detectLanguage(lastUser.content || '');
-        if (prevLang === 'id') return { switched: true, from: 'id', to: 'en' };
-      }
-    }
-    if (lang === 'id' && history.length > 0) {
-      var lastUser2 = history.filter(function (m) { return m.role === 'user'; }).slice(-1)[0];
-      if (lastUser2) {
-        var prevLang2 = detectLanguage(lastUser2.content || '');
-        if (prevLang2 === 'en') return { switched: true, from: 'en', to: 'id' };
-      }
-    }
-    return { switched: false, lang: lang };
-  }
+  function detectLanguage(text) { return LANG.detectLanguage ? LANG.detectLanguage(text) : 'id'; }
+  function detectLanguageMismatch(text, history) { return LANG.detectLanguageMismatch ? LANG.detectLanguageMismatch(text, history || []) : { switched: false }; }
+  function buildSessionSummary(history) { return LANG.buildSessionSummary ? LANG.buildSessionSummary(history || []) : ''; }
+  function detectMomentum(history) { return LANG.detectMomentum ? LANG.detectMomentum(history || []) : null; }
 
   function compressHistory(history, maxPairs) {
     if (!history || history.length <= maxPairs * 2) return history;
@@ -2327,88 +2248,11 @@
     setStatus(webMode ? '🌐 Cari di web aktif — jawaban akan pakai info terkini.' : 'Mode web nonaktif.');
   }
 
-  var WEB_RE = /\b(terkini|terbaru|berita|sekarang|hari ini|tahun \d{4}|cuaca|hasil pertandingan|skor|harga|kurs|jadwal|pemenang|presiden|gubernur|pemilu|kecelakaan|gempa|bencana|ramalan|prediksi|update|berapa harga|harga saham|film terbaru|lagu terbaru|peringkat|trending|viral|angka kematian|kasus|penduduk|populasi|latest|current|today|weather|score|price|news|who (is|won|is the)|what (is|are) the|how many|population|earthquake|election|forecast|stock|market|rank|popular|trending|breaking)\b/i;
-
-  function needsWeb(text) {
-    return WEB_RE.test(text);
-  }
-
-  function searchWeb(query) {
-    var rawQuery = query.replace(/[?""''!]/g, ' ').replace(/\b(bagaimana|cara|mengapa|kenapa|apa|siapa|dimana|kapan|berapa|tolong|jelaskan|ceritakan|adalah|itu|ini|yang|dengan|untuk|dalam|dan|di|ke|dari)\b/gi, '').replace(/\s+/g, ' ').trim().slice(0, 120);
-    var q = encodeURIComponent(rawQuery || query.replace(/[?""''!]/g, ' ').slice(0, 200));
-    var ddgUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://lite.duckduckgo.com/lite/?q=' + q + '&kl=id-id');
-    var ddgPromise = fetch(ddgUrl, { signal: AbortSignal.timeout(12000) })
-      .then(function (res) { return res.ok ? res.text() : ''; })
-      .then(function (html) {
-        if (!html || html.length < 200) return '';
-        var tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        var results = [];
-        tmp.querySelectorAll('.result-snippet').forEach(function (el, i) { if (i < 5) results.push(el.textContent.trim()); });
-        tmp.querySelectorAll('.result-title').forEach(function (el, i) { if (i < 3) results.push('[Judul] ' + el.textContent.trim()); });
-        return results.length ? results.join('\n\n').slice(0, 4000) : '';
-      })
-      .catch(function () { return ''; });
-    var iaPromise = fetch('https://api.duckduckgo.com/?q=' + q + '&format=json&no_html=1&skip_disambig=1&t=cangcilung', { signal: AbortSignal.timeout(10000) })
-      .then(function (res) { return res.ok ? res.json() : null; })
-      .then(function (j) {
-        if (!j) return '';
-        var out = '';
-        if (j.AbstractText) out += j.AbstractText.slice(0, 1200);
-        if (j.Answer) out += (out ? '\n' : '') + j.Answer.slice(0, 800);
-        if (j.RelatedTopics && j.RelatedTopics.length) {
-          j.RelatedTopics.slice(0, 3).forEach(function (t) {
-            if (t && t.Text) out += (out ? '\n' : '') + '- ' + t.Text.slice(0, 300);
-          });
-        }
-        return out;
-      })
-      .catch(function () { return ''; });
-    var wikiPromise = searchWebWikipedia(query).catch(function () { return ''; });
-    return Promise.all([ddgPromise, iaPromise, wikiPromise]).then(function (parts) {
-      var ddg = parts[0] || '';
-      var ia = parts[1] || '';
-      var wiki = parts[2] || '';
-      if (!ddg && !ia && !wiki) return '';
-      var out = [];
-      if (ddg) out.push('[Informasi dari DuckDuckGo]\n' + ddg);
-      if (ia) out.push('[Jawaban cepat DuckDuckGo]\n' + ia);
-      if (wiki) out.push('[Referensi dari Wikipedia]\n' + wiki);
-      return out.join('\n\n').slice(0, 8000);
-    });
-  }
-  function searchWebWikipedia(query) {
-    var q = encodeURIComponent(query.replace(/[?""''!]/g, ' ').slice(0, 200));
-    var url = 'https://id.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + q + '&format=json&origin=*&srlimit=3';
-    var hits = [];
-    var usedId = true;
-    return fetch(url, { signal: AbortSignal.timeout(10000) })
-      .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)); })
-      .then(function (j) {
-        hits = (j.query && j.query.search) || [];
-        if (!hits.length) {
-          usedId = false;
-          return fetch('https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + q + '&format=json&origin=*&srlimit=2', { signal: AbortSignal.timeout(10000) })
-            .then(function (r) { return r.ok ? r.json() : { query: { search: [] } }; })
-            .then(function (j2) { hits = (j2.query && j2.query.search) || []; });
-        }
-      })
-      .then(function () {
-        var titles = hits.map(function (h) { return h.title; }).slice(0, 3);
-        var chain = Promise.resolve();
-        var out = [];
-        titles.forEach(function (title) {
-          chain = chain.then(function () {
-            var base = usedId ? 'id' : 'en';
-            return fetch('https://' + base + '.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title), { signal: AbortSignal.timeout(10000) })
-              .then(function (r) { return r.ok ? r.json() : null; })
-              .then(function (s) { if (s && s.extract) out.push('## ' + s.title + '\n' + s.extract.slice(0, 1200)); })
-              .catch(function () {});
-          });
-        });
-        return chain.then(function () { return out.join('\n\n').slice(0, 6000); });
-      });
-  }
+  /* Pencarian web didelegasikan ke lib/search.js (sumber tunggal). */
+  var SEARCH = window.CC && window.CC.search ? window.CC.search : null;
+  function needsWeb(text) { return SEARCH ? SEARCH.needsWeb(text) : false; }
+  function searchWeb(query) { return SEARCH ? SEARCH.searchWeb(query) : Promise.resolve(''); }
+  function searchWebWikipedia(query) { return SEARCH ? SEARCH.searchWebWikipedia(query) : Promise.resolve(''); }
 
   var ANALYSIS_RE = /\b(hitung|hitunglah|jumlahkan|kalikan|bagikan|kurangkan|berapakah|berapa (hasil|angka|nilai|jumlah)|rumus|persamaan|akar|logaritma|persen|konversi|prosentase|rata.?rata|mean|median|modus|standar deviasi|variansi|probabilitas|peluang)\b|\d\s*[-+*/^]\s*\d|\d+[.,]\d+\s*[-+*/^=<>]\s*\d|\(\s*\d/i;
   var LOGIC_RE = /\b(logika|logical|analisa|analisis|bandingkan|bandingkanlah|buktikan|deriv|turunan|integral|persamaan|soal|case\b|debug|perbaiki kode|tulis kode|buatkan kode|pseudocode|algoritma|optimalkan|evaluasi|penjelasan kenapa|mengapa|sebab|akibat|perbandingan|kelebihan|kekurangan|pros\s*kon)\b/i;

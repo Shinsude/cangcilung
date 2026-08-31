@@ -1,0 +1,32 @@
+name: CI - Syntax Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Syntax check (node --check) semua JS
+        run: |
+          set -e
+          for f in app.js cloud.js kb.js sw.js; do
+            node --check "$f"
+            echo "OK $f"
+          done
+          for f in lib/*.js api/*.js; do
+            node --check "$f"
+            echo "OK $f"
+          done
+        shell: bash
