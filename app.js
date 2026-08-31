@@ -2002,23 +2002,7 @@
   function detectMomentum(history) { return LANG.detectMomentum ? LANG.detectMomentum(history || []) : null; }
 
   function compressHistory(history, maxPairs) {
-    if (!history || history.length <= maxPairs * 2) return history;
-    var recent = history.slice(-maxPairs * 2);
-    var old = history.slice(0, -maxPairs * 2);
-    var userMsgs = old.filter(function (m) { return m.role === 'user'; });
-    var assistantMsgs = old.filter(function (m) { return m.role === 'assistant'; });
-    var summary = '';
-    if (userMsgs.length > 0) {
-      var topics = [];
-      var seen = {};
-      userMsgs.forEach(function (m) {
-        var words = (m.content || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(function (w) { return w.length > 4 && !seen[w]; });
-        words.slice(0, 3).forEach(function (w) { seen[w] = true; topics.push(w); });
-      });
-      summary = 'Percakapan sebelumnya membahas: ' + topics.slice(0, 6).join(', ');
-    }
-    var compressed = [{ role: 'system', content: summary }].concat(recent);
-    return compressed;
+    return window.CC && window.CC.utils && window.CC.utils.compressHistory ? window.CC.utils.compressHistory(history, maxPairs) : history;
   }
 
   function trackUsage() {

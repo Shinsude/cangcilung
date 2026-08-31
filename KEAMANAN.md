@@ -13,6 +13,12 @@ Cangcilung adalah aplikasi **client-side murni** (HTML/CSS/JS di browser). Ini p
 
 Karena key & kunci dekripsi sama-sama berada di perangkat pengguna, **XSS atau ekstensi browser jahat yang berjalan di halaman ini tetap bisa membaca key**. Ini **tidak bisa** diperbaiki sepenuhnya dalam aplikasi client-side murni — enkripsi di sini adalah *obfuscation* untuk mencegah pencurian pasif, bukan perlindungan dari kode aktif.
 
+## Prasarana yang sudah disiapkan
+
+- Endpoint **`/api/chat`** (Vercel serverless) sudah ada sebagai proxy streaming opsional.
+  - Key dibaca dari Environment Variable server (`GROQ_API_KEY` / `PROXY_API_KEY`), **tidak pernah** di body/browser.
+  - Ini fundamental untuk opsi 1 di bawah — tinggal siapkan env var-nya.
+
 ## Solusi penuh (butuh backend / proxy)
 
 Untuk benar-benar mengamankan key agar **tidak pernah sampai ke browser**, butuh server perantara (proxy). Opsi:
