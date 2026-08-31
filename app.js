@@ -2233,10 +2233,11 @@
   }
 
   /* Pencarian web didelegasikan ke lib/search.js (sumber tunggal). */
-  var SEARCH = window.CC && window.CC.search ? window.CC.search : null;
-  function needsWeb(text) { return SEARCH ? SEARCH.needsWeb(text) : false; }
-  function searchWeb(query) { return SEARCH ? SEARCH.searchWeb(query) : Promise.resolve(''); }
-  function searchWebWikipedia(query) { return SEARCH ? SEARCH.searchWebWikipedia(query) : Promise.resolve(''); }
+var SEARCH = window.CC && window.CC.search ? window.CC.search : null;
+function needsWeb(text) { return SEARCH ? SEARCH.needsWeb(text) : false; }
+function searchWeb(query) { return SEARCH ? SEARCH.searchWeb(query) : Promise.resolve(''); }
+function searchWebWikipedia(query) { return SEARCH ? SEARCH.searchWebWikipedia(query) : Promise.resolve(''); }
+function quoteContext(query) { return SEARCH && SEARCH.quoteContext ? SEARCH.quoteContext(query) : Promise.resolve(''); }
 
   var ANALYSIS_RE = /\b(hitung|hitunglah|jumlahkan|kalikan|bagikan|kurangkan|berapakah|berapa (hasil|angka|nilai|jumlah)|rumus|persamaan|akar|logaritma|persen|konversi|prosentase|rata.?rata|mean|median|modus|standar deviasi|variansi|probabilitas|peluang)\b|\d\s*[-+*/^]\s*\d|\d+[.,]\d+\s*[-+*/^=<>]\s*\d|\(\s*\d/i;
   var LOGIC_RE = /\b(logika|logical|analisa|analisis|bandingkan|bandingkanlah|buktikan|deriv|turunan|integral|persamaan|soal|case\b|debug|perbaiki kode|tulis kode|buatkan kode|pseudocode|algoritma|optimalkan|evaluasi|penjelasan kenapa|mengapa|sebab|akibat|perbandingan|kelebihan|kekurangan|pros\s*kon)\b/i;
@@ -3693,6 +3694,11 @@
           if (webProgressId) { clearInterval(webProgressId); webProgressId = null; }
           setStatus('Mode web: gagal mencari, lanjut jawab biasa.');
         }).finally(function () { webFetching = false; if (webProgressId) { clearInterval(webProgressId); webProgressId = null; } }));
+        pending.push(quoteContext(text).then(function (q) {
+          if (q && !kbCancel) {
+            webContext = webContext ? webContext + '\n\n[Data pasar real-time]\n' + q : '[Data pasar real-time]\n' + q;
+          }
+        }).catch(function () {}));
       }
       Promise.all(pending).then(function () {
         if (!kbCancel) { _nextRunning = false; next(); }
