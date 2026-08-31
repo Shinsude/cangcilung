@@ -30,3 +30,6 @@ jobs:
             echo "OK $f"
           done
         shell: bash
+
+      - name: Unit tests (node test/run-tests.cjs)
+        run: node test/run-tests.cjs

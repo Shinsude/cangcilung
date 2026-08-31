@@ -10,3 +10,6 @@ bukti_auto_sd.png
 # Peluncur lokal pribadi
 jalankan-cangcilung.bat
 .vercel
+
+# Output test lokal
+test/results.txt
