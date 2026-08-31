@@ -2238,6 +2238,7 @@ function needsWeb(text) { return SEARCH ? SEARCH.needsWeb(text) : false; }
 function searchWeb(query) { return SEARCH ? SEARCH.searchWeb(query) : Promise.resolve(''); }
 function searchWebWikipedia(query) { return SEARCH ? SEARCH.searchWebWikipedia(query) : Promise.resolve(''); }
 function quoteContext(query) { return SEARCH && SEARCH.quoteContext ? SEARCH.quoteContext(query) : Promise.resolve(''); }
+function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chartSymbol(query) : ''; }
 
   var ANALYSIS_RE = /\b(hitung|hitunglah|jumlahkan|kalikan|bagikan|kurangkan|berapakah|berapa (hasil|angka|nilai|jumlah)|rumus|persamaan|akar|logaritma|persen|konversi|prosentase|rata.?rata|mean|median|modus|standar deviasi|variansi|probabilitas|peluang)\b|\d\s*[-+*/^]\s*\d|\d+[.,]\d+\s*[-+*/^=<>]\s*\d|\(\s*\d/i;
   var LOGIC_RE = /\b(logika|logical|analisa|analisis|bandingkan|bandingkanlah|buktikan|deriv|turunan|integral|persamaan|soal|case\b|debug|perbaiki kode|tulis kode|buatkan kode|pseudocode|algoritma|optimalkan|evaluasi|penjelasan kenapa|mengapa|sebab|akibat|perbandingan|kelebihan|kekurangan|pros\s*kon)\b/i;
@@ -3556,6 +3557,10 @@ function quoteContext(query) { return SEARCH && SEARCH.quoteContext ? SEARCH.quo
             var shouldVerify = isAnalysis || CODE_RE.test(text) || full.length > 300;
             if (shouldVerify) verifyAnswer(text, full);
             loadSuggestions(model, text, full);
+            var chartW = chartSymbol(text);
+            if (chartW && window.CC && window.CC.render && window.CC.render.injectTradingWidget) {
+              window.CC.render.injectTradingWidget(bubble, chartW);
+            }
             summarizeOld();
           };
           function pump() {
