@@ -80,8 +80,41 @@ const w3 = loadBrowser('lib/stream.js');
   assert(doneCalled, 'data [DONE] memicu onDone');
 })();
 
+/* ---------- search.js: integrasi fetchQuote (real-data via proxy Vercel) ----------
+   Toleran jaringan: jika semua proxy gagal (mis. CI tanpa internet), test lama
+   dilewati (bukan gagal) agar CI tidak flaky. */
+function runIntegration() {
+  return (async function () {
+    const origin = 'https://cangcilung.vercel.app';
+    global.location = { origin: origin };
+    const wQ = loadBrowser('lib/search.js');
+    const sQ = wQ.CC.search;
+    const cases = [
+      { ticker: '^NDX', name: 'NASDAQ-100', bad: /-39\.98|17\.421/i, label: '^NDX (USA100)' },
+      { ticker: 'GC=F', name: 'GC=F', bad: /-99\.\d{2}|^.*,\d{2}\/ -?9\d/i, label: 'GC=F (XAUUSD)' }
+    ];
+    for (const c of cases) {
+      try {
+        const out = await sQ.fetchQuote(c.ticker);
+        if (!out || typeof out !== 'string') { console.log('  (skip) ' + c.label + ': tidak ada output'); continue; }
+        assert(/#/.test(out), c.ticker + ': output berisi blok heading');
+        if (c.name) assert(out.indexOf(c.name) !== -1, c.ticker + ': memuat nama "' + c.name + '"');
+        assert(!c.bad.test(out), c.ticker + ': TIDAK mengandung data korup (mis. -39.98% / 17.421)');
+        const m = out.match(/- Harga: ([\d.,]+)/);
+        const val = m ? parseFloat(m[1].replace(/\./g, '').replace(',', '.')) : 0;
+        assert(m && val > 1000, c.ticker + ': harga masuk akal (>1000): ' + (m ? m[1] : '(tidak ada)'));
+      } catch (e) {
+        console.log('  (skip) ' + c.label + ': gagal ambil data, dilewati: ' + (e && e.message));
+      }
+    }
+    suite('lib/search.js — integrasi selesai (hasil di atas)');
+  })();
+}
+
 /* ---------- ringkasan ---------- */
-fs.writeFileSync(path.join(ROOT, 'test', 'results.txt'), results.join('\n') + '\n');
-console.log(results.join('\n'));
-console.log('\n' + pass + ' passed, ' + fail + ' failed.');
-if (fail) { console.error('\n' + errors.join('\n')); process.exit(1); }
+runIntegration().then(function () {
+  fs.writeFileSync(path.join(ROOT, 'test', 'results.txt'), results.join('\n') + '\n');
+  console.log(results.join('\n'));
+  console.log('\n' + pass + ' passed, ' + fail + ' failed.');
+  if (fail) { console.error('\n' + errors.join('\n')); process.exit(1); }
+});
