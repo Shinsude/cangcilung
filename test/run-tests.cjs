@@ -62,6 +62,25 @@ const w2 = loadBrowser('lib/search.js');
   assert(s.extractTicker('analisis properti amerika') === '', 'analisis non-ticker -> ""');
 })();
 
+/* ---------- ta.js: ADX (kekuatan tren) ---------- */
+suite('lib/ta.js (ADX kekuatan tren)');
+(function () {
+  global.location = { origin: 'https://cangcilung.vercel.app' };
+  const wT = loadBrowser('lib/ta.js');
+  const ta = wT.CC.ta;
+  assert(typeof ta.calcADX === 'function', 'calcADX terdefinisi');
+  assert(typeof ta.smoothADX === 'function', 'smoothADX terdefinisi');
+  let ob = 3000;
+  const data = [];
+  for (let i = 0; i < 60; i++) { ob += 5; data.push({ time: 1000000000 + i * 86400, open: ob, high: ob + 8, low: ob - 2, close: ob + 4, volume: 1000 }); }
+  const dx = ta.calcADX(data, 14).filter((v) => v !== null);
+  assert(dx.length > 0, 'calcADX menghasilkan nilai untuk 60 bar data');
+  const adx = ta.smoothADX(ta.calcADX(data, 14), 14).filter((v) => v !== null);
+  const last = adx[adx.length - 1];
+  assert(last && last.value >= 0 && last.value <= 100, 'ADX terakhir dalam rentang 0-100: ' + (last && last.value.toFixed(1)));
+  assert(dx.every((v) => v.value >= 0 && v.value <= 100), 'semua DX dalam 0-100');
+})();
+
 /* ---------- stream.js ---------- */
 suite('lib/stream.js (parser SSE)');
 const w3 = loadBrowser('lib/stream.js');
