@@ -2991,6 +2991,12 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     }
     html += '</div>';
 
+    /* Konfluensi & alasan live */
+    html += '<div class="signal-confluence" style="margin:10px 0 14px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid #333;border-radius:8px">';
+    html += '<div style="font-size:12px;color:#a0a0b0;margin-bottom:6px">KONFLUENSI SAAT INI</div>';
+    html += '<div id="sig-conf-body" style="font-size:13px;color:#a0a0b0">Menghitung…</div>';
+    html += '</div>';
+
     /* Signal aktif */
     html += '<div class="signal-active"><h3 style="margin:8px 0 6px;font-size:14px">Signal Aktif (' + xau.length + ')</h3>';
     if (!xau.length) html += '<div style="color:#a0a0b0;font-size:13px">Belum ada signal aktif.</div>';
@@ -3028,6 +3034,27 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     html += '</div>';
     container.innerHTML = html;
 
+    /* Konfluensi live: hitung skor + alasan utk signal aktif XAUUSD saat ini */
+    var confBody = container.querySelector('#sig-conf-body');
+    var activeXau = xau[0];
+    if (confBody && activeXau && typeof ta.fetchYahoo === 'function' && typeof ta.analyzeConfluence === 'function') {
+      (function (bodyEl, sig) {
+        ta.fetchYahoo(sig.symbol, '1d').then(function (r) {
+          if (!bodyEl) return;
+          var conf = ta.analyzeConfluence(r.data || r, sig.strategy, sig.params);
+          var color = conf.verdict === 'STRONG' ? '#22c55e' : conf.verdict === 'MODERATE' ? '#FFD60A' : '#FF453A';
+          var colorName = conf.verdict === 'STRONG' ? 'SEARAH KUAT' : conf.verdict === 'MODERATE' ? 'SEARAH SEDANG' : 'LEMAH/BERLAWAN';
+          var h = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">' +
+            '<span style="font-size:22px;font-weight:700;color:' + color + '">' + conf.score + '%</span>' +
+            '<span style="font-size:12px;color:' + color + ';font-weight:600">' + colorName + '</span>' +
+            (conf.gate ? '<span style="font-size:11px;color:#f59e0b">' + conf.gate.text + '</span>' : '') +
+            '</div>';
+          h += '<div style="font-size:12px;line-height:1.6;color:#a0a0b0">' + (conf.reasons || []).join('<br>') + '</div>';
+          bodyEl.innerHTML = h;
+        }).catch(function () { if (bodyEl) bodyEl.textContent = 'Gagal ambil data. Coba lagi nanti.'; });
+      })(confBody, activeXau);
+    }
+
     /* Logic ganti indikator (klik nama teks): otomatis diterapkan */
     container.querySelectorAll('[data-sigstrat]').forEach(function (btn) {
       btn.onclick = function () {
@@ -3049,11 +3076,12 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
   function showSignalNotification(s) {
     try {
       var title = (s.side === 'long' ? '🟢 BUY' : '🔴 SELL') + ' — ' + s.symbol;
+      var body = s.strategy.toUpperCase() + ' → ' + (s.side === 'long' ? 'BUY' : 'SELL') + ' @ ' + s.price;
+      if (s.confluence != null) body += '\nKonfluensi: ' + s.confluence + '% (' + s.verdict + ')';
+      if (s.gate) body += '\n⚠ ' + s.gate;
+      if (s.reasons && s.reasons.length) body += '\n' + s.reasons.slice(0, 3).join(' · ');
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification(title, {
-          body: s.strategy.toUpperCase() + ' memunculkan sinyal ' + (s.side === 'long' ? 'BUY' : 'SELL') + ' @ ' + s.price,
-          tag: 'cangcilung-signal'
-        });
+        new Notification(title, { body: body, tag: 'cangcilung-signal' });
       }
     } catch (e) {}
   }
@@ -3074,7 +3102,9 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
         ta.fetchYahoo(s.symbol, '1d').then(function (r) {
           var res = ta.checkSignalAlerts(r);
           res.fired.forEach(function (f) {
-            if (window.CC && window.CC.ui) window.CC.ui.showToast('🔔 ' + (f.side === 'long' ? 'BUY' : 'SELL') + ' ' + f.symbol + ' (' + f.strategy + ') @ ' + f.price);
+            var confTxt = f.confluence != null ? ' · konfluensi ' + f.confluence + '% (' + f.verdict + ')' : '';
+            var gateTxt = f.gate ? ' · ' + f.gate : '';
+            if (window.CC && window.CC.ui) window.CC.ui.showToast((f.side === 'long' ? '🟢 BUY' : '🔴 SELL') + ' ' + f.symbol + ' (' + f.strategy + ')' + confTxt + gateTxt + ' @ ' + f.price);
             showSignalNotification(f);
             playAlertSound();
           });

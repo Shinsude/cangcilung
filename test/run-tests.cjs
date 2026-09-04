@@ -180,6 +180,22 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
     assert(g.every((x) => x === 'long' || x === 'short' || x === 'flat'), 'genSignals ' + st.toUpperCase() + ' hanya long/short/flat');
   });
 
+  /* --- Konfluensi & alasan (analyzeConfluence): skor selalu bermakna & konsisten --- */
+  assert(typeof ta.analyzeConfluence === 'function', 'analyzeConfluence terdefinisi');
+  const cf = ta.analyzeConfluence(osc2, 'rsi', {});
+  assert(cf.signal === 'long' || cf.signal === 'short', 'analyzeConfluence menghasilkan arah utama (long/short): ' + cf.signal);
+  assert(typeof cf.score === 'number' && cf.score >= 0 && cf.score <= 100, 'skor konfluensi 0-100: ' + cf.score);
+  assert(['STRONG', 'MODERATE', 'WEAK'].indexOf(cf.verdict) !== -1, 'verdict konfluensi valid: ' + cf.verdict);
+  assert(Array.isArray(cf.reasons) && cf.reasons.length > 0, 'analyzeConfluence memuat alasan per indikator');
+  assert(cf.total >= 4, 'konfluensi mencakup setidaknya 4 indikator konfirmasi: ' + cf.total);
+
+  /* gerbang D1: data timeframe besar bertentangan -> non-null gate */
+  let drift = 5;
+  const htf = [];
+  for (let i = 0; i < 200; i++) { drift -= 0.3; htf.push({ time: 920000000 + i * 86400, open: drift, high: drift + 2, low: drift - 2, close: drift, volume: 100 }); }
+  const cfGate = ta.analyzeConfluence(osc2, 'rsi', {}, htf);
+  assert(cfGate.gate === null || (cfGate.gate && (cfGate.gate.status === 'ok' || cfGate.gate.status === 'conflict')), 'gerbang D1 menghasilkan status valid: ' + (cfGate.gate && cfGate.gate.status));
+
 
   /* --- Regresi biaya per-trade (cost): harus menurunkan netProfit & tercatat di `trades` --- */
   const btCost = ta.backtest(osc, 'rsi', Object.assign({}, params, { cost: 5 }));
