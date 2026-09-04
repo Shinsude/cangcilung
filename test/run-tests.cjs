@@ -238,6 +238,42 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   ta.clearSignalLog();
   ta.removeSignalAlert(sig2.signal.id);
   ta.clearSignalAlerts();
+
+  /* --- REGIME FILTER (LuxAlgo "RSI Regime Filter" ala) --- */
+  assert(typeof ta.detectRegime === 'function', 'detectRegime terdefinisi');
+  const reg = ta.detectRegime(osc);
+  assert(['trending', 'ranging'].indexOf(reg.regime) !== -1, 'regime valid: ' + reg.regime);
+  assert(typeof reg.adxRaw === 'number', 'regime punya ADX numerik: ' + reg.adxRaw);
+  assert(typeof reg.label === 'string' && reg.label.length > 0, 'regime punya label: ' + reg.label);
+
+  /* --- EDGE RANKER (LuxAlgo "Structural SVM Ranker" ala): skor 0-100 + breakdown --- */
+  assert(typeof ta.calcEdge === 'function', 'calcEdge terdefinisi');
+  const ed = ta.calcEdge(osc, 'rsi', {}, 'long');
+  assert(ed.score >= 0 && ed.score <= 100, 'skor edge 0-100: ' + ed.score);
+  assert(['STRONG', 'NORMAL', 'WEAK'].indexOf(ed.grade) !== -1, 'grade edge valid: ' + ed.grade);
+  assert(typeof ed.breakdown.vol === 'number' && typeof ed.breakdown.mom === 'number' && typeof ed.breakdown.exp === 'number',
+    'edge breakdown vol/mom/exp ada');
+
+  /* --- analyzeConfluence kini menyertakan regime & edge --- */
+  const cf2 = ta.analyzeConfluence(osc, 'rsi', {});
+  assert(cf2.regime && cf2.regime.regime, 'analyzeConfluence menyertakan blok regime');
+  assert(cf2.edge && typeof cf2.edge.score === 'number', 'analyzeConfluence menyertakan blok edge (skor numerik)');
+
+  /* --- MTF STRUCTURE DASHBOARD (LuxAlgo "Structure & Trend Dashboard" ala) --- */
+  assert(typeof ta.mtfStructureDashboard === 'function', 'mtfStructureDashboard terdefinisi');
+  const dash = ta.mtfStructureDashboard({ tfs: { '1D': osc, '1H': osc, 'M15': osc } });
+  assert(Array.isArray(dash.rows) && dash.rows.length > 0, 'dashboard punya baris pasangan timeframe');
+  assert(typeof dash.verdict === 'string' && dash.verdict.length > 0, 'dashboard punya kesimpulan: ' + dash.verdict);
+  const alignedRow = dash.rows.filter((r) => r.align === true || r.align === false);
+  assert(alignedRow.length > 0, 'dashboard memuat baris dengan status searah/divergen terisi');
+
+  /* --- BACKTEST upgrade: Sharpe + heatmap hari/jam --- */
+  const bt2 = ta.backtest(osc2, 'rsi', params);
+  assert(bt2.sharpe === null || (bt2.sharpe && typeof bt2.sharpe.raw === 'number'), 'backtest menyertakan Sharpe ratio');
+  assert(Array.isArray(bt2.heatmapDay) && bt2.heatmapDay.length === 7, 'heatmapDay berisi 7 hari-minggu');
+  assert(Array.isArray(bt2.heatmapHour) && bt2.heatmapHour.length > 0, 'heatmapHour berisi slot jam');
+  const fmtBT = ta.formatBacktest(bt2, 'XAUUSD');
+  assert(/Sharpe|Heatmap|heatmap/i.test(fmtBT) || bt2.sharpe === null, 'formatBacktest memuat Sharpe/heatmap (khusus bila ada)');
 })();
 
 /* ---------- stream.js ---------- */

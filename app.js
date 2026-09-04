@@ -3049,6 +3049,19 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
             '<span style="font-size:12px;color:' + color + ';font-weight:600">' + colorName + '</span>' +
             (conf.gate ? '<span style="font-size:11px;color:#f59e0b">' + conf.gate.text + '</span>' : '') +
             '</div>';
+          /* REGIME FILTER (LuxAlgo style) */
+          if (conf.regime) {
+            var rc = conf.regime.regime === 'trending' ? (conf.regime.dir === 'up' ? '#22c55e' : '#ef4444') : '#FFD60A';
+            h += '<div style="font-size:12px;margin:2px 0">';
+            h += '<b style="color:' + rc + '">' + conf.regime.label + '</b> <span style="color:#888">· ADX ' + conf.regime.adx + '</span>';
+            if (conf.regime.align !== undefined) h += ' <span style="color:' + (conf.regime.align ? '#22c55e' : '#ef4444') + '">' + (conf.regime.align ? '✓ searah' : '✗ melawan') + '</span>';
+            h += '</div>';
+          }
+          /* EDGE / ML Ranker breakdown (volume · momentum · ekspansi) */
+          if (conf.edge && conf.edge.breakdown) {
+            var eg = conf.edge.breakdown, ec = conf.edge.grade === 'STRONG' ? '#22c55e' : conf.edge.grade === 'WEAK' ? '#ef4444' : '#FFD60A';
+            h += '<div style="font-size:12px;color:#a0a0b0">Kekuatan sinyal: <b style="color:' + ec + '">' + conf.edge.score + '/100 (' + conf.edge.grade + ')</b> · vol ' + eg.vol + ' · mom ' + eg.mom + ' · eksp ' + eg.exp + '</div>';
+          }
           h += '<div style="font-size:12px;line-height:1.6;color:#a0a0b0">' + (conf.reasons || []).join('<br>') + '</div>';
           bodyEl.innerHTML = h;
         }).catch(function () { if (bodyEl) bodyEl.textContent = 'Gagal ambil data. Coba lagi nanti.'; });
@@ -3078,6 +3091,8 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       var title = (s.side === 'long' ? '🟢 BUY' : '🔴 SELL') + ' — ' + s.symbol;
       var body = s.strategy.toUpperCase() + ' → ' + (s.side === 'long' ? 'BUY' : 'SELL') + ' @ ' + s.price;
       if (s.confluence != null) body += '\nKonfluensi: ' + s.confluence + '% (' + s.verdict + ')';
+      if (s.edgeScore) body += '\nKekuatan: ' + s.edgeScore;
+      if (s.regime) body += '\nRegime: ' + s.regime;
       if (s.gate) body += '\n⚠ ' + s.gate;
       if (s.reasons && s.reasons.length) body += '\n' + s.reasons.slice(0, 3).join(' · ');
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -3270,17 +3285,18 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '- `/chart XAUUSD 1h` — tampilkan chart (interval: 5m/15m/30m/1h/1d/1w)\n';
     out += '- `/rsi XAUUSD 14` — RSI + MACD + BB\n';
     out += '- `/structure XAUUSD` — market structure (HH/HL/LH/LL)\n';
+    out += '- `/mtf XAUUSD` — dashboard struktur multi-timeframe (BOS/CHoCH searah?)\n';
     out += '- `/session` — sesi market aktif & jadwal\n';
     out += '- `/profile XAUUSD 1h` — volume profile (POC/HVN/LVN)\n';
     out += '- `/risk XAUUSD 10000 1` — risk management (SL/TP/lot)\n';
     out += '- `/corr XAUUSD` — korelasi XAU vs DXY (atau NDX vs VIX)\n';
-    out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/macd/bb/sma/all)\n';
+    out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/macd/bb/sma/ema/vwap/ma/smc/cvd/all) + Sharpe + heatmap hari/jam\n';
     out += '  · opsional `cost:N` utk biaya per trade (mis. `cost:0.5`) agar hasil lebih realistis\n';
     out += '  · tambah `oos` utk validasi anti-overfitting (uji data terbaru)\n';
     out += '- `/news XAUUSD` atau `/berita XAUUSD` — sentimen berita terbaru\n';
     out += '- `/alert XAUUSD 3200` — pasang alert harga\n';
     out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n';
-    out += '- `/sinyal XAUUSD rsi` — pantau live signal BUY/SELL (rsi/macd/bb/sma/all)\n';
+    out += '- `/sinyal XAUUSD rsi` — pantau live signal BUY/SELL + konfluensi, regime & kekuatan (rsi/macd/bb/sma/ema/vwap/ma/smc/cvd/all)\n';
     out += '  · opsional `period:14:70:30` utk parameter (mis. `period:9:70:30`)\n';
     out += '  · `/sinyal-list` lihat aktif · `/sinyal-history` riwayat · `/sinyal-del <id>` hapus · `/sinyal-clear` bersihkan\n\n';
     out += '### Bundel (alur analisis, baru)\n';
@@ -3316,6 +3332,44 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       out += '- Swing High terakhir: ' + ms.swingHighs.slice(-3).map(function (s) { return s.price.toFixed(2); }).join(' → ') + '\n';
       out += '- Swing Low terakhir: ' + ms.swingLows.slice(-3).map(function (s) { return s.price.toFixed(2); }).join(' → ') + '\n';
       out += '- Sesi: ' + session.label + '\n';
+      removeTyping(bubble);
+      history.push({ role: 'assistant', content: out, t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+      busy = false; setSendUI(false); setStatus('');
+    }).catch(function (err) {
+      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
+      history.push({ role: 'assistant', content: '⚠️ Gagal: ' + (err.message || err), t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+    });
+  }
+
+  function handleStructureMtf(symbol) {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var ta = window.CC.ta;
+    busy = true; setSendUI(true);
+    setStatus('Dashboard struktur multi-timeframe ' + symbol + '...');
+    var bubble = addBubble('assistant', null);
+    showTyping(bubble);
+    ta.fetchMultiTF(symbol).then(function (m) {
+      var tfs = {};
+      tfs['1D'] = m['1d'] ? m['1d'].data : null;
+      tfs['1H'] = m['1h'] ? m['1h'].data : null;
+      tfs['M15'] = m['15m'] ? m['15m'].data : null;
+      var dash = ta.mtfStructureDashboard({ tfs: tfs });
+      var out = '## Struktur Multi-Timeframe ' + symbol.toUpperCase() + '\n';
+      out += 'Kesepakatan arah struktur antar timeframe (BOS/CHoCH + trend):\n\n';
+      out += '| Pasangan | Timeframe tinggi | Timeframe rendah | Status |\n';
+      out += '|----------|------------------|------------------|--------|\n';
+      dash.rows.forEach(function (row) {
+        var icon = row.align === true ? '✅ ✓' : row.align === false ? '❌ ✗' : '—';
+        out += '| ' + row.pair + ' | ' + row.hiBias + ' | ' + row.loBias + ' | ' + (row.label) + ' ' + icon + ' |\n';
+      });
+      out += '\n**Kesimpulan:** ' + dash.verdict + ' (agreement ' + (dash.agreement >= 0 ? '+' : '') + dash.agreement + ')';
+      out += '\n\n>Strategi paling sehat umumnya saat semua timeframe **searah**. Bila divergen, pertimbangkan menunggu atau berhenti (stand-aside).';
       removeTyping(bubble);
       history.push({ role: 'assistant', content: out, t: nowTime() });
       saveHistory();
@@ -3582,6 +3636,13 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       var sym = m ? m[1] : 'XAUUSD';
       input.value = '';
       handleStructure(sym);
+      return;
+    }
+    if (/^\/(structure-mtf|struktur-mtf|strmtf|mtf)\b/i.test(text)) {
+      var m = text.match(/^\/(?:structure-mtf|struktur-mtf|strmtf|mtf)\s+(\S+)/i);
+      var sym = m ? m[1] : 'XAUUSD';
+      input.value = '';
+      handleStructureMtf(sym);
       return;
     }
     if (/^\/(risk|rm)\b/i.test(text)) {
