@@ -97,6 +97,30 @@ suite('lib/ta.js (ADX kekuatan tren)');
   assert(wrArr.every((v) => v.value >= -100 && v.value <= 0), '%R semua dalam -100..0');
 })();
 
+/* ---------- ta.js: regresi genSignals/backtest (bug objek vs angka) ---------- */
+suite('lib/ta.js (genSignals & backtest regresi)');
+(function () {
+  global.location = { origin: 'https://cangcilung.vercel.app' };
+  const wt = loadBrowser('lib/ta.js');
+  const ta = wt.CC.ta;
+  assert(typeof ta.genSignals === 'function', 'genSignals terdefinisi');
+  assert(typeof ta.backtest === 'function', 'backtest terdefinisi');
+  let p = 90;
+  const osc = [];
+  for (let i = 0; i < 200; i++) {
+    p += Math.sin(i / 6) * 6 + (i % 40 < 8 ? -9 : 4);
+    osc.push({ time: 900000000 + i * 86400, open: p, high: p + 5, low: p - 5, close: p + 1, volume: 1000 });
+  }
+  const s = ta.genSignals(osc, 'rsi', { period: 14, overbought: 70, oversold: 30 });
+  assert(s.length === osc.length, 'genSignals panjang array sesuai data');
+  const nonsig = s.filter((x) => x !== 'flat').length;
+  assert(nonsig > 0, 'genSignals RSI menghasilkan sinyal (long/short), bukan 0: ' + nonsig);
+  assert(s.every((x) => x === 'long' || x === 'short' || x === 'flat'), 'genSignals hanya long/short/flat');
+  const bt = ta.backtest(osc, 'rsi', { period: 14, overbought: 70, oversold: 30 });
+  assert(typeof bt.closedSignals === 'number' && bt.closedSignals > 0, 'backtest menutup setidaknya 1 trade: ' + bt.closedSignals);
+  assert(typeof bt.winRate === 'number' && !isNaN(bt.winRate), 'backtest winRate numerik');
+})();
+
 /* ---------- stream.js ---------- */
 suite('lib/stream.js (parser SSE)');
 const w3 = loadBrowser('lib/stream.js');
