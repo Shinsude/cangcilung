@@ -1,4 +1,4 @@
-const CACHE = 'cangcilung-v39';
+const CACHE = 'cangcilung-v40';
 const CORE = [
   '/',
   '/index.html',
@@ -28,9 +28,14 @@ const CORE = [
 ];
 
 self.addEventListener('install', function (e) {
+  /* Toleran: cache aset yang berhasil, LEWATKAN yang gagal — jangan sampai
+     satu aset CDN gagal bikin seluruh SW gagal install (yg membuat SW lama
+     menetap & menyajikan tampilan usang + CSP lama). */
   e.waitUntil(
     caches.open(CACHE).then(function (c) {
-      return c.addAll(CORE);
+      return Promise.all(CORE.map(function (u) {
+        return c.add(u).catch(function () { /* lewati aset yg gagal */ });
+      }));
     }).then(function () { return self.skipWaiting(); })
   );
 });
