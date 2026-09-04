@@ -2982,21 +2982,24 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     html += '</div>';
     container.innerHTML = html;
 
-    /* Konfluensi live: keputusan utk signal XAUUSD aktif */
+    /* Konfluensi live: keputusan utk signal XAUUSD aktif (defensif — selalu hitung,
+       tak bergantung pada keberadaan signal tersimpan) */
     var confBody = container.querySelector('#sig-conf-body');
     var activeXau = xau[0];
-    if (confBody && activeXau && typeof ta.fetchYahoo === 'function' && typeof ta.analyzeConfluence === 'function') {
+    function withTimeout(p, ms) {
+      return Promise.race([
+        p,
+        new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, ms); })
+      ]);
+    }
+    if (confBody && typeof ta.fetchYahoo === 'function' && typeof ta.analyzeConfluence === 'function') {
       (function (bodyEl, sig) {
         /* Hard timeout agar status "Menghitung…" tidak menggantung selamanya */
-        function timeout(p, ms) {
-          return Promise.race([
-            p,
-            new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, ms); })
-          ]);
-        }
-        timeout(ta.fetchYahoo(sig.symbol, '1d'), 15000).then(function (r) {
+        withTimeout(ta.fetchYahoo('XAUUSD', '1d'), 15000).then(function (r) {
           if (!bodyEl) return;
-          var conf = ta.analyzeConfluence(r ? (r.data || r) : null, sig.strategy, sig.params);
+          var strat = sig && sig.strategy ? sig.strategy : 'rsi';
+          var params = (sig && sig.params) ? sig.params : { period: 14, overbought: 70, oversold: 30 };
+          var conf = ta.analyzeConfluence(r ? (r.data || r) : null, strat, params);
           var dec = conf.decision || 'wait';
           var decMap = { buy: { txt: 'BUY', sym: '▲', cls: 'c-up', bg: 'bg-up' }, sell: { txt: 'SELL', sym: '▼', cls: 'c-down', bg: 'bg-down' }, wait: { txt: 'WAIT', sym: '⏳', cls: 'c-warn', bg: 'bg-warn' } };
           var d = decMap[dec] || decMap.wait;
