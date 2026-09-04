@@ -1117,8 +1117,19 @@
     return b || DEFAULT_BASE;
   }
 
+  /* Proxy server-side (/api/chat): key disimpan di Server (GROQ_API_KEY),
+     tidak pernah bocor ke browser. Aktif bila baseUrl diarahkan ke 'api'/'/api'. */
+  function isProxyBase() {
+    var b = (settings.baseUrl || '').trim().replace(/\/+$/, '');
+    return b === 'api' || b === '/api' || b === './api';
+  }
+
   function apiUrl(path) {
     var b = baseUrl();
+    if (isProxyBase()) {
+      if (path === '/chat/completions') return 'api/chat';
+      return b + path;
+    }
     if (path === '/api/tags') return b + '/api/tags';
     if (/\/v1$/.test(b)) return b + path;
     return b + '/v1' + path;
@@ -1126,8 +1137,8 @@
 
   function apiHeaders() {
     var h = { 'Content-Type': 'application/json' };
-    if (settings.apiKey && isSecureServer(baseUrl())) h.Authorization = 'Bearer ' + settings.apiKey;
-    if (/openrouter\.ai/i.test(baseUrl())) {
+    if (!isProxyBase() && settings.apiKey && isSecureServer(baseUrl())) h.Authorization = 'Bearer ' + settings.apiKey;
+    if (!isProxyBase() && /openrouter\.ai/i.test(baseUrl())) {
       h['HTTP-Referer'] = window.location.origin;
       h['X-Title'] = 'cangcilung';
     }
@@ -2656,6 +2667,73 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     });
   }
 
+  function handleRekomendasi(symbol) {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var ta = window.CC.ta;
+    busy = true;
+    setSendUI(true);
+    setStatus('Menghitung rekomendasi untuk ' + symbol + '...');
+    var bubble = addBubble('assistant', null);
+    showTyping(bubble);
+    ta.fetchMultiTF(symbol).then(function (mTF) {
+      var daily = mTF['1d'];
+      if (!daily || !daily.data) throw new Error('Data harian tidak tersedia');
+      var analysis = ta.analyze(daily.data);
+      var last = daily.data[daily.data.length - 1];
+      var prev = daily.data[daily.data.length - 2];
+      var change = prev ? ((last.close - prev.close) / prev.close * 100).toFixed(2) : '0';
+      var atrArr = ta.calcATR(daily.data, 14).filter(Boolean);
+      var atr = atrArr.length ? atrArr[atrArr.length - 1].value : (last.high - last.low);
+      var sig = ta.genSignals(daily.data, 'all');
+      var signals = analysis.match(/^-\s.*$/gm) || [];
+      var scoring = ta.scoreSignals(signals, daily.data);
+      var near = ta.detectSR(daily.data);
+      var bias = scoring.bias;
+      var confidence = scoring.confidence;
+      var rec = bias === 'BULLISH' ? '**BELI (BUY/LONG)** 🟢' : bias === 'BEARISH' ? '**JUAL (SELL/SHORT)** 🔴' : '**TUNGGU (WATCH/NEUTRAL)** ⚪';
+      var entry = last.close;
+      var sl = bias === 'BULLISH' ? last.close - 1.5 * atr : bias === 'BEARISH' ? last.close + 1.5 * atr : last.close - atr;
+      var tp = bias === 'BULLISH' ? last.close + 3 * atr : bias === 'BEARISH' ? last.close - 3 * atr : last.close + atr;
+      var rr = bias === 'BULLISH' || bias === 'BEARISH' ? Math.abs(tp - entry) / Math.abs(sl - entry) : 0;
+      var neutralWarn = bias === 'NEUTRAL' ? 'Bias masih netral — hindari entry agresif; tunggu jeda/konfirmasi breakout.' : '';
+      var out = '## Rekomendasi ' + symbol.toUpperCase() + '\n';
+      out += '**Arah:** ' + rec + '\n';
+      out += '**Harga saat ini:** ' + entry.toFixed(2) + ' (' + (change >= 0 ? '+' : '') + change + '%)\n';
+      out += '**Confidence:** ' + confidence + '% (skor ' + scoring.score + '/100, ' + scoring.confluentCount + ' signal searah)\n\n';
+      out += '### Eksekusi (saran, bukan nasihat keuangan)\n';
+      out += '- **Entry:** ~' + entry.toFixed(2) + '\n';
+      out += '- **Stop Loss:** ' + sl.toFixed(2) + '\n';
+      out += '- **Take Profit:** ' + tp.toFixed(2) + '\n';
+      out += '- **R:R:** 1:' + rr.toFixed(2) + '\n';
+      out += '- **Ukuran posisi (1% risiko, akun 10rb):** ~' + (100 / atr).toFixed(3) + ' unit max (lihat /risk utk presisi)\n\n';
+      if (neutralWarn) out += '> ' + neutralWarn + '\n\n';
+      out += '### Dasar bias (signals)\n';
+      var shown = signals.slice(-6);
+      if (shown.length) out += shown.join('\n') + '\n';
+      out += '\n_Disclaimer: ini hasil analisis otomatis, bukan jaminan profit. Selalu verifikasi & kelola risiko._';
+      removeTyping(bubble);
+      history.push({ role: 'assistant', content: out, t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+      busy = false;
+      setSendUI(false);
+      setStatus('');
+      suggestions = ['/rekomendasi ' + symbol, '/ta ' + symbol, '/risk ' + symbol + ' 10000 1', '/alerts'];
+      renderSuggestions();
+    }).catch(function (err) {
+      removeTyping(bubble);
+      var msg = '⚠️ Gagal membuat rekomendasi: ' + (err.message || err);
+      history.push({ role: 'assistant', content: msg, t: nowTime() });
+      saveHistory();
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      renderHistory();
+      busy = false;
+      setSendUI(false);
+      setStatus('');
+    });
+  }
+
   function handleSessionCommand() {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
     var s = window.CC.ta.getCurrentSession();
@@ -2914,6 +2992,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     var out = '## Perintah CangCilung 📊\n\n';
     out += '### Trading / Market\n';
     out += '- `/ta XAUUSD` — analisis lengkap semua indikator + SMC + verdict\n';
+    out += '- `/rekomendasi XAUUSD` — arah (BUY/SELL/WATCH) + entry/SL/TP/RR\n';
     out += '- `/chart XAUUSD 1h` — tampilkan chart (interval: 5m/15m/30m/1h/1d/1w)\n';
     out += '- `/rsi XAUUSD 14` — RSI + MACD + BB\n';
     out += '- `/structure XAUUSD` — market structure (HH/HL/LH/LL)\n';
@@ -2922,7 +3001,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '- `/risk XAUUSD 10000 1` — risk management (SL/TP/lot)\n';
     out += '- `/corr XAUUSD` — korelasi XAU vs DXY (atau NDX vs VIX)\n';
     out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/macd/bb/sma/all)\n';
-    out += '- `/news XAUUSD` — sentimen berita terbaru\n';
+    out += '- `/news XAUUSD` atau `/berita XAUUSD` — sentimen berita terbaru\n';
     out += '- `/alert XAUUSD 3200` — pasang alert harga\n';
     out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n\n';
     out += '### Bundel (alur analisis, baru)\n';
@@ -3177,11 +3256,18 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       handleRSI(sym, period);
       return;
     }
-    if (/^\/(ta|analyze)\s*(xau|gold|emas|ndx|nasdaq|dji|dow|spx|dxy|vix|us30|s&p)/i.test(text)) {
-      var m = text.match(/^\/(?:ta|analyze)\s+(\S+)/i);
+    if (/^\/(ta|analyze|analisa)\s*(xau|gold|emas|ndx|nasdaq|dji|dow|spx|dxy|vix|us30|s&p)/i.test(text)) {
+      var m = text.match(/^\/(?:ta|analyze|analisa)\s+(\S+)/i);
       var sym = m ? m[1] : 'XAUUSD';
       input.value = '';
       handleTA(sym);
+      return;
+    }
+    if (/^\/(rekomendasi|rekom|rec|signal)\b/i.test(text)) {
+      var m = text.match(/^\/(?:rekomendasi|rekom|rec|signal)\s+(\S+)/i);
+      var sym = m && m[1] ? m[1] : 'XAUUSD';
+      input.value = '';
+      handleRekomendasi(sym);
       return;
     }
     var taIntent = text.match(/(analisa|analisis|analyse|analyze|prediksi|ramal|proyeksi|forecast|breakout|breakdown|resistance|support|candlestick|sinyal (?:beli|jual)|momentum|trend(?:line)?)/i);
@@ -3268,8 +3354,8 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       handleAlertAdd(sym, target, label);
       return;
     }
-    if (/^\/news\b/i.test(text)) {
-      var m = text.match(/^\/news\s+(\S+)/i);
+    if (/^\/(news|berita)\b/i.test(text)) {
+      var m = text.match(/^\/(?:news|berita)\s+(\S+)/i);
       var sym = m && m[1] ? m[1] : 'XAUUSD';
       input.value = '';
       handleNews(sym);

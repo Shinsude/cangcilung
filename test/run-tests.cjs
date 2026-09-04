@@ -79,6 +79,22 @@ suite('lib/ta.js (ADX kekuatan tren)');
   const last = adx[adx.length - 1];
   assert(last && last.value >= 0 && last.value <= 100, 'ADX terakhir dalam rentang 0-100: ' + (last && last.value.toFixed(1)));
   assert(dx.every((v) => v.value >= 0 && v.value <= 100), 'semua DX dalam 0-100');
+
+  assert(typeof ta.calcAroon === 'function', 'calcAroon terdefinisi');
+  const aroon = ta.calcAroon(data, 14).filter((v) => v && v.up !== null);
+  assert(aroon.length > 0, 'calcAroon menghasilkan nilai');
+  const aLast = aroon[aroon.length - 1];
+  assert(aLast.up >= 0 && aLast.up <= 100 && aLast.down >= 0 && aLast.down <= 100, 'Aroon up/down dalam 0-100: ' + aLast.up + '/' + aLast.down);
+
+  assert(typeof ta.calcCCI === 'function', 'calcCCI terdefinisi');
+  const cciArr = ta.calcCCI(data, 20).filter((v) => v !== null);
+  assert(cciArr.length > 0, 'calcCCI menghasilkan nilai');
+  assert(cciArr.every((v) => isFinite(v.value)), 'CCI semua finite');
+
+  assert(typeof ta.calcWilliamsR === 'function', 'calcWilliamsR terdefinisi');
+  const wrArr = ta.calcWilliamsR(data, 14).filter((v) => v !== null);
+  assert(wrArr.length > 0, 'calcWilliamsR menghasilkan nilai');
+  assert(wrArr.every((v) => v.value >= -100 && v.value <= 0), '%R semua dalam -100..0');
 })();
 
 /* ---------- stream.js ---------- */
