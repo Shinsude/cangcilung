@@ -2901,6 +2901,19 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     busy = false; setSendUI(false); setStatus('');
   }
 
+  function handleSignalHistory() {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var out;
+    if (window.CC.ta.listSignalLog().length && window.CC.ta.formatSignalLog) {
+      out = window.CC.ta.formatSignalLog();
+    } else {
+      out = 'Belum ada riwayat sinyal. Aktifkan `/sinyal XAUUSD <strategi>` lalu tunggu crossing BUY/SELL.';
+    }
+    history.push({ role: 'assistant', content: out, t: nowTime() });
+    saveHistory(); renderHistory();
+    busy = false; setSendUI(false); setStatus('');
+  }
+
   function showSignalNotification(s) {
     try {
       var title = (s.side === 'long' ? '🟢 BUY' : '🔴 SELL') + ' — ' + s.symbol;
@@ -3107,7 +3120,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n';
     out += '- `/sinyal XAUUSD rsi` — pantau live signal BUY/SELL (rsi/macd/bb/sma/all)\n';
     out += '  · opsional `period:14:70:30` utk parameter (mis. `period:9:70:30`)\n';
-    out += '  · `/sinyal-list` lihat · `/sinyal-del <id>` hapus · `/sinyal-clear` bersihkan\n\n';
+    out += '  · `/sinyal-list` lihat aktif · `/sinyal-history` riwayat · `/sinyal-del <id>` hapus · `/sinyal-clear` bersihkan\n\n';
     out += '### Bundel (alur analisis, baru)\n';
     out += '- `/skills` — katalog skill & bundel\n';
     out += '- `/skills analisa XAUUSD` — tren → struktur → risiko\n';
@@ -3456,6 +3469,11 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       var label = m && m[3] ? m[3].trim() : '';
       input.value = '';
       handleAlertAdd(sym, target, label);
+      return;
+    }
+    if (/^\/(sinyal-history|sinyal-log|sinyalhist)\b/i.test(text)) {
+      input.value = '';
+      handleSignalHistory();
       return;
     }
     if (/^\/(sinyal-list|sinyals|livesignals|sig-list)\b/i.test(text)) {

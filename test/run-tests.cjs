@@ -175,6 +175,17 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(rem.removed === 1, 'removeSignalAlert menghapus 1');
   assert(ta.listSignalAlerts().length === 0, 'listSignalAlerts kosong setelah hapus');
   ta.clearSignalAlerts();
+
+  /* --- Riwayat sinyal (log) --- */
+  assert(typeof ta.listSignalLog === 'function', 'listSignalLog terdefinisi');
+  assert(typeof ta.formatSignalLog === 'function', 'formatSignalLog terdefinisi');
+  const sig2 = ta.addSignalAlert('XAUUSD', 'rsi', { period: 14, overbought: 70, oversold: 30 });
+  ta.checkSignalAlerts({ symbol: 'XAUUSD', data: osc });
+  assert(typeof ta.listSignalLog().length === 'number', 'signal log bertambah setelah check');
+  assert(typeof ta.formatSignalLog() === 'string', 'formatSignalLog string');
+  ta.clearSignalLog();
+  ta.removeSignalAlert(sig2.signal.id);
+  ta.clearSignalAlerts();
 })();
 
 /* ---------- stream.js ---------- */
