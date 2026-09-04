@@ -2930,7 +2930,15 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     var ta = window.CC.ta;
     var container = openChartModal('📶 Live Signal — XAUUSD');
     if (!container) return;
+    if (window._signalPanelTimer) clearInterval(window._signalPanelTimer);
+    /* Auto-refresh tiap 45 dtk selama panel terbuka */
+    window._signalPanelTimer = setInterval(function () {
+      var overlay = $('chart-modal');
+      if (!overlay || overlay.hidden) { clearInterval(window._signalPanelTimer); window._signalPanelTimer = null; return; }
+      renderSignalPanel(container);
+    }, 45000);
     renderSignalPanel(container);
+    updateSignalBadge();
   }
 
   function renderSignalPanel(container) {
