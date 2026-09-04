@@ -2924,13 +2924,19 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     } catch (e) {}
   }
 
-  /* Panel menu Signal: pantau live signal utk XAUUSD via antarmuka (tanpa ketik). */
+  /* Panel menu Signal: pantau live signal utk XAUUSD via antarmuka (tanpa ketik).
+     Auto-mulai segera saat dibuka — tidak perlu klik apa pun. Dropdown strategi
+     mengganti indikator yang dipantau secara otomatis. */
   function openSignalPanel() {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
     var ta = window.CC.ta;
     var container = openChartModal('📶 Live Signal — XAUUSD');
     if (!container) return;
     if (window._signalPanelTimer) clearInterval(window._signalPanelTimer);
+
+    /* Auto-mulai: pastikan ada signal XAUUSD RSI (jika belum ada). */
+    ensureXauusdSignal('rsi');
+
     /* Auto-refresh tiap 45 dtk selama panel terbuka */
     window._signalPanelTimer = setInterval(function () {
       var overlay = $('chart-modal');
@@ -2941,37 +2947,58 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     updateSignalBadge();
   }
 
+  /* Pastikan ada signal XAUUSD untuk strategi pilihan; jika strategi lain sedang
+     aktif, ganti ke strategi baru (satu signal XAUUSD per menu). */
+  function ensureXauusdSignal(strategy) {
+    if (!window.CC || !window.CC.ta) return null;
+    var ta = window.CC.ta;
+    var active = ta.listSignalAlerts ? ta.listSignalAlerts() : [];
+    var existing = active.filter(function (s) { return s.symbol === 'XAUUSD'; });
+    var same = existing.filter(function (s) { return s.strategy === strategy; });
+    if (same.length) { startSignalChecker(); return same[0]; }
+    /* Hapus signal XAUUSD lama, ganti dgn strategi baru */
+    existing.forEach(function (s) { ta.removeSignalAlert(s.id); });
+    var r = ta.addSignalAlert('XAUUSD', strategy, { period: 14, overbought: 70, oversold: 30 });
+    startSignalChecker();
+    updateSignalBadge();
+    return r.ok ? r.signal : null;
+  }
+
   function renderSignalPanel(container) {
     if (!container) return;
     var ta = window.CC.ta;
     var active = ta.listSignalAlerts ? ta.listSignalAlerts() : [];
+    var xau = active.filter(function (s) { return s.symbol === 'XAUUSD'; });
+    var cur = (xau.length ? xau[0].strategy : 'rsi').toLowerCase();
     var log = ta.listSignalLog ? ta.listSignalLog() : [];
     var html = '<div class="signal-panel">';
-    html += '<div class="signal-intro" style="color:#a0a0b0;font-size:13px;margin-bottom:12px">Pantau XAUUSD untuk sinyal BUY/SELL dari indikator. Cangcilung cek tiap menit & kirim notifikasi saat crossing terjadi.</div>';
+    html += '<div class="signal-intro" style="color:#a0a0b0;font-size:13px;margin-bottom:12px">Pantau XAUUSD untuk sinyal BUY/SELL dari indikator. Cangcilung <b>otomatis sudah memantau</b> & kirim notifikasi saat crossing terjadi.</div>';
 
-    /* Form tambah signal */
+    /* Pilih strategi (otomatis langsung diterapkan) */
     html += '<div class="signal-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">';
+    html += '<span style="font-size:13px;color:#a0a0b0">Indikator:</span>';
     html += '<select id="sig-strategy" class="signal-select" style="padding:8px;border-radius:8px;border:1px solid #424242;background:#2f2f2f;color:var(--text)">';
     ['rsi', 'macd', 'bb', 'sma', 'all'].forEach(function (s) {
-      html += '<option value="' + s + '">' + s.toUpperCase() + '</option>';
+      html += '<option value="' + s + '"' + (s === cur ? ' selected' : '') + '>' + s.toUpperCase() + '</option>';
     });
     html += '</select>';
-    html += '<input id="sig-period" type="number" value="14" min="5" max="50" title="Periode" style="width:70px;padding:8px;border-radius:8px;border:1px solid #424242;background:#2f2f2f;color:var(--text)">';
-    html += '<input id="sig-ob" type="number" value="70" min="50" max="90" title="Overbought" style="width:70px;padding:8px;border-radius:8px;border:1px solid #424242;background:#2f2f2f;color:var(--text)">';
-    html += '<input id="sig-os" type="number" value="30" min="10" max="50" title="Oversold" style="width:70px;padding:8px;border-radius:8px;border:1px solid #424242;background:#2f2f2f;color:var(--text)">';
-    html += '<button id="sig-start" class="primary-btn" style="padding:8px 16px">▶ Mulai Pantau</button>';
+    if (xau.length) {
+      html += '<span id="sig-watching" style="font-size:12px;color:#22c55e">● Memantau ' + cur.toUpperCase() + ' — aktif</span>';
+    } else {
+      html += '<span id="sig-watching" style="font-size:12px;color:#f59e0b">⏳ Menyiapkan...</span>';
+    }
     html += '</div>';
 
     /* Signal aktif */
-    html += '<div class="signal-active"><h3 style="margin:8px 0 6px;font-size:14px">Signal Aktif (' + active.length + ')</h3>';
-    if (!active.length) html += '<div style="color:#a0a0b0;font-size:13px">Belum ada signal aktif.</div>';
+    html += '<div class="signal-active"><h3 style="margin:8px 0 6px;font-size:14px">Signal Aktif (' + xau.length + ')</h3>';
+    if (!xau.length) html += '<div style="color:#a0a0b0;font-size:13px">Belum ada signal aktif.</div>';
     else {
       html += '<div style="display:flex;flex-direction:column;gap:6px">';
-      active.forEach(function (s) {
+      xau.forEach(function (s) {
         html += '<div class="signal-row" style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:#2a2a2a;border:1px solid #3a3a3a;border-radius:8px;padding:8px 10px">';
         html += '<span>' + s.symbol + ' · <b>' + s.strategy.toUpperCase() + '</b> <span style="color:#a0a0b0;font-size:12px">(P' + s.params.period + ' OB' + s.params.overbought + ' OS' + s.params.oversold + ')</span>' +
           (s.lastSignal ? ' · <span style="color:' + (s.lastSignal === 'long' ? '#22c55e' : '#ef4444') + ';font-weight:bold">' + s.lastSignal.toUpperCase() + '</span>' : '') + '</span>';
-        html += '<button data-sigdel="' + s.id + '" class="ghost-btn" style="padding:4px 10px;font-size:12px">Hapus</button>';
+        html += '<button data-sigdel="' + s.id + '" class="ghost-btn" style="padding:4px 10px;font-size:12px">Hentikan</button>';
         html += '</div>';
       });
       html += '</div>';
@@ -2980,7 +3007,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
 
     /* Riwayat */
     html += '<div class="signal-history" style="margin-top:14px"><h3 style="margin:8px 0 6px;font-size:14px">Riwayat (' + log.length + ')</h3>';
-    if (!log.length) html += '<div style="color:#a0a0b0;font-size:13px">Belum ada sinyal tercatat.</div>';
+    if (!log.length) html += '<div style="color:#a0a0b0;font-size:13px">Belum ada sinyal tercatat — tunggu crossing indikator.</div>';
     else {
       html += '<div style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow:auto;font-size:13px">';
       log.forEach(function (e) {
@@ -2995,24 +3022,18 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     }
     html += '</div>';
 
-    html += '<div class="signal-tip" style="margin-top:12px;color:#888;font-size:12px">Semua tersimpan otomatis. Sinyal dipicu sekali per crossing & tahan dimuat ulang. Tidak ada komisi dihitung — hanya penanda arah.</div>';
+    html += '<div class="signal-tip" style="margin-top:12px;color:#888;font-size:12px">Semua tersimpan otomatis. Ganti indikator lewat menu di atas, langsung dipantau. Sinyal dipicu sekali per crossing & tahan dimuat ulang. Hanya penanda arah, bukan saran pasti.</div>';
     html += '</div>';
     container.innerHTML = html;
 
-    /* Wire events */
-    var startBtn = container.querySelector('#sig-start');
-    if (startBtn) startBtn.onclick = function () {
-      var strat = (container.querySelector('#sig-strategy') || {}).value || 'rsi';
-      var period = parseInt((container.querySelector('#sig-period') || {}).value) || 14;
-      var ob = parseInt((container.querySelector('#sig-ob') || {}).value) || 70;
-      var os = parseInt((container.querySelector('#sig-os') || {}).value) || 30;
-      var r = ta.addSignalAlert('XAUUSD', strat, { period: period, overbought: ob, oversold: os });
-      updateSignalBadge();
-      if (r.error) { if (window.CC.ui) window.CC.ui.showToast('⚠️ ' + r.error); return; }
-      if (window.CC.ui) window.CC.ui.showToast('✅ Live signal ' + strat.toUpperCase() + ' terpasang untuk XAUUSD');
-      startSignalChecker();
-      renderSignalPanel(container);
+    /* Logic ganti strategi: otomatis diterapkan tanpa klik */
+    var sel = container.querySelector('#sig-strategy');
+    if (sel) sel.onchange = function () {
+      ensureXauusdSignal(sel.value);
+      renderSignalPanel(container); /* re-render agar status 'sedang memantau' terupdate */
     };
+
+    /* Hentikan (hapus) signal */
     container.querySelectorAll('[data-sigdel]').forEach(function (btn) {
       btn.onclick = function () {
         ta.removeSignalAlert(btn.getAttribute('data-sigdel'));
