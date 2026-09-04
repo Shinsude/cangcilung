@@ -1,0 +1,16 @@
+# Normalisasi baris akhir: simpan .lf di repo, checkout mengikuti platform
+* text=auto
+
+*.js    text eol=lf
+*.cjs   text eol=lf
+*.mjs   text eol=lf
+*.json  text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.md    text eol=lf
+*.sql   text eol=lf
+*.txt   text eol=lf
+
+*.png   binary
+*.ico   binary
+*.webmanifest text eol=lf

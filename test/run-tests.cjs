@@ -98,27 +98,52 @@ suite('lib/ta.js (ADX kekuatan tren)');
 })();
 
 /* ---------- ta.js: regresi genSignals/backtest (bug objek vs angka) ---------- */
-suite('lib/ta.js (genSignals & backtest regresi)');
+suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
 (function () {
   global.location = { origin: 'https://cangcilung.vercel.app' };
   const wt = loadBrowser('lib/ta.js');
   const ta = wt.CC.ta;
   assert(typeof ta.genSignals === 'function', 'genSignals terdefinisi');
   assert(typeof ta.backtest === 'function', 'backtest terdefinisi');
+
+  /* --- Golden RSI (dataset klasik StockCharts, period 14): RSI pertama = 72.98 --- */
+  const closes = [44, 44.34, 44.09, 43.61, 44.33, 44.83, 45.1, 45.42, 45.84, 46.08, 45.89, 46.03, 45.61, 46.28, 46.28];
+  const candles = closes.map((c, i) => ({ time: 1700000000 + i * 86400, open: c - 0.1, high: c + 0.15, low: c - 0.2, close: c, volume: 1000 }));
+  const rsi = ta.calcRSI(candles, 14);
+  const rsiFirst = rsi[14];
+  assert(rsiFirst !== null && close(rsiFirst.value, 72.98, 0.05),
+    'Golden RSI: nilai RSI pertama (i=14) = 72.98 (got ' + (rsiFirst && rsiFirst.value) + ')');
+  for (let i = 0; i <= 13; i++) assert(rsi[i] === null, 'RSI sebelum period-14 adalah null (i=' + i + ')');
+
+  /* --- Dataset deterministik untuk sinyal RSI: pastikan tidak semua flat (guard bug objek-vs-angka) --- */
   let p = 90;
   const osc = [];
   for (let i = 0; i < 200; i++) {
     p += Math.sin(i / 6) * 6 + (i % 40 < 8 ? -9 : 4);
     osc.push({ time: 900000000 + i * 86400, open: p, high: p + 5, low: p - 5, close: p + 1, volume: 1000 });
   }
-  const s = ta.genSignals(osc, 'rsi', { period: 14, overbought: 70, oversold: 30 });
+  const params = { period: 14, overbought: 70, oversold: 30 };
+  const s = ta.genSignals(osc, 'rsi', params);
   assert(s.length === osc.length, 'genSignals panjang array sesuai data');
   const nonsig = s.filter((x) => x !== 'flat').length;
   assert(nonsig > 0, 'genSignals RSI menghasilkan sinyal (long/short), bukan 0: ' + nonsig);
   assert(s.every((x) => x === 'long' || x === 'short' || x === 'flat'), 'genSignals hanya long/short/flat');
-  const bt = ta.backtest(osc, 'rsi', { period: 14, overbought: 70, oversold: 30 });
+
+  /* --- Konsistensi: tiap sinyal long/short harus sesuai crossing batas overbought/oversold dari calcRSI --- */
+  const rv = ta.calcRSI(osc, params.period).map((v) => (v ? v.value : null));
+  let consistent = true;
+  for (let i = params.period; i < osc.length; i++) {
+    const r0 = rv[i], r1 = rv[i - 1];
+    if (s[i] === 'long' && !(r1 < params.oversold && r0 >= params.oversold)) consistent = false;
+    if (s[i] === 'short' && !(r1 > params.overbought && r0 <= params.overbought)) consistent = false;
+  }
+  assert(consistent, 'Setiap sinyal long/short konsisten dgn crossing RSI (bukan false-positive)');
+
+  const bt = ta.backtest(osc, 'rsi', params);
   assert(typeof bt.closedSignals === 'number' && bt.closedSignals > 0, 'backtest menutup setidaknya 1 trade: ' + bt.closedSignals);
   assert(typeof bt.winRate === 'number' && !isNaN(bt.winRate), 'backtest winRate numerik');
+  assert(typeof bt.netProfit === 'number' && !isNaN(bt.netProfit), 'backtest netProfit numerik');
+  assert(bt.profitFactor === '∞' || typeof bt.profitFactor === 'number', 'backtest profitFactor numerik');
 })();
 
 /* ---------- stream.js ---------- */
