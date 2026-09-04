@@ -144,6 +144,12 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(typeof bt.winRate === 'number' && !isNaN(bt.winRate), 'backtest winRate numerik');
   assert(typeof bt.netProfit === 'number' && !isNaN(bt.netProfit), 'backtest netProfit numerik');
   assert(bt.profitFactor === '∞' || typeof bt.profitFactor === 'number', 'backtest profitFactor numerik');
+
+  /* --- Regresi biaya per-trade (cost): harus menurunkan netProfit & tercatat di `trades` --- */
+  const btCost = ta.backtest(osc, 'rsi', Object.assign({}, params, { cost: 5 }));
+  assert(bt.trades > 0, 'backtest mengisi jumlah trades (' + bt.trades + '), bukan 0');
+  assert(btCost.costPerTrade === 5, 'costPerTrade tersimpan (got ' + btCost.costPerTrade + ')');
+  assert(btCost.netProfit < bt.netProfit, 'biaya per-trade menurunkan netProfit: ' + bt.netProfit + ' -> ' + btCost.netProfit);
 })();
 
 /* ---------- stream.js ---------- */
