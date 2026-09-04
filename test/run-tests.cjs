@@ -150,6 +150,18 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(bt.trades > 0, 'backtest mengisi jumlah trades (' + bt.trades + '), bukan 0');
   assert(btCost.costPerTrade === 5, 'costPerTrade tersimpan (got ' + btCost.costPerTrade + ')');
   assert(btCost.netProfit < bt.netProfit, 'biaya per-trade menurunkan netProfit: ' + bt.netProfit + ' -> ' + btCost.netProfit);
+
+  /* --- Walk-forward / out-of-sample (anti overfitting) --- */
+  assert(typeof ta.walkforward === 'function', 'walkforward terdefinisi');
+  const wf = ta.walkforward(osc, 'rsi', params);
+  assert(typeof wf.oos === 'object' && wf.oos !== null, 'walkforward punya blok oos');
+  assert(typeof wf.oos.trades === 'number', 'walkforward oos.trades numerik');
+  assert(typeof wf.oos.winRate === 'number' && !isNaN(wf.oos.winRate), 'walkforward oos.winRate numerik');
+  assert(typeof wf.trainPct === 'number' && wf.trainPct > 50 && wf.trainPct < 100, 'walkforward trainPct masuk akal: ' + wf.trainPct + '%');
+  assert(wf.oos.trades <= bt.trades, 'jumlah trade OOS tidak melebihi total trade');
+  const fmtWF = ta.formatWalkforward(wf, 'XAUUSD');
+  assert(/Out-of-Sample|OOS|oos/i.test(fmtWF) || /uji/i.test(fmtWF), 'formatWalkforward memuat label OOS');
+  assert(fmtWF.indexOf('Latih /') === -1 && /latih/i.test(fmtWF), 'formatWalkforward memuat label latih/uji');
 })();
 
 /* ---------- stream.js ---------- */

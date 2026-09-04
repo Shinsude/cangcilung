@@ -2761,19 +2761,27 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
     var ta = window.CC.ta;
     var params = {};
+    var oos = false;
     (rawParams || []).forEach(function (p) {
+      if (/^oos$/i.test(p.trim())) { oos = true; return; }
       var m = p.split(':');
       if (m.length === 2 && !isNaN(parseFloat(m[1]))) params[m[0]] = parseFloat(m[1]);
     });
     var quant = (params.quant || 0) > 0 ? 100 : 50;
     busy = true; setSendUI(true);
-    setStatus('Backtest ' + symbol + ' dengan strategi ' + strategy + '...');
+    setStatus('Backtest ' + symbol + ' dengan strategi ' + strategy + (oos ? ' (anti-overfitting / OOS)...' : '...'));
     var bubble = addBubble('assistant', null);
     showTyping(bubble);
     ta.fetchYahoo(symbol, params.tf || '1d').then(function (result) {
       var r = ta.backtest(result.data, strategy, params);
       if (r.error) throw new Error(r.error);
-      var out = ta.formatBacktest(r, symbol) + '\n\n*Sumber: ' + (result.source || 'yahoo') + ' — 1 setel per-TF. Semua sinyal dihitung dari data historis.*';
+      var out;
+      if (oos) {
+        var wf = ta.walkforward(result.data, strategy, params);
+        out = ta.formatWalkforward(wf, symbol) + '\n\n*Sumber: ' + (result.source || 'yahoo') + ' — sinyal dari data historis; % uji = data terbaru.*';
+      } else {
+        out = ta.formatBacktest(r, symbol) + '\n\n*Sumber: ' + (result.source || 'yahoo') + ' — 1 setel per-TF. Semua sinyal dihitung dari data historis.*';
+      }
       removeTyping(bubble);
       history.push({ role: 'assistant', content: out, t: nowTime() });
       saveHistory();
@@ -3002,6 +3010,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '- `/corr XAUUSD` — korelasi XAU vs DXY (atau NDX vs VIX)\n';
     out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/macd/bb/sma/all)\n';
     out += '  · opsional `cost:N` utk biaya per trade (mis. `cost:0.5`) agar hasil lebih realistis\n';
+    out += '  · tambah `oos` utk validasi anti-overfitting (uji data terbaru)\n';
     out += '- `/news XAUUSD` atau `/berita XAUUSD` — sentimen berita terbaru\n';
     out += '- `/alert XAUUSD 3200` — pasang alert harga\n';
     out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n\n';
