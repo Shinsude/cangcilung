@@ -4364,7 +4364,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     $('btn-mic').addEventListener('click', toggleMic);
     $('btn-sessions').addEventListener('click', openSessions);
     $('btn-sessions-close').addEventListener('click', closeSessions);
-    if ($('btn-signal')) $('btn-signal').addEventListener('click', openSignalPanel);
+    if ($('sidebar-signal')) $('sidebar-signal').addEventListener('click', openSignalPanel);
     $('btn-session-new').addEventListener('click', newSession);
     $('btn-rename-ok').addEventListener('click', submitRename);
     $('btn-rename-cancel').addEventListener('click', closeRename);
