@@ -1,9 +1,10 @@
-const CACHE = 'cangcilung-v38';
+const CACHE = 'cangcilung-v39';
 const CORE = [
   '/',
   '/index.html',
   '/style.css',
   '/app.js',
+  '/sw-register.js',
   '/lib/fileparse.js',
   '/lib/safeeval.js',
   '/lib/utils.js',
@@ -47,16 +48,17 @@ self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
   if (url.origin === self.location.origin && (url.pathname === '/api/config' || url.pathname === '/api/quote')) return;
   if (url.origin === self.location.origin) {
+    /* Network-first agar update terbaru selalu tampil; fallback cache jika offline.
+       View terbaru tidak tertahan lama oleh cache service worker. */
     e.respondWith(
-      caches.match(e.request).then(function (hit) {
-        var fetched = fetch(e.request).then(function (res) {
-          if (res && res.ok) {
-            var clone = res.clone();
-            caches.open(CACHE).then(function (c) { c.put(e.request, clone); });
-          }
-          return res;
-        }).catch(function () { return hit; });
-        return hit || fetched;
+      fetch(e.request).then(function (res) {
+        if (res && res.ok) {
+          var clone = res.clone();
+          caches.open(CACHE).then(function (c) { c.put(e.request, clone); });
+        }
+        return res;
+      }).catch(function () {
+        return caches.match(e.request).then(function (hit) { return hit || caches.match('/'); });
       })
     );
   }
