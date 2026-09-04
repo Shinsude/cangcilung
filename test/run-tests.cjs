@@ -145,6 +145,20 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(typeof bt.netProfit === 'number' && !isNaN(bt.netProfit), 'backtest netProfit numerik');
   assert(bt.profitFactor === '∞' || typeof bt.profitFactor === 'number', 'backtest profitFactor numerik');
 
+  /* --- Regresi strategi EMA 9/21 & VWAP: genSignals menerima & menghasilkan sinyal --- */
+  const ema = ta.genSignals(osc, 'ema', {});
+  assert(ema.length === osc.length, 'genSignals EMA panjang array sesuai data');
+  const emaSig = ema.filter((x) => x !== 'flat').length;
+  assert(emaSig > 0, 'genSignals EMA menghasilkan sinyal (bukan 0): ' + emaSig);
+  assert(ema.every((x) => x === 'long' || x === 'short' || x === 'flat'), 'genSignals EMA hanya long/short/flat');
+
+  const vwap = ta.genSignals(osc, 'vwap', {});
+  assert(vwap.length === osc.length, 'genSignals VWAP panjang array sesuai data');
+  const vwapSig = vwap.filter((x) => x !== 'flat').length;
+  assert(vwapSig > 0, 'genSignals VWAP menghasilkan sinyal (bukan 0): ' + vwapSig);
+  assert(vwap.every((x) => x === 'long' || x === 'short' || x === 'flat'), 'genSignals VWAP hanya long/short/flat');
+
+
   /* --- Regresi biaya per-trade (cost): harus menurunkan netProfit & tercatat di `trades` --- */
   const btCost = ta.backtest(osc, 'rsi', Object.assign({}, params, { cost: 5 }));
   assert(bt.trades > 0, 'backtest mengisi jumlah trades (' + bt.trades + '), bukan 0');

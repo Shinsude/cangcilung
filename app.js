@@ -2974,18 +2974,20 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     var html = '<div class="signal-panel">';
     html += '<div class="signal-intro" style="color:#a0a0b0;font-size:13px;margin-bottom:12px">Pantau XAUUSD untuk sinyal BUY/SELL dari indikator. Cangcilung <b>otomatis sudah memantau</b> & kirim notifikasi saat crossing terjadi.</div>';
 
-    /* Pilih strategi (otomatis langsung diterapkan) */
-    html += '<div class="signal-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">';
-    html += '<span style="font-size:13px;color:#a0a0b0">Indikator:</span>';
-    html += '<select id="sig-strategy" class="signal-select" style="padding:8px;border-radius:8px;border:1px solid #424242;background:#2f2f2f;color:var(--text)">';
-    ['rsi', 'macd', 'bb', 'sma', 'all'].forEach(function (s) {
-      html += '<option value="' + s + '"' + (s === cur ? ' selected' : '') + '>' + s.toUpperCase() + '</option>';
+    /* Indikator (tampilan tulisan, tanpa dropdown). Klik nama untuk ganti. */
+    var IND = [['rsi', 'RSI 14'], ['macd', 'MACD'], ['bb', 'BB'], ['sma', 'SMA'], ['ema', 'EMA 9/21'], ['vwap', 'VWAP'], ['all', 'All']];
+    html += '<div class="signal-form" style="margin-bottom:14px">';
+    html += '<div style="font-size:13px;color:#a0a0b0;margin-bottom:6px">INDIKATOR:</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">';
+    IND.forEach(function (pair) {
+      var s = pair[0], label = pair[1], isCur = (s === cur);
+      html += '<button data-sigstrat="' + s + '" style="border:1px solid ' + (isCur ? 'var(--accent)' : '#3a3a3a') + ';background:' + (isCur ? 'var(--accent-dim)' : 'transparent') + ';color:' + (isCur ? 'var(--accent)' : 'var(--text-dim)') + ';border-radius:14px;padding:4px 12px;font-size:13px;cursor:pointer;font-weight:' + (isCur ? '700' : '400') + '">' + label + (isCur ? ' ●' : '') + '</button>';
     });
-    html += '</select>';
+    html += '</div>';
     if (xau.length) {
-      html += '<span id="sig-watching" style="font-size:12px;color:#22c55e">● Memantau ' + cur.toUpperCase() + ' — aktif</span>';
+      html += '<div style="font-size:12px;color:#22c55e;margin-top:6px">● Memantau ' + cur.toUpperCase() + ' — aktif (klik nama indikator utk ganti)</div>';
     } else {
-      html += '<span id="sig-watching" style="font-size:12px;color:#f59e0b">⏳ Menyiapkan...</span>';
+      html += '<div style="font-size:12px;color:#f59e0b;margin-top:6px">⏳ Menyiapkan...</div>';
     }
     html += '</div>';
 
@@ -3026,12 +3028,13 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     html += '</div>';
     container.innerHTML = html;
 
-    /* Logic ganti strategi: otomatis diterapkan tanpa klik */
-    var sel = container.querySelector('#sig-strategy');
-    if (sel) sel.onchange = function () {
-      ensureXauusdSignal(sel.value);
-      renderSignalPanel(container); /* re-render agar status 'sedang memantau' terupdate */
-    };
+    /* Logic ganti indikator (klik nama teks): otomatis diterapkan */
+    container.querySelectorAll('[data-sigstrat]').forEach(function (btn) {
+      btn.onclick = function () {
+        ensureXauusdSignal(btn.getAttribute('data-sigstrat'));
+        renderSignalPanel(container); /* re-render agar status 'sedang memantau' terupdate */
+      };
+    });
 
     /* Hentikan (hapus) signal */
     container.querySelectorAll('[data-sigdel]').forEach(function (btn) {
