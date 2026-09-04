@@ -2987,9 +2987,16 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     var activeXau = xau[0];
     if (confBody && activeXau && typeof ta.fetchYahoo === 'function' && typeof ta.analyzeConfluence === 'function') {
       (function (bodyEl, sig) {
-        ta.fetchYahoo(sig.symbol, '1d').then(function (r) {
+        /* Hard timeout agar status "Menghitung…" tidak menggantung selamanya */
+        function timeout(p, ms) {
+          return Promise.race([
+            p,
+            new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, ms); })
+          ]);
+        }
+        timeout(ta.fetchYahoo(sig.symbol, '1d'), 15000).then(function (r) {
           if (!bodyEl) return;
-          var conf = ta.analyzeConfluence(r.data || r, sig.strategy, sig.params);
+          var conf = ta.analyzeConfluence(r ? (r.data || r) : null, sig.strategy, sig.params);
           var dec = conf.decision || 'wait';
           var decMap = { buy: { txt: 'BUY', sym: '▲', cls: 'c-up', bg: 'bg-up' }, sell: { txt: 'SELL', sym: '▼', cls: 'c-down', bg: 'bg-down' }, wait: { txt: 'WAIT', sym: '⏳', cls: 'c-warn', bg: 'bg-warn' } };
           var d = decMap[dec] || decMap.wait;
@@ -3007,7 +3014,10 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
           bodyEl.innerHTML = h;
           /* ledakan visual kecil saat keputusan berganti */
           try { bodyEl.style.transition = 'none'; bodyEl.style.opacity = '.2'; void bodyEl.offsetWidth; bodyEl.style.transition = 'opacity .3s'; bodyEl.style.opacity = '1'; } catch (e) {}
-        }).catch(function () { if (bodyEl) bodyEl.textContent = 'Gagal ambil data. Coba lagi nanti.'; });
+        }).catch(function (err) {
+          if (bodyEl) bodyEl.innerHTML = '<div style="text-align:center;padding:10px;color:var(--warn);font-size:13px">Tidak bisa ambil data pasar (offline/CORS). Coba lagi dalam beberapa saat.</div>';
+          if (window.console) console.error('Signal fetch gagal:', err && err.message);
+        });
       })(confBody, activeXau);
     }
   }
