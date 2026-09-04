@@ -259,6 +259,18 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(cf2.regime && cf2.regime.regime, 'analyzeConfluence menyertakan blok regime');
   assert(cf2.edge && typeof cf2.edge.score === 'number', 'analyzeConfluence menyertakan blok edge (skor numerik)');
 
+  /* --- KEPUTUSAN FINAL BUY/SELL/WAIT --- */
+  assert(typeof cf2.decision === 'string', 'analyzeConfluence menyertakan keputusan final');
+  assert(['buy', 'sell', 'wait'].indexOf(cf2.decision) !== -1, 'keputusan hanya buy/sell/wait: ' + cf2.decision);
+  /* aturan: eksekusi (buy/sell) hanya saat STRONG & searah regime; selain itu wait */
+  if (cf2.decision !== 'wait') {
+    assert(cf2.verdict === 'STRONG', 'keputusan eksekusi harus ber-verdict STRONG');
+    /* bila pasar ber-tren, keputusan eksekusi tak boleh melawan arah tren */
+    if (cf2.regime && cf2.regime.regime === 'trending') {
+      assert(cf2.regime.align === true, 'keputusan eksekusi tak boleh melawan tren');
+    }
+  }
+
   /* --- MTF STRUCTURE DASHBOARD (LuxAlgo "Structure & Trend Dashboard" ala) --- */
   assert(typeof ta.mtfStructureDashboard === 'function', 'mtfStructureDashboard terdefinisi');
   const dash = ta.mtfStructureDashboard({ tfs: { '1D': osc, '1H': osc, 'M15': osc } });

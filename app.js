@@ -2988,8 +2988,8 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       : '<div class="sig-status c-warn"><span class="dot" style="background:var(--warn)"></span>Menyiapkan…</div>';
     html += '</div>';
 
-    /* Dashboard konfluensi live (skor besar + regime + edge) */
-    html += '<div class="sig-card"><div class="sig-label">Konfluensi saat ini</div>';
+    /* Kartu keputusan BUY/SELL/WAIT */
+    html += '<div class="sig-card"><div class="sig-label">Keputusan</div>';
     html += '<div id="sig-conf-body" style="color:var(--text-dim);font-size:13px">Menghitung…</div>';
     html += '</div>';
 
@@ -3044,49 +3044,23 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
         ta.fetchYahoo(sig.symbol, '1d').then(function (r) {
           if (!bodyEl) return;
           var conf = ta.analyzeConfluence(r.data || r, sig.strategy, sig.params);
-          var strong = conf.verdict === 'STRONG', weak = conf.verdict === 'WEAK';
-          var scoreCls = strong ? 'c-up' : weak ? 'c-down' : 'c-warn';
-          var chipCls = strong ? 'bg-up' : weak ? 'bg-down' : 'bg-warn';
-          var colorName = strong ? 'SEARAH KUAT' : weak ? 'LEMAH / BERLAWAN' : 'SEARAH SEDANG';
-          var h = '<div class="sig-dash">';
-          h += '<div class="sig-verdict">';
-          h += '<div class="sig-score ' + scoreCls + '">' + conf.score + '</div>';
-          h += '<div class="sig-score-label">SKOR KONFLUENSI</div>';
-          h += '<span class="sig-chip ' + chipCls + '">' + colorName + '</span>';
+          var dec = conf.decision || 'wait';
+          var decMap = { buy: { txt: 'BUY', sym: '▲', cls: 'c-up', bg: 'bg-up' }, sell: { txt: 'SELL', sym: '▼', cls: 'c-down', bg: 'bg-down' }, wait: { txt: 'WAIT', sym: '⏳', cls: 'c-warn', bg: 'bg-warn' } };
+          var d = decMap[dec] || decMap.wait;
+          var h = '<div class="sig-decision">';
+          h += '<div class="sig-dec-symbol ' + d.cls + '">' + d.sym + '</div>';
+          h += '<div class="sig-dec-txt ' + d.cls + '">' + d.txt + '</div>';
+          /* alasan singkat */
+          var why;
+          if (dec === 'buy') why = 'Arah kuat & searah regime — layak pertimbangkan masuk BUY.';
+          else if (dec === 'sell') why = 'Arah kuat & searah regime — layak pertimbangkan masuk SELL.';
+          else if (conf.signal === 'flat' || !conf.signal) why = 'Belum ada arah jelas dari indikator. Tunggu crossing.';
+          else why = 'Sinyal ada tapi belum cukup kuat/searah — tunggu konfirmasi lebih dulu.';
+          h += '<div class="sig-dec-why">' + why + '</div>';
           h += '</div>';
-          h += '<div class="sig-dash-right">';
-          h += '<div class="sig-rows">';
-          if (conf.regime) {
-            var r = conf.regime, trending = r.regime === 'trending';
-            var rCls = trending ? (r.dir === 'up' ? 'c-up' : 'c-down') : 'c-warn';
-            h += '<div class="sig-row2">Regime: <span class="sig-badge ' + (trending ? 'bg-up' : 'bg-warn') + '">' + (r.label || r.regime) + '</span>';
-            h += '<span class="sig-meta">ADX <b>' + r.adx + '</b></span>';
-            if (r.align !== undefined) h += '<span class="' + (r.align ? 'c-up' : 'c-down') + '" style="font-size:12px">' + (r.align ? '✓ searah' : '✗ melawan') + '</span>';
-            h += '</div>';
-          }
-          if (conf.edge) {
-            var e = conf.edge, ec = e.grade === 'STRONG' ? 'c-up' : e.grade === 'WEAK' ? 'c-down' : 'c-warn';
-            h += '<div class="sig-row2">Kekuatan: <span class="sig-badge ' + (e.grade === 'STRONG' ? 'bg-up' : e.grade === 'WEAK' ? 'bg-down' : 'bg-warn') + '">' + e.score + '/100 · ' + e.grade + '</span></div>';
-          }
-          h += '</div>';
-          /* Bar gaya: momentum · volume · ekspansi */
-          if (conf.edge && conf.edge.breakdown) {
-            var bd = conf.edge.breakdown;
-            h += '<div class="sig-gauge">';
-            [['Momentum', bd.mom, 'var(--accent)'], ['Volume', bd.vol, '#3b82f6'], ['Ekspansi', bd.exp, '#f59e0b']].forEach(function (g) {
-              var mm = Math.max(0, Math.min(100, g[1]));
-              h += '<div class="sig-gauge-row"><span class="sig-gauge-label">' + g[0] + '</span><span class="sig-gauge-track"><span class="sig-gauge-fill" style="width:' + mm + '%;background:' + g[2] + '"></span></span><span style="font-size:11px;color:var(--text-dim);width:26px;flex:none">' + Math.round(g[1]) + '</span></div>';
-            });
-            h += '</div>';
-          }
-          /* Alasan + rekomendasi singkat */
-          if (conf.reasons && conf.reasons.length) {
-            h += '<div class="sig-reasons">' + conf.reasons.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</div>';
-          }
-          h += '<div class="sig-rec">Ikuti arah yang <b>' + (conf.signal === 'long' ? 'BUY' : conf.signal === 'short' ? 'SELL' : 'netral') + '</b> hanya bila konfluensi cukup, hindari melawan regime.</div>';
-          if (conf.gate) h += '<div class="sig-gate c-warn">⚠ ' + conf.gate.text + '</div>';
-          h += '</div></div>';
           bodyEl.innerHTML = h;
+          /* ledakan visual kecil saat keputusan berganti */
+          try { bodyEl.style.transition = 'none'; bodyEl.style.opacity = '.2'; void bodyEl.offsetWidth; bodyEl.style.transition = 'opacity .3s'; bodyEl.style.opacity = '1'; } catch (e) {}
         }).catch(function () { if (bodyEl) bodyEl.textContent = 'Gagal ambil data. Coba lagi nanti.'; });
       })(confBody, activeXau);
     }

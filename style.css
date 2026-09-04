@@ -798,6 +798,12 @@ body.drag-over::after {
 
 /* Kartu konfluensi utama */
 .sig-dash { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
+
+/* Keputusan besar BUY/SELL/WAIT */
+.sig-decision { text-align: center; padding: 6px 0; }
+.sig-dec-symbol { font-size: 34px; line-height: 1; }
+.sig-dec-txt { font-size: 44px; font-weight: 800; letter-spacing: .02em; line-height: 1.05; margin: 4px 0 8px; }
+.sig-dec-why { font-size: 13px; color: var(--text-dim); max-width: 420px; margin: 0 auto; line-height: 1.5; }
 .sig-verdict { text-align: center; }
 .sig-score { font-size: 40px; font-weight: 800; line-height: 1; }
 .sig-score-label { font-size: 11px; color: var(--text-dim); margin-top: 4px; letter-spacing: .03em; }
