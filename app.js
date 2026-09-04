@@ -2971,41 +2971,40 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     var xau = active.filter(function (s) { return s.symbol === 'XAUUSD'; });
     var cur = (xau.length ? xau[0].strategy : 'rsi').toLowerCase();
     var log = ta.listSignalLog ? ta.listSignalLog() : [];
-    var html = '<div class="signal-panel">';
-    html += '<div class="signal-intro" style="color:#a0a0b0;font-size:13px;margin-bottom:12px">Pantau XAUUSD untuk sinyal BUY/SELL dari indikator. Cangcilung <b>otomatis sudah memantau</b> & kirim notifikasi saat crossing terjadi.</div>';
+    var html = '<div class="sig-panel">';
+    html += '<div class="sig-intro">Pantau XAUUSD untuk sinyal BUY/SELL. Cangcilung <b>otomatis memantau</b> & kirim notifikasi saat crossing terjadi.</div>';
 
-    /* Indikator (tampilan tulisan, tanpa dropdown). Klik nama untuk ganti. */
-    var IND = [['rsi', 'RSI 14'], ['macd', 'MACD'], ['bb', 'BB'], ['sma', 'SMA'], ['ma', 'MA 9/21/200'], ['ema', 'EMA 9/21'], ['vwap', 'VWAP'], ['smc', 'SMC'], ['cvd', 'CVD'], ['all', 'All']];
-    html += '<div class="signal-form" style="margin-bottom:14px">';
-    html += '<div style="font-size:13px;color:#a0a0b0;margin-bottom:6px">INDIKATOR:</div>';
-    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">';
+    /* Indikator (pill). Klik utk ganti strategi yang dipantau. */
+    var IND = [['rsi', 'RSI 14'], ['macd', 'MACD'], ['bb', 'BB'], ['sma', 'SMA'], ['ma', 'MA'], ['ema', 'EMA'], ['vwap', 'VWAP'], ['smc', 'SMC'], ['cvd', 'CVD'], ['all', 'All']];
+    html += '<div class="sig-card"><div class="sig-label">Indikator</div>';
+    html += '<div class="sig-pills">';
     IND.forEach(function (pair) {
-      var s = pair[0], label = pair[1], isCur = (s === cur);
-      html += '<button data-sigstrat="' + s + '" style="border:1px solid ' + (isCur ? 'var(--accent)' : '#3a3a3a') + ';background:' + (isCur ? 'var(--accent-dim)' : 'transparent') + ';color:' + (isCur ? 'var(--accent)' : 'var(--text-dim)') + ';border-radius:14px;padding:4px 12px;font-size:13px;cursor:pointer;font-weight:' + (isCur ? '700' : '400') + '">' + label + (isCur ? ' ●' : '') + '</button>';
+      var s = pair[0], label = pair[1];
+      html += '<button class="sig-pill' + (s === cur ? ' on' : '') + '" data-sigstrat="' + s + '">' + label + '</button>';
     });
     html += '</div>';
-    if (xau.length) {
-      html += '<div style="font-size:12px;color:#22c55e;margin-top:6px">● Memantau ' + cur.toUpperCase() + ' — aktif (klik nama indikator utk ganti)</div>';
-    } else {
-      html += '<div style="font-size:12px;color:#f59e0b;margin-top:6px">⏳ Menyiapkan...</div>';
-    }
+    html += xau.length
+      ? '<div class="sig-status c-up"><span class="dot" style="background:var(--ok)"></span>Memantau <b>' + cur.toUpperCase() + '</b></div>'
+      : '<div class="sig-status c-warn"><span class="dot" style="background:var(--warn)"></span>Menyiapkan…</div>';
     html += '</div>';
 
-    /* Konfluensi & alasan live */
-    html += '<div class="signal-confluence" style="margin:10px 0 14px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid #333;border-radius:8px">';
-    html += '<div style="font-size:12px;color:#a0a0b0;margin-bottom:6px">KONFLUENSI SAAT INI</div>';
-    html += '<div id="sig-conf-body" style="font-size:13px;color:#a0a0b0">Menghitung…</div>';
+    /* Dashboard konfluensi live (skor besar + regime + edge) */
+    html += '<div class="sig-card"><div class="sig-label">Konfluensi saat ini</div>';
+    html += '<div id="sig-conf-body" style="color:var(--text-dim);font-size:13px">Menghitung…</div>';
     html += '</div>';
 
     /* Signal aktif */
-    html += '<div class="signal-active"><h3 style="margin:8px 0 6px;font-size:14px">Signal Aktif (' + xau.length + ')</h3>';
-    if (!xau.length) html += '<div style="color:#a0a0b0;font-size:13px">Belum ada signal aktif.</div>';
+    html += '<div class="sig-card"><div class="sig-label">Signal Aktif (' + xau.length + ')</div>';
+    if (!xau.length) html += '<div class="sig-empty">Belum ada signal aktif.</div>';
     else {
-      html += '<div style="display:flex;flex-direction:column;gap:6px">';
+      html += '<div class="sig-active-list">';
       xau.forEach(function (s) {
-        html += '<div class="signal-row" style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:#2a2a2a;border:1px solid #3a3a3a;border-radius:8px;padding:8px 10px">';
-        html += '<span>' + s.symbol + ' · <b>' + s.strategy.toUpperCase() + '</b> <span style="color:#a0a0b0;font-size:12px">(P' + s.params.period + ' OB' + s.params.overbought + ' OS' + s.params.oversold + ')</span>' +
-          (s.lastSignal ? ' · <span style="color:' + (s.lastSignal === 'long' ? '#22c55e' : '#ef4444') + ';font-weight:bold">' + s.lastSignal.toUpperCase() + '</span>' : '') + '</span>';
+        var sColor = s.lastSignal === 'long' ? 'c-up' : s.lastSignal === 'short' ? 'c-down' : 'c-warn';
+        var sTxt = s.lastSignal ? (s.lastSignal === 'long' ? '▲ BUY' : '▼ SELL') : 'Menunggu';
+        html += '<div class="sig-active-card">';
+        html += '<span class="info"><span class="strat">' + s.symbol + ' · ' + s.strategy.toUpperCase() + '</span>';
+        html += '<span class="sub">P' + s.params.period + ' · OB' + s.params.overbought + ' · OS' + s.params.oversold + '</span></span>';
+        html += '<span class="sig-lastsig ' + sColor + '">' + sTxt + '</span>';
         html += '<button data-sigdel="' + s.id + '" class="ghost-btn" style="padding:4px 10px;font-size:12px">Hentikan</button>';
         html += '</div>';
       });
@@ -3013,28 +3012,31 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     }
     html += '</div>';
 
-    /* Riwayat */
-    html += '<div class="signal-history" style="margin-top:14px"><h3 style="margin:8px 0 6px;font-size:14px">Riwayat (' + log.length + ')</h3>';
-    if (!log.length) html += '<div style="color:#a0a0b0;font-size:13px">Belum ada sinyal tercatat — tunggu crossing indikator.</div>';
+    /* Riwayat (dengan arah, harga, rekomendasi singkat) */
+    html += '<div class="sig-card"><div class="sig-label">Riwayat (' + log.length + ')</div>';
+    if (!log.length) html += '<div class="sig-empty">Belum ada sinyal tercatat — tunggu crossing indikator.</div>';
     else {
-      html += '<div style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow:auto;font-size:13px">';
+      html += '<div class="sig-hist-list"><div class="sig-hist-head"><span>Arah</span><span>Detail</span><span class="when">Waktu</span></div>';
       log.forEach(function (e) {
         var t = e.t ? new Date(e.t).toLocaleTimeString('id-ID') : '';
-        html += '<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 4px;border-bottom:1px dashed #333">';
-        html += '<span style="color:' + (e.side === 'long' ? '#22c55e' : '#ef4444') + ';font-weight:600">' + (e.side === 'long' ? '▲ BUY' : '▼ SELL') + '</span>';
-        html += '<span>' + (e.strategy || '').toUpperCase() + ' @ ' + e.price + '</span>';
-        html += '<span style="color:#a0a0b0">' + t + '</span>';
+        var side = e.side === 'long' ? 'BUY' : 'SELL';
+        var cls = e.side === 'long' ? 'c-up' : 'c-down';
+        var rec = e.side === 'long' ? 'Sinyal jual/ambil-laba bisa dinegosiasikan, tunggu konfluensi' : 'Sinyal beli balik bila ada konfluensi';
+        html += '<div class="sig-hist-row">';
+        html += '<span class="dir ' + cls + '">▲ ' + side + '</span>';
+        html += '<span>' + (e.strategy || '').toUpperCase() + '<span style="color:var(--text-dim)"> @ ' + e.price + '</span><div style="color:var(--text-dim);font-size:11px">' + rec + '</div></span>';
+        html += '<span class="when">' + t + '</span>';
         html += '</div>';
       });
       html += '</div>';
     }
     html += '</div>';
 
-    html += '<div class="signal-tip" style="margin-top:12px;color:#888;font-size:12px">Semua tersimpan otomatis. Klik nama indikator utk ganti, langsung dipantau. Sinyal dipicu sekali per crossing & tahan dimuat ulang. <b>CVD di sini perkiraan dari volume candle</b> (tanpa data tick) & SMC versi sederhana — hanya penanda arah, bukan saran pasti.</div>';
+    html += '<div class="sig-tip">Semua tersimpan otomatis. Klik indikator utk ganti, langsung dipantau. Sinyal dipicu sekali per crossing & tahan dimuat ulang. CVD = perkiraan dari volume candle; SMC versi sederhana — penanda arah, bukan saran pasti.</div>';
     html += '</div>';
     container.innerHTML = html;
 
-    /* Konfluensi live: hitung skor + alasan utk signal aktif XAUUSD saat ini */
+    /* Konfluensi live: skor + alasan utk signal XAUUSD aktif */
     var confBody = container.querySelector('#sig-conf-body');
     var activeXau = xau[0];
     if (confBody && activeXau && typeof ta.fetchYahoo === 'function' && typeof ta.analyzeConfluence === 'function') {
@@ -3042,27 +3044,48 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
         ta.fetchYahoo(sig.symbol, '1d').then(function (r) {
           if (!bodyEl) return;
           var conf = ta.analyzeConfluence(r.data || r, sig.strategy, sig.params);
-          var color = conf.verdict === 'STRONG' ? '#22c55e' : conf.verdict === 'MODERATE' ? '#FFD60A' : '#FF453A';
-          var colorName = conf.verdict === 'STRONG' ? 'SEARAH KUAT' : conf.verdict === 'MODERATE' ? 'SEARAH SEDANG' : 'LEMAH/BERLAWAN';
-          var h = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">' +
-            '<span style="font-size:22px;font-weight:700;color:' + color + '">' + conf.score + '%</span>' +
-            '<span style="font-size:12px;color:' + color + ';font-weight:600">' + colorName + '</span>' +
-            (conf.gate ? '<span style="font-size:11px;color:#f59e0b">' + conf.gate.text + '</span>' : '') +
-            '</div>';
-          /* REGIME FILTER (LuxAlgo style) */
+          var strong = conf.verdict === 'STRONG', weak = conf.verdict === 'WEAK';
+          var scoreCls = strong ? 'c-up' : weak ? 'c-down' : 'c-warn';
+          var chipCls = strong ? 'bg-up' : weak ? 'bg-down' : 'bg-warn';
+          var colorName = strong ? 'SEARAH KUAT' : weak ? 'LEMAH / BERLAWAN' : 'SEARAH SEDANG';
+          var h = '<div class="sig-dash">';
+          h += '<div class="sig-verdict">';
+          h += '<div class="sig-score ' + scoreCls + '">' + conf.score + '</div>';
+          h += '<div class="sig-score-label">SKOR KONFLUENSI</div>';
+          h += '<span class="sig-chip ' + chipCls + '">' + colorName + '</span>';
+          h += '</div>';
+          h += '<div class="sig-dash-right">';
+          h += '<div class="sig-rows">';
           if (conf.regime) {
-            var rc = conf.regime.regime === 'trending' ? (conf.regime.dir === 'up' ? '#22c55e' : '#ef4444') : '#FFD60A';
-            h += '<div style="font-size:12px;margin:2px 0">';
-            h += '<b style="color:' + rc + '">' + conf.regime.label + '</b> <span style="color:#888">· ADX ' + conf.regime.adx + '</span>';
-            if (conf.regime.align !== undefined) h += ' <span style="color:' + (conf.regime.align ? '#22c55e' : '#ef4444') + '">' + (conf.regime.align ? '✓ searah' : '✗ melawan') + '</span>';
+            var r = conf.regime, trending = r.regime === 'trending';
+            var rCls = trending ? (r.dir === 'up' ? 'c-up' : 'c-down') : 'c-warn';
+            h += '<div class="sig-row2">Regime: <span class="sig-badge ' + (trending ? 'bg-up' : 'bg-warn') + '">' + (r.label || r.regime) + '</span>';
+            h += '<span class="sig-meta">ADX <b>' + r.adx + '</b></span>';
+            if (r.align !== undefined) h += '<span class="' + (r.align ? 'c-up' : 'c-down') + '" style="font-size:12px">' + (r.align ? '✓ searah' : '✗ melawan') + '</span>';
             h += '</div>';
           }
-          /* EDGE / ML Ranker breakdown (volume · momentum · ekspansi) */
-          if (conf.edge && conf.edge.breakdown) {
-            var eg = conf.edge.breakdown, ec = conf.edge.grade === 'STRONG' ? '#22c55e' : conf.edge.grade === 'WEAK' ? '#ef4444' : '#FFD60A';
-            h += '<div style="font-size:12px;color:#a0a0b0">Kekuatan sinyal: <b style="color:' + ec + '">' + conf.edge.score + '/100 (' + conf.edge.grade + ')</b> · vol ' + eg.vol + ' · mom ' + eg.mom + ' · eksp ' + eg.exp + '</div>';
+          if (conf.edge) {
+            var e = conf.edge, ec = e.grade === 'STRONG' ? 'c-up' : e.grade === 'WEAK' ? 'c-down' : 'c-warn';
+            h += '<div class="sig-row2">Kekuatan: <span class="sig-badge ' + (e.grade === 'STRONG' ? 'bg-up' : e.grade === 'WEAK' ? 'bg-down' : 'bg-warn') + '">' + e.score + '/100 · ' + e.grade + '</span></div>';
           }
-          h += '<div style="font-size:12px;line-height:1.6;color:#a0a0b0">' + (conf.reasons || []).join('<br>') + '</div>';
+          h += '</div>';
+          /* Bar gaya: momentum · volume · ekspansi */
+          if (conf.edge && conf.edge.breakdown) {
+            var bd = conf.edge.breakdown;
+            h += '<div class="sig-gauge">';
+            [['Momentum', bd.mom, 'var(--accent)'], ['Volume', bd.vol, '#3b82f6'], ['Ekspansi', bd.exp, '#f59e0b']].forEach(function (g) {
+              var mm = Math.max(0, Math.min(100, g[1]));
+              h += '<div class="sig-gauge-row"><span class="sig-gauge-label">' + g[0] + '</span><span class="sig-gauge-track"><span class="sig-gauge-fill" style="width:' + mm + '%;background:' + g[2] + '"></span></span><span style="font-size:11px;color:var(--text-dim);width:26px;flex:none">' + Math.round(g[1]) + '</span></div>';
+            });
+            h += '</div>';
+          }
+          /* Alasan + rekomendasi singkat */
+          if (conf.reasons && conf.reasons.length) {
+            h += '<div class="sig-reasons">' + conf.reasons.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</div>';
+          }
+          h += '<div class="sig-rec">Ikuti arah yang <b>' + (conf.signal === 'long' ? 'BUY' : conf.signal === 'short' ? 'SELL' : 'netral') + '</b> hanya bila konfluensi cukup, hindari melawan regime.</div>';
+          if (conf.gate) h += '<div class="sig-gate c-warn">⚠ ' + conf.gate.text + '</div>';
+          h += '</div></div>';
           bodyEl.innerHTML = h;
         }).catch(function () { if (bodyEl) bodyEl.textContent = 'Gagal ambil data. Coba lagi nanti.'; });
       })(confBody, activeXau);

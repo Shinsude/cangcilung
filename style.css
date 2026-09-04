@@ -777,3 +777,85 @@ body.drag-over::after {
 .chart-container { width: 100%; height: 450px; background: #1a1a2e; }
 
 /* TradingView chart widget (pelengkap visual) */.tv-widget-wrap { margin: 10px 0 6px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #131722; }.tv-widget-label { padding: 6px 10px; font-size: 11px; color: var(--text-dim); background: rgba(255,255,255,.03); border-bottom: 1px solid var(--border); }.tv-widget-frame { width: 100%; height: 380px; display: block; border: 0; }
+
+/* ── Live Signal — tampilan dashboard (tema-aware) ── */
+.sig-panel { display: flex; flex-direction: column; gap: 14px; color: var(--text); }
+.sig-intro { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+.sig-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+.sig-label { font-size: 11px; letter-spacing: .05em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 8px; font-weight: 700; }
+
+/* Indikator pill */
+.sig-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.sig-pill {
+  border: 1px solid var(--border); background: transparent; color: var(--text-dim);
+  border-radius: 14px; padding: 4px 12px; font-size: 13px; cursor: pointer; transition: all .15s;
+}
+.sig-pill:hover { border-color: var(--accent); color: var(--text); }
+.sig-pill.on { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); font-weight: 700; }
+.sig-pill.on::after { content: ' ●'; }
+.sig-status { font-size: 12px; margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+.sig-status .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+/* Kartu konfluensi utama */
+.sig-dash { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
+.sig-verdict { text-align: center; }
+.sig-score { font-size: 40px; font-weight: 800; line-height: 1; }
+.sig-score-label { font-size: 11px; color: var(--text-dim); margin-top: 4px; letter-spacing: .03em; }
+.sig-chip { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; margin-top: 6px; }
+.sig-dash-right { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.sig-rows { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.sig-row2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sig-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+.sig-meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--text-dim); }
+.sig-meta b { color: var(--text); }
+.sig-lb { font-size: 13px; color: var(--text); }
+.sig-gate { font-size: 12px; }
+
+/* Bar gaya untuk volume/momentum/ekspansi */
+.sig-gauge { display: flex; flex-direction: column; gap: 5px; }
+.sig-gauge-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.sig-gauge-label { width: 64px; color: var(--text-dim); flex: none; }
+.sig-gauge-track { flex: 1; height: 6px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.sig-gauge-fill { height: 100%; border-radius: 4px; }
+
+/* Rekomendasi & alasan */
+.sig-reasons { font-size: 13px; line-height: 1.7; color: var(--text-dim); }
+.sig-reasons li { margin: 0 0 2px 16px; }
+.sig-rec { margin-top: 8px; font-size: 13px; }
+
+/* Kartu active */
+.sig-active-list { display: flex; flex-direction: column; gap: 8px; }
+.sig-active-card { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg-soft); border: 1px solid var(--border); }
+.sig-active-card .info { display: flex; flex-direction: column; gap: 2px; }
+.sig-active-card .strat { font-weight: 700; font-size: 14px; }
+.sig-active-card .sub { font-size: 12px; color: var(--text-dim); }
+.sig-lastsig { font-weight: 700; font-size: 13px; }
+
+/* Riwayat */
+.sig-hist-list { display: flex; flex-direction: column; max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+.sig-hist-head, .sig-hist-row { display: grid; grid-template-columns: 70px 1fr auto; gap: 8px; align-items: center; padding: 6px 10px; font-size: 12px; }
+.sig-hist-head { color: var(--text-dim); font-weight: 700; border-bottom: 1px solid var(--border); text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
+.sig-hist-row { border-bottom: 1px dashed var(--border); }
+.sig-hist-row:last-child { border-bottom: 0; }
+.sig-hist-row .dir { font-weight: 700; }
+.sig-hist-row .when { color: var(--text-dim); text-align: right; font-size: 11px; }
+.sig-empty { color: var(--text-dim); font-size: 13px; padding: 8px 2px; }
+.sig-tip { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+
+/* Warna status */
+.c-up { color: var(--ok) !important; }
+.c-down { color: var(--err) !important; }
+.c-warn { color: var(--warn) !important; }
+.bg-up { background: rgba(16,163,127,.15); color: var(--ok); }
+.bg-down { background: rgba(239,68,68,.15); color: var(--err); }
+.bg-warn { background: rgba(245,158,11,.15); color: var(--warn); }
+.bg-muted { background: var(--border); color: var(--text-dim); }
+
+@media (max-width: 640px) {
+  .sig-dash { grid-template-columns: 1fr; gap: 12px; text-align: left; }
+  .sig-verdict { text-align: left; display: flex; align-items: center; gap: 12px; }
+  .sig-score { font-size: 32px; }
+  .sig-hist-head { display: none; }
+  .sig-hist-row { grid-template-columns: 70px 1fr; }
+  .sig-hist-row .when { grid-column: 2; text-align: left; }
+}
