@@ -231,6 +231,15 @@ html { scrollbar-width: thin; scrollbar-color: #424242 transparent; }
 .icon-btn:active { transform: scale(.95); }
 .icon-btn.active { background: var(--accent-dim); color: var(--accent); }
 
+/* ── Signal badge (indikator ada sinyal baru) ── */
+.signal-badge {
+  position: absolute; top: 2px; right: 2px;
+  min-width: 16px; height: 16px; padding: 0 3px;
+  border-radius: 9px; background: var(--err, #ef4444); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+}
+#btn-signal { position: relative; }
+
 /* ── Cloud ── */
 #cloud-ind[data-state="ok"] { color: var(--ok); }
 #cloud-ind[data-state="err"] { color: var(--err); }
