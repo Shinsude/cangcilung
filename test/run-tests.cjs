@@ -162,6 +162,19 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   const fmtWF = ta.formatWalkforward(wf, 'XAUUSD');
   assert(/Out-of-Sample|OOS|oos/i.test(fmtWF) || /uji/i.test(fmtWF), 'formatWalkforward memuat label OOS');
   assert(fmtWF.indexOf('Latih /') === -1 && /latih/i.test(fmtWF), 'formatWalkforward memuat label latih/uji');
+
+  /* --- Live Signal (strategi cross, notifikasi BUY/SELL) --- */
+  assert(typeof ta.addSignalAlert === 'function', 'addSignalAlert terdefinisi');
+  const sig = ta.addSignalAlert('XAUUSD', 'rsi', { period: 14, overbought: 70, oversold: 30 });
+  assert(sig.ok === true, 'addSignalAlert menambah sinyal');
+  assert(ta.listSignalAlerts().length === 1, 'listSignalAlerts berisi 1 sinyal');
+  const chk = ta.checkSignalAlerts({ symbol: sig.signal.symbol, data: osc });
+  assert(typeof chk.fired.length === 'number', 'checkSignalAlerts mengembalikan fired array');
+  assert(typeof ta.formatSignalAlerts() === 'string', 'formatSignalAlerts string');
+  const rem = ta.removeSignalAlert(sig.signal.id);
+  assert(rem.removed === 1, 'removeSignalAlert menghapus 1');
+  assert(ta.listSignalAlerts().length === 0, 'listSignalAlerts kosong setelah hapus');
+  ta.clearSignalAlerts();
 })();
 
 /* ---------- stream.js ---------- */

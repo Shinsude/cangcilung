@@ -66,6 +66,7 @@
   var settings = { baseUrl: '', model: DEFAULT_MODEL, apiKey: '', analyModel: '', persona: 'default', verifyEnabled: true, theme: 'dark', voice: '', fontSize: 'normal', soundEnabled: true, embedBaseUrl: DEFAULT_EMBED_BASE, embedKey: '', embedModel: DEFAULT_EMBED_MODEL, newsKey: '' };
   var busy = false;
   var alertChecking = false;
+  var signalChecking = false;
   var abortCtrl = null;
   var lastUsedModel = '';
 
@@ -2854,6 +2855,92 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     busy = false; setSendUI(false); setStatus('');
   }
 
+  function handleSignalAdd(symbol, strategy, rawParams) {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var ta = window.CC.ta;
+    var params = {};
+    (rawParams || []).forEach(function (p) {
+      var m = p.split(':');
+      if (m.length === 2 && !isNaN(parseFloat(m[1]))) params[m[0]] = parseFloat(m[1]);
+    });
+    var r = ta.addSignalAlert(symbol, strategy, params);
+    var out;
+    if (r.error) out = '⚠️ ' + r.error;
+    else out = '✅ Live signal terpasang: **' + r.signal.symbol + '** · ' + r.signal.strategy.toUpperCase() +
+      ' (period ' + r.signal.params.period + ', OB ' + r.signal.params.overbought + ', OS ' + r.signal.params.oversold + ')\n' +
+      'Cangcilung pantau tiap menit & kirim notifikasi saat sinyal BUY/SELL muncul. Total: ' + r.count;
+    history.push({ role: 'assistant', content: out, t: nowTime() });
+    saveHistory(); renderHistory();
+    busy = false; setSendUI(false); setStatus('');
+    startSignalChecker();
+  }
+
+  function handleSignalList() {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var out = window.CC.ta.formatSignalAlerts();
+    history.push({ role: 'assistant', content: out, t: nowTime() });
+    saveHistory(); renderHistory();
+    busy = false; setSendUI(false); setStatus('');
+  }
+
+  function handleSignalDelete(id) {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var r = window.CC.ta.removeSignalAlert(id);
+    var out = r.removed ? '🗑️ Live signal dihapus.' : '⚠️ Live signal tidak ditemukan.';
+    history.push({ role: 'assistant', content: out, t: nowTime() });
+    saveHistory(); renderHistory();
+    busy = false; setSendUI(false); setStatus('');
+  }
+
+  function handleSignalClear() {
+    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    window.CC.ta.clearSignalAlerts();
+    var out = '🧹 Semua live signal dibersihkan.';
+    history.push({ role: 'assistant', content: out, t: nowTime() });
+    saveHistory(); renderHistory();
+    busy = false; setSendUI(false); setStatus('');
+  }
+
+  function showSignalNotification(s) {
+    try {
+      var title = (s.side === 'long' ? '🟢 BUY' : '🔴 SELL') + ' — ' + s.symbol;
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification(title, {
+          body: s.strategy.toUpperCase() + ' memunculkan sinyal ' + (s.side === 'long' ? 'BUY' : 'SELL') + ' @ ' + s.price,
+          tag: 'cangcilung-signal'
+        });
+      }
+    } catch (e) {}
+  }
+
+  function startSignalChecker() {
+    if (window.__signalTimer) return;
+    function st() {
+      if (!window.CC || !window.CC.ta || !window.CC.ta.listSignalAlerts) return;
+      if (signalChecking) return;
+      var sigs = window.CC.ta.listSignalAlerts();
+      if (!sigs.length) return;
+      var checked = {};
+      var ta = window.CC.ta;
+      sigs.forEach(function (s) {
+        if (checked[s.symbol]) return;
+        checked[s.symbol] = true;
+        signalChecking = true;
+        ta.fetchYahoo(s.symbol, '1d').then(function (r) {
+          var res = ta.checkSignalAlerts(r);
+          res.fired.forEach(function (f) {
+            if (window.CC && window.CC.ui) window.CC.ui.showToast('🔔 ' + (f.side === 'long' ? 'BUY' : 'SELL') + ' ' + f.symbol + ' (' + f.strategy + ') @ ' + f.price);
+            showSignalNotification(f);
+            playAlertSound();
+          });
+          signalChecking = false;
+        }).catch(function () { signalChecking = false; });
+      });
+    }
+    st();
+    window.__signalTimer = setInterval(st, 60000);
+  }
+
   function playAlertSound() {
     try {
       if (settings.soundEnabled === false) return;
@@ -2936,6 +3023,10 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       case 'news': return handleNews((args[0] || 'XAUUSD'));
       case 'alert': return handleAlertAdd((args[0] || 'XAUUSD'), (args[1] || ''), '');
       case 'alerts': return handleAlertsList();
+      case 'signal': return handleSignalAdd((args[0] || 'XAUUSD'), (args[1] || 'rsi'), [].concat(args[2] || []));
+      case 'signals': return handleSignalList();
+      case 'signal-del': return handleSignalDelete(args[0] || '');
+      case 'signal-clear': return handleSignalClear();
       default: return false;
     }
   }
@@ -3013,7 +3104,10 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '  · tambah `oos` utk validasi anti-overfitting (uji data terbaru)\n';
     out += '- `/news XAUUSD` atau `/berita XAUUSD` — sentimen berita terbaru\n';
     out += '- `/alert XAUUSD 3200` — pasang alert harga\n';
-    out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n\n';
+    out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n';
+    out += '- `/sinyal XAUUSD rsi` — pantau live signal BUY/SELL (rsi/macd/bb/sma/all)\n';
+    out += '  · opsional `period:14:70:30` utk parameter (mis. `period:9:70:30`)\n';
+    out += '  · `/sinyal-list` lihat · `/sinyal-del <id>` hapus · `/sinyal-clear` bersihkan\n\n';
     out += '### Bundel (alur analisis, baru)\n';
     out += '- `/skills` — katalog skill & bundel\n';
     out += '- `/skills analisa XAUUSD` — tren → struktur → risiko\n';
@@ -3362,6 +3456,24 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       var label = m && m[3] ? m[3].trim() : '';
       input.value = '';
       handleAlertAdd(sym, target, label);
+      return;
+    }
+    if (/^\/(sinyal-list|sinyals|livesignals|sig-list)\b/i.test(text)) {
+      input.value = '';
+      handleSignalList();
+      return;
+    }
+    if (/^\/sinyal-clear\b/i.test(text)) {
+      input.value = '';
+      handleSignalClear();
+      return;
+    }
+    if (/^\/(sinyal|livesignal|sig)\b/i.test(text)) {
+      var sm = text.match(/^\/(?:sinyal|livesignal|sig)-del\s+(\S+)/i);
+      if (sm) { input.value = ''; handleSignalDelete(sm[1]); return; }
+      var sm2 = text.match(/^\/(?:sinyal|livesignal|sig)\s+(\S+)\s*([a-z]+)?\s*(.*)/i);
+      input.value = '';
+      handleSignalAdd(sm2 && sm2[1] ? sm2[1] : 'XAUUSD', sm2 && sm2[2] ? sm2[2].toLowerCase() : 'rsi', (sm2 && sm2[3] ? sm2[3].trim().split(/\s+/).filter(Boolean) : []));
       return;
     }
     if (/^\/(news|berita)\b/i.test(text)) {
@@ -4064,6 +4176,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     loadPinned();
     
     startAlertChecker();
+    startSignalChecker();
     
     if ($('btn-stats-close')) $('btn-stats-close').addEventListener('click', function () { closeModal('stats-modal'); });
     if ($('stats-modal')) $('stats-modal').addEventListener('click', function (e) { if (e.target === $('stats-modal')) closeModal('stats-modal'); });
