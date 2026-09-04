@@ -2975,7 +2975,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     html += '<div class="signal-intro" style="color:#a0a0b0;font-size:13px;margin-bottom:12px">Pantau XAUUSD untuk sinyal BUY/SELL dari indikator. Cangcilung <b>otomatis sudah memantau</b> & kirim notifikasi saat crossing terjadi.</div>';
 
     /* Indikator (tampilan tulisan, tanpa dropdown). Klik nama untuk ganti. */
-    var IND = [['rsi', 'RSI 14'], ['macd', 'MACD'], ['bb', 'BB'], ['sma', 'SMA'], ['ema', 'EMA 9/21'], ['vwap', 'VWAP'], ['all', 'All']];
+    var IND = [['rsi', 'RSI 14'], ['macd', 'MACD'], ['bb', 'BB'], ['sma', 'SMA'], ['ma', 'MA 9/21/200'], ['ema', 'EMA 9/21'], ['vwap', 'VWAP'], ['smc', 'SMC'], ['cvd', 'CVD'], ['all', 'All']];
     html += '<div class="signal-form" style="margin-bottom:14px">';
     html += '<div style="font-size:13px;color:#a0a0b0;margin-bottom:6px">INDIKATOR:</div>';
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">';
@@ -3024,7 +3024,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     }
     html += '</div>';
 
-    html += '<div class="signal-tip" style="margin-top:12px;color:#888;font-size:12px">Semua tersimpan otomatis. Ganti indikator lewat menu di atas, langsung dipantau. Sinyal dipicu sekali per crossing & tahan dimuat ulang. Hanya penanda arah, bukan saran pasti.</div>';
+    html += '<div class="signal-tip" style="margin-top:12px;color:#888;font-size:12px">Semua tersimpan otomatis. Klik nama indikator utk ganti, langsung dipantau. Sinyal dipicu sekali per crossing & tahan dimuat ulang. <b>CVD di sini perkiraan dari volume candle</b> (tanpa data tick) & SMC versi sederhana — hanya penanda arah, bukan saran pasti.</div>';
     html += '</div>';
     container.innerHTML = html;
 

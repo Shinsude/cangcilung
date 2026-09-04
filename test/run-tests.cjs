@@ -158,6 +158,28 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(vwapSig > 0, 'genSignals VWAP menghasilkan sinyal (bukan 0): ' + vwapSig);
   assert(vwap.every((x) => x === 'long' || x === 'short' || x === 'flat'), 'genSignals VWAP hanya long/short/flat');
 
+  /* --- Regresi strategi MA 9/21/200, SMC, CVD (pakai data berosilasi realistis) --- */
+  let q = 90;
+  const osc2 = [];
+  for (let i = 0; i < 400; i++) {
+    q += Math.sin(i / 6) * 6 + (i % 40 < 8 ? -9 : 4);
+    const o = q, c = q + Math.sin(i / 3) * 2; /* memuat candle naik & turun */
+    osc2.push({ time: 900000000 + i * 86400, open: o, high: Math.max(o, c) + 3, low: Math.min(o, c) - 3, close: c, volume: 500 + ((i * 37) % 500) });
+  }
+  const maSig = ta.genSignals(osc2, 'ma', {});
+  assert(maSig.length === osc2.length && maSig.filter((x) => x !== 'flat').length > 0,
+    'genSignals MA menghasilkan sinyal: ' + maSig.filter((x) => x !== 'flat').length);
+  const smcSig = ta.genSignals(osc2, 'smc', {});
+  assert(smcSig.length === osc2.length && smcSig.filter((x) => x !== 'flat').length > 0,
+    'genSignals SMC menghasilkan sinyal: ' + smcSig.filter((x) => x !== 'flat').length);
+  const cvdSig = ta.genSignals(osc2, 'cvd', {});
+  assert(cvdSig.length === osc2.length && cvdSig.filter((x) => x !== 'flat').length > 0,
+    'genSignals CVD menghasilkan sinyal: ' + cvdSig.filter((x) => x !== 'flat').length);
+  ['ma', 'smc', 'cvd'].forEach((st) => {
+    const g = ta.genSignals(osc2, st, {});
+    assert(g.every((x) => x === 'long' || x === 'short' || x === 'flat'), 'genSignals ' + st.toUpperCase() + ' hanya long/short/flat');
+  });
+
 
   /* --- Regresi biaya per-trade (cost): harus menurunkan netProfit & tercatat di `trades` --- */
   const btCost = ta.backtest(osc, 'rsi', Object.assign({}, params, { cost: 5 }));
