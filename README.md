@@ -46,6 +46,8 @@ Chatbot AI berbasis web (HTML/CSS/JS murni, satu tab, jawaban streaming). Backen
 - **Auto-scroll pintar**: berhenti mengikuti saat Anda menggulir ke atas, tombol ⬇️ untuk kembali ke bawah.
 - **Penghitung input**: jumlah karakter & kata di bawah kotak ketik.
 - **Basis pengetahuan** (📚): simpan dokumen teks ke cloud, otomatis di-embed & di-chunk. Saat chat, cangcilung mengambil potongan relevan (RAG) dari dokumen tersimpan untuk jawaban lebih akurat.
+- **Analisis trading XAUUSD** (📶): TA lengkap, backtest + walk-forward OOS + **Monte Carlo/stress-test**, live signal dengan notifikasi browser, alert harga, ukuran posisi. Lihat bagian "Analisis Trading" di bawah.
+- **Machine Learning di browser** (/ml): neural network (TensorFlow.js / fallback JS murni) deterministik & persisten untuk prediksi arah harga emas, dengan validasi out-of-sample yang jujur.
 
 ## Pakai langsung (Groq — default)
 
@@ -120,8 +122,51 @@ Fitur menyimpan dokumen teks ke cloud Supabase, di-embed menjadi vektor, lalu di
 2. Setelah tersimpan, cangcilung otomatis mengambil potongan relevan dari dokumen saat Anda bertanya tentang isinya.
 3. Buka modal pengetahuan (📚 di menu tools) untuk melihat daftar dokumen tersimpan atau menghapus dokumen.
 
+## Analisis Trading — Khusus XAUUSD (Emas)
+
+Cangcilung punya mesin analisis trading terintegrasi. **Semua perintah trading otomatis dipaksa ke XAUUSD** (emas): ketik simbol lain, perintah tetap memakai emas. Semua perhitungan berjalan **di browser Anda** (data historis dari Yahoo Finance via proxy Vercel, hingga **10 tahun** untuk data harian).
+
+> ⚠️ Edukasi & simulasi, **bukan saran investasi**. Data hanya dari pasar historis; biaya spread/komisi tidak otomatis — perhitungkan dengan `cost:N`.
+
+### Perintah analisis
+
+| Perintah | Fungsi |
+|---|---|
+| `/ta XAUUSD` | Analisis teknikal lengkap: trend %, bias, RSI, support/resistance, kecepatan |
+| `/rekomendasi XAUUSD` | Keputusan BUY / SELL / WAIT + entry, TP, SL |
+| `/rsi XAUUSD` · `/structure XAUUSD` · `/structure-mtf` | Indikator RSI, struktur market, struktur multi-timeframe |
+| `/risk XAUUSD 10000 1` | Ukuran posisi: lot berdasarkan risk % di akun |
+| `/corr XAUUSD` | Korelasi emas vs DXY & aset lain |
+| `/profile XAUUSD 1d` | Volume profile (harga yang paling banyak ditransaksikan) |
+| `/backtest XAUUSD adaptive 14:70:30 cost:0.5` | Simulasi strategi historis + Sharpe + heatmap + **Monte Carlo & stress-test otomatis** |
+| `/backtest XAUUSD rsi oos` | Validasi **walk-forward out-of-sample** (anti-overfitting) + Monte Carlo OOS |
+| `/sinyal XAUUSD rsi` | **Live signal** BUY/SELL — polling tiap 60 detik, notifikasi browser + suara + toast |
+| `/sinyal-list` · `/sinyal-history` · `/sinyal-del <id>` · `/sinyal-clear` · `/sinyal-test` | Kelola live signal, riwayat, dan uji notifikasi |
+| `/ml XAUUSD` | Latih **neural network di browser** → prediksi arah harga + laporan validasi OOS |
+| `/ml-signal XAUUSD adaptive` | Prediksi arah ML + probabilitas benar dari sinyal TA saat ini |
+| `/alert XAUUSD 2400` | Alert harga (polling tiap menit) |
+| `/news XAUUSD` | Sentimen berita |
+
+Strategi didukung: `rsi`, `bb`, `sma`, `ema`, `vwap`, `ma`, `smc`, `cvd`, `all`, dan **`adaptive`** (otomatis memilih strategi terbaik sesuai kondisi pasar — default).
+
+### Machine Learning (/ml, /ml-signal)
+
+- **Neural network 2-hidden-layer** ditambah logistic regression sebagai pembanding. Engine utama **TensorFlow.js** (dimuat dari CDN); bila offline/error, otomatis fallback ke implementasi murni JS (`engine:vanilla`).
+- **16 fitur teknikal tanpa lookahead** (RSI, MACD, ATR, trend, momentum, dll), data di-split **kronologis** 70/30 → metrik OOS yang jujur.
+- **Deterministik**: seed `42` default → hasil training **identik** antar pemanggilan (fix ketidakpastian ML). Ganti dengan `seed:N`.
+- **Persisten**: model vanilla otomatis **disimpan di localStorage**; pemanggilan ulang memakai cache (instan, tanpa training ulang — ditandai ⚡ di output). Cache divalidasi integritasnya & dibersihkan otomatis saat kuota penuh.
+- **UI anti-freeze**: training di-chunk per epoch — halaman tetap responsif, progres tampil di status.
+- Opsi: `engine:tfjs|vanilla` · `horizon:N` (default 3) · `epochs:N` · `seed:N`. Butuh ≥ **150 bar** data harian.
+
+### Validasi anti-overfitting
+
+- **Walk-forward OOS** (`/backtest ... oos`): data terbaru dipakai sebagai uji (tidak "dilihat" saat parameter dipilih); laporan membandingkan seluruh sampel vs OOS.
+- **Monte Carlo** otomatis di setiap backtest: 2000 simulasi bootstrap ulang urutan trade → distribusi hasil (P05/P50/P95), probabilitas rugi total, verdict. **Stress-test** drawdown ekstrem & losing streak terpanjang — menyingkap apakah strategi menang karena kebetulan urutan.
+- **Sharpe ratio** + heatmap profitabilitas per hari/jam.
+
 ## Catatan
 
+- Arsitektur: semuanya statis (tanpa server backend) — `index.html` memuat `lib/mantra.js` (prompt & skill), `lib/ta.js` (indikator/backtest/Monte Carlo/live signal), `lib/ml.js` (feature engineering + training + cache model), `app.js` (routing perintah, panel UI, polling). Tes regresi: `node test/run-tests.cjs` (harness sintetis + integrasi data real via proxy).
 - Persona bot diatur lewat konstanta `SYSTEM` & `PERSONAS` di `app.js`; tema di `body[data-theme]` di `style.css`.
 - Tes koneksi mencoba `/v1/models` (standar OpenAI) lalu fallback `/api/tags` (Ollama).
 - API Key hanya disimpan di localStorage browser Anda — tidak di-log server.

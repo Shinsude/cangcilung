@@ -278,6 +278,16 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(typeof mc.losingStreak === 'number' && mc.losingStreak >= 1, 'losing streak > 0: ' + mc.losingStreak);
   assert(typeof ta.formatMonteCarlo(mc, 'XAUUSD') === 'string', 'formatMonteCarlo string');
 
+  /* --- Monte Carlo utk subset OUT-OF-SAMPLE pada walk-forward --- */
+  const wfBig = ta.walkforward(big, 'rsi', { period: 14, overbought: 70, oversold: 30 });
+  assert(Array.isArray(wfBig.oosPnls), 'walkforward mengekspos oosPnls per trade');
+  assert(wfBig.oosPnls.length >= 10, 'data uji WF memberi >=10 trade OOS: ' + wfBig.oosPnls.length);
+  assert(wfBig.mcOos && wfBig.mcOos.ok === true, 'walkforward menyertakan Monte Carlo OOS: ' + (wfBig.mcOos && wfBig.mcOos.error));
+  assert(typeof wfBig.mcOos.probLoss === 'number' && wfBig.mcOos.probLoss >= 0 && wfBig.mcOos.probLoss <= 1, 'probLoss OOS 0-1: ' + wfBig.mcOos.probLoss);
+  assert(wfBig.mcOos.p50 <= wfBig.mcOos.p95, 'net P50 OOS <= P95: ' + wfBig.mcOos.p50 + ' vs ' + wfBig.mcOos.p95);
+  const fmtWFbig = ta.formatWalkforward(wfBig, 'XAUUSD');
+  assert(fmtWFbig.indexOf('Monte Carlo') !== -1 && fmtWFbig.indexOf('OOS') !== -1, 'formatWalkforward memuat blok Monte Carlo OOS');
+
   /* --- Live Signal (strategi cross, notifikasi BUY/SELL) --- */
   assert(typeof ta.addSignalAlert === 'function', 'addSignalAlert terdefinisi');
   const sig = ta.addSignalAlert('XAUUSD', 'rsi', { period: 14, overbought: 70, oversold: 30 });

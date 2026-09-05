@@ -2896,6 +2896,23 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     startSignalChecker();
   }
 
+  function handleSignalTest() {
+    // uji notifikasi sistem + suara + toast — tanpa perlu menunggu crossing
+    var out = '🔔 **Uji notifikasi sinyal dikirim.**\n';
+    out += 'Jika notifikasi sistem belum muncul, pastikan izin diberikan:\n';
+    out += '1. Klik ikon 🔒 di address bar → izinkan **Notifications**\n';
+    out += '2. Kalau diblokir: susun ulang izin situs, muat ulang halaman, lalu ulangi `/sinyal-test`\n\n';
+    requestSignalPermission();
+    setTimeout(function () {
+      playAlertSound();
+      showSignalNotification({ side: 'long', symbol: 'XAUUSD', strategy: 'test', price: '—', confluence: 100, verdict: 'UJI' });
+      if (window.CC && window.CC.ui) window.CC.ui.showToast('🔔 Uji notifikasi sinyal berhasil dikirim.', 4000);
+    }, 300);
+    history.push({ role: 'assistant', content: out, t: nowTime() });
+    saveHistory(); renderHistory();
+    busy = false; setSendUI(false); setStatus('');
+  }
+
   function handleSignalList() {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
     var out = window.CC.ta.formatSignalAlerts();
@@ -2951,6 +2968,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
   function openSignalPanel() {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
     var ta = window.CC.ta;
+    requestSignalPermission();
     var container = openChartModal('📶 Live Signal — XAUUSD');
     if (!container) return;
     if (window._signalPanelTimer) clearInterval(window._signalPanelTimer);
@@ -2973,6 +2991,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
   function ensureXauusdSignal(strategy) {
     if (!window.CC || !window.CC.ta) return null;
     var ta = window.CC.ta;
+    requestSignalPermission();
     var active = ta.listSignalAlerts ? ta.listSignalAlerts() : [];
     var existing = active.filter(function (s) { return s.symbol === 'XAUUSD'; });
     var same = existing.filter(function (s) { return s.strategy === strategy; });
@@ -3064,8 +3083,17 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       if (s.gate) body += '\n⚠ ' + s.gate;
       if (s.reasons && s.reasons.length) body += '\n' + s.reasons.slice(0, 3).join(' · ');
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification(title, { body: body, tag: 'cangcilung-signal' });
+        var n = new Notification(title, { body: body, tag: 'cangcilung-signal' });
+        n.onclick = function () { try { window.focus(); n.close(); } catch (e) {} };
       }
+    } catch (e) {}
+  }
+  // minta izin notifikasi sistem sekali (dipicu saat live signal diaktifkan/tombol panel)
+  function requestSignalPermission() {
+    try {
+      if (typeof Notification === 'undefined') return;
+      if (Notification.permission === 'denied') return;
+      if (Notification.permission !== 'granted') Notification.requestPermission();
     } catch (e) {}
   }
 
@@ -3216,10 +3244,12 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
         var cache = ml.loadModelCache(key);
         if (cache && cache.st && cache.st.W1) {
           var m = ml.restoreMLP(cache.st);
-          var tr = ml.evalModel(ds.trainX.map(function (x) { return m.predictProb(x); }), ds.trainY);
-          var te = ml.evalModel(ds.testX.map(function (x) { return m.predictProb(x); }), ds.testY, ds.trainY.filter(function (y) { return y === 1; }).length / ds.trainY.length);
-          var repC = { ok: true, engine: 'vanilla', kind: m.kind, model: m, train: tr, test: te, scaler: ds.scaler, names: ds.names, ds: ds, H: ds.H, seed: opts.seed || 42, cached: true };
-          return ml.formatMl(repC, symbol);
+          if (m) {
+            var tr = ml.evalModel(ds.trainX.map(function (x) { return m.predictProb(x); }), ds.trainY);
+            var te = ml.evalModel(ds.testX.map(function (x) { return m.predictProb(x); }), ds.testY, ds.trainY.filter(function (y) { return y === 1; }).length / ds.trainY.length);
+            var repC = { ok: true, engine: 'vanilla', kind: m.kind, model: m, train: tr, test: te, scaler: ds.scaler, names: ds.names, ds: ds, H: ds.H, seed: opts.seed || 42, cached: true };
+            return ml.formatMl(repC, symbol);
+          }
         }
       }
       opts.onProgress = function (e, total) { setStatus('Training model ' + symbol + '... ' + e + '/' + total + ' epoch'); };
@@ -3276,6 +3306,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       case 'alert': return handleAlertAdd((args[0] || 'XAUUSD'), (args[1] || ''), '');
       case 'alerts': return handleAlertsList();
       case 'signal': return handleSignalAdd((args[0] || 'XAUUSD'), (args[1] || 'adaptive'), [].concat(args[2] || []));
+      case 'signal-test': return handleSignalTest();
       case 'signals': return handleSignalList();
       case 'signal-del': return handleSignalDelete(args[0] || '');
       case 'signal-clear': return handleSignalClear();
@@ -3364,7 +3395,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n';
     out += '- `/sinyal XAUUSD rsi` — pantau live signal BUY/SELL + konfluensi, regime & kekuatan (rsi/bb/sma/ema/vwap/ma/smc/cvd/all/adaptive)\n';
     out += '  · opsional `period:14:70:30` utk parameter (mis. `period:9:70:30`)\n';
-    out += '  · `/sinyal-list` lihat aktif · `/sinyal-history` riwayat · `/sinyal-del <id>` hapus · `/sinyal-clear` bersihkan\n';
+    out += '  · `/sinyal-list` lihat aktif · `/sinyal-history` riwayat · `/sinyal-del <id>` hapus · `/sinyal-clear` bersihkan · `/sinyal-test` uji notifikasi\n';
     out += '### Machine Learning / Deep Learning (baru) 🧠\n';
     out += '- `/ml XAUUSD` — latih neural network di browser (TensorFlow.js online / fallback offline) → prediksi arah harga + laporan validasi OOS (anti-overfit)\n';
     out += '  · deterministik (seed 42) + hasil **disimpan** (panggil ulang → instan dari cache)\n';
@@ -3769,6 +3800,11 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       var label = m && m[3] ? m[3].trim() : '';
       input.value = '';
       handleAlertAdd(sym, target, label);
+      return;
+    }
+    if (/^\/sinyal-test\b/i.test(text)) {
+      input.value = '';
+      handleSignalTest();
       return;
     }
     if (/^\/(sinyal-history|sinyal-log|sinyalhist)\b/i.test(text)) {
