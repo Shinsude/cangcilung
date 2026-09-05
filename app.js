@@ -2783,7 +2783,10 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     (rawParams || []).forEach(function (p) {
       if (/^oos$/i.test(p.trim())) { oos = true; return; }
       var m = p.split(':');
-      if (m.length === 2 && !isNaN(parseFloat(m[1]))) params[m[0]] = parseFloat(m[1]);
+      if (m.length === 2) {
+        var nv = parseFloat(m[1]);
+        params[m[0]] = isNaN(nv) ? m[1] : nv;
+      }
     });
     var quant = (params.quant || 0) > 0 ? 100 : 50;
     busy = true; setSendUI(true);
@@ -3406,6 +3409,8 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/bb/sma/ema/vwap/ma/smc/cvd/all/adaptive) + Sharpe + heatmap hari/jam + **Monte Carlo & stress-test otomatis**\n';
     out += '  · ⭐ `adaptive` = otomatis memilih strategi terbaik per kondisi market (NAIK→all-long, TURUN→smc, RANGE→bb) & jadi default\n';
     out += '  · opsional `cost:N` utk biaya per trade (mis. `cost:0.5`) agar hasil lebih realistis\n';
+    out += '  · opsional `costModel:session spreadBase:0.25 commission:0.1` — biaya memakai spread emas dinamis per sesi (Asia>Eropa>NY) + komisi\n';
+    out += '  · opsional `tf:1h` (atau `tf:5m/15m/30m/1d/1w`) — timeframe data backtest\n';
     out += '  · tambah `oos` utk validasi anti-overfitting (uji data terbaru)\n';
     out += '- `/news XAUUSD` atau `/berita XAUUSD` — sentimen berita terbaru\n';
     out += '- `/alert XAUUSD 3200` — pasang alert harga\n';
