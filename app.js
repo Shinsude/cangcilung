@@ -3141,6 +3141,80 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     window.__alertTimer = setInterval(tick, 60000);
   }
 
+  /* ---------- Machine Learning & Deep Learning (/ml & /ml-signal) ---------- */
+  // Parsing opsi: engine:vanilla|tfjs, horizon:N, epochs:N, tf:on
+  function parseMLOpts(arr) {
+    var o = {};
+    (arr || []).forEach(function (p) {
+      var m = String(p).split(':');
+      if (m.length === 2) {
+        var k = m[0].toLowerCase();
+        if (k === 'engine') o.engine = m[1].toLowerCase();
+        else if (k === 'tf') o.engine = (m[1] === 'on' || m[1] === '1' || m[1] === 'true') ? 'tfjs' : 'vanilla';
+        else if (k === 'horizon' && !isNaN(parseInt(m[1]))) o.horizon = parseInt(m[1]);
+        else if (k === 'epochs' && !isNaN(parseInt(m[1]))) o.epochs = parseInt(m[1]);
+      }
+    });
+    return o;
+  }
+  function finalizeMessage(out) {
+    history.push({ role: 'assistant', content: out, t: nowTime() });
+    saveHistory(); renderHistory();
+    busy = false; setSendUI(false); setStatus('');
+  }
+  function failMessage(bubble, err) {
+    removeTyping(bubble);
+    var msg = '⚠️ ML gagal: ' + (err.message || err);
+    history.push({ role: 'assistant', content: msg, t: nowTime() });
+    saveHistory();
+    if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+    renderHistory();
+    busy = false; setSendUI(false); setStatus('');
+  }
+  // /ml SYM — latih model arah (Model A) + laporan validasi
+  function handleML(symbol, optsArr) {
+    if (!window.CC || !window.CC.ml) { setStatus('ML tidak dimuat.', true); return; }
+    if (!window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var ml = window.CC.ml, ta = window.CC.ta;
+    var opts = parseMLOpts(optsArr);
+    busy = true; setSendUI(true);
+    setStatus('Training model ' + symbol + '...');
+    var bubble = addBubble('assistant', null);
+    showTyping(bubble);
+    ta.fetchYahoo(symbol, '1d').then(function (o) {
+      if (!o || !o.data || o.data.length < 200) throw new Error('Data harian tidak cukup (< 200 bar)');
+      removeTyping(bubble);
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      return ml.trainDirection(o.data, opts).then(function (r) {
+        return (r.error ? '⚠️ ' + r.error : ml.formatMl(r, symbol));
+      });
+    }).then(finalizeMessage).catch(function (err) { failMessage(bubble, err); });
+  }
+  // /ml-signal SYM STRAT — prediksi arah (Model A) + skor sinyal TA (Model B)
+  function handleMLSignal(symbol, strategy, rawParams) {
+    if (!window.CC || !window.CC.ml) { setStatus('ML tidak dimuat.', true); return; }
+    if (!window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var ml = window.CC.ml, ta = window.CC.ta;
+    var opts = parseMLOpts(rawParams);
+    busy = true; setSendUI(true);
+    setStatus('Menganalisis arah ' + symbol + ' dengan ML...');
+    var bubble = addBubble('assistant', null);
+    showTyping(bubble);
+    ta.fetchYahoo(symbol, '1d').then(function (o) {
+      if (!o || !o.data || o.data.length < 200) throw new Error('Data harian tidak cukup (< 200 bar)');
+      removeTyping(bubble);
+      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      return Promise.all([
+        ml.predictDirection(o.data, opts),
+        ml.scoreSignal(o.data, strategy, null, opts)
+      ]).then(function (res) {
+        var p = res[0], s = res[1];
+        return (p.error ? '⚠️ ' + p.error : ml.formatPredict(p, symbol)) +
+               '\n\n' + (s.error ? '⚠️ ' + s.error : ml.formatSignalScore(s, symbol));
+      });
+    }).then(finalizeMessage).catch(function (err) { failMessage(bubble, err); });
+  }
+
   /* ---- Skills & Bundles (pola MANTRA: katalog + bundel terurut) ----
      Data + rekomendasi murni diekstrak ke lib/mantra.js. */
   var MANTRA = window.cangcilungMantra || {};
@@ -3164,6 +3238,8 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       case 'signals': return handleSignalList();
       case 'signal-del': return handleSignalDelete(args[0] || '');
       case 'signal-clear': return handleSignalClear();
+      case 'ml': return handleML((args[0] || 'XAUUSD'), [].concat(args.slice(1)));
+      case 'ml-signal': return handleMLSignal((args[0] || 'XAUUSD'), (args[1] || 'adaptive'), [].concat(args.slice(2)));
       default: return false;
     }
   }
@@ -3246,7 +3322,12 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n';
     out += '- `/sinyal XAUUSD rsi` — pantau live signal BUY/SELL + konfluensi, regime & kekuatan (rsi/bb/sma/ema/vwap/ma/smc/cvd/all/adaptive)\n';
     out += '  · opsional `period:14:70:30` utk parameter (mis. `period:9:70:30`)\n';
-    out += '  · `/sinyal-list` lihat aktif · `/sinyal-history` riwayat · `/sinyal-del <id>` hapus · `/sinyal-clear` bersihkan\n\n';
+    out += '  · `/sinyal-list` lihat aktif · `/sinyal-history` riwayat · `/sinyal-del <id>` hapus · `/sinyal-clear` bersihkan\n';
+    out += '### Machine Learning / Deep Learning (baru) 🧠\n';
+    out += '- `/ml XAUUSD` — latih neural network di browser (TensorFlow.js online / fallback offline) → prediksi arah harga + laporan validasi OOS (anti-overfit)\n';
+    out += '  · opsional `engine:vanilla` (offline murni JS & tanpa CDN) · `horizon:N` (default 3) · `epochs:N`\n';
+    out += '- `/ml-signal XAUUSD rsi` — prediksi arah ML + probabilitas sinyal TA (BUY/SELL) saat ini benar (rsi/bb/sma/ema/vwap/ma/smc/cvd/all/adaptive)\n';
+    out += '  · contoh: `/ml-signal XAUUSD adaptive` · `/ml XAUUSD engine:vanilla`\n\n';
     out += '### Bundel (alur analisis, baru)\n';
     out += '- `/skills` — katalog skill & bundel\n';
     out += '- `/skills analisa XAUUSD` — tren → struktur → risiko\n';
@@ -3679,6 +3760,18 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       var rawParams = m && m[3] ? m[3].trim().split(/\s+/).filter(Boolean) : [];
       input.value = '';
       handleBacktest(sym, strat, rawParams);
+      return;
+    }
+if (/^\/ml-signal\b/i.test(text)) {
+      var mms = text.match(/^\/ml-signal\s+(\S+)\s*([a-z]+)?\s*(.*)/i);
+      input.value = '';
+      handleMLSignal(mms && mms[1] ? mms[1] : 'XAUUSD', mms && mms[2] ? mms[2].toLowerCase() : 'adaptive', (mms && mms[3] ? mms[3].trim().split(/\s+/).filter(Boolean) : []));
+      return;
+    }
+    if (/^\/ml\b/i.test(text)) {
+      var mm = text.match(/^\/ml\s+(\S+)?\s*(.*)/i);
+      input.value = '';
+      handleML(mm && mm[1] ? mm[1] : 'XAUUSD', (mm && mm[2] ? mm[2].trim().split(/\s+/).filter(Boolean) : []));
       return;
     }
     if (/^\/help\b/i.test(text)) {

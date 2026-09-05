@@ -324,6 +324,56 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(/Sharpe|Heatmap|heatmap/i.test(fmtBT) || bt2.sharpe === null, 'formatBacktest memuat Sharpe/heatmap (khusus bila ada)');
 })();
 
+/* ---------- ml.js: Machine Learning / Deep Learning ---------- */
+suite('lib/ml.js (Machine Learning & Deep Learning)');
+(function () {
+  global.location = { origin: 'https://cangcilung.vercel.app' };
+  const wm = loadBrowser('lib/ta.js');
+  const ml = loadBrowser('lib/ml.js').CC.ml;
+  assert(ml && typeof ml.buildFeatures === 'function', 'CC.ml terdefinisi (buildFeatures)');
+
+  /* dataset sintetis berosilasi realistis (cukup utk fitur 60 bar + label) */
+  let mp = 2000;
+  const mdata = [];
+  for (let i = 0; i < 400; i++) {
+    mp += Math.sin(i / 6) * 10 + (i % 40 < 8 ? -14 : 6);
+    const o = mp, c = mp + Math.sin(i / 3) * 4;
+    mdata.push({ time: 930000000 + i * 86400, open: o, high: Math.max(o, c) + 5, low: Math.min(o, c) - 5, close: c, volume: 500 + ((i * 37) % 500) });
+  }
+
+  const fe = ml.buildFeatures(mdata);
+  assert(fe.ok === true, 'buildFeatures berhasil: ' + (fe.error || ''));
+  assert(Array.isArray(fe.X) && fe.X.length > 0, 'buildFeatures menghasilkan baris fitur: ' + fe.X.length);
+  assert(fe.X.every((row) => row.every((v) => isFinite(v))), 'semua fitur bernilai angka (tanpa NaN/Inf)');
+
+  const ds = ml.buildDatasets(mdata, { horizon: 3 });
+  assert(ds.ok === true, 'buildDatasets berhasil: ' + (ds.error || ''));
+  assert(ds.trainX.length === ds.trainY.length, 'trainX & trainY panjang sama (anti off-by-H): ' + ds.trainX.length + ' vs ' + ds.trainY.length);
+  assert(ds.testX.length === ds.testY.length, 'testX & testY panjang sama (anti off-by-H): ' + ds.testX.length + ' vs ' + ds.testY.length);
+  assert(ds.testX.length + ds.trainX.length === ds.n, 'split kronologis tidak membuang sampel');
+  assert(ds.cut > 0 && ds.cut < ds.n, 'titik potong latih/uji valid: ' + ds.cut + '/' + ds.n);
+
+  /* logistic regression (vanilla) + evaluasi OOS */
+  const lg = ml.trainLogReg(ds.trainX, ds.trainY, { epochs: 200 });
+  const lgTest = ml.evalModel(ds.testX.map((r) => lg.predictProb(r)), ds.testY);
+  assert(lgTest.acc >= 0 && lgTest.acc <= 100, 'evalModel logreg akurasi valid: ' + lgTest.acc + '%');
+  assert(isFinite(lgTest.edge) && isFinite(lgTest.logLoss), 'logreg edge & log-loss numerik (bukan NaN)');
+  assert(lgTest.baseline > 0 && lgTest.baseline <= 100, 'baseline dihitung dari kelas mayoritas label asli: ' + lgTest.baseline + '%');
+
+  /* MLP vanilla (deep) — regresi bug NaN (ReLU meledak) harus pakai tanh+clip */
+  const nn = ml.trainMLP(ds.trainX, ds.trainY, { epochs: 60 });
+  const nnTest = ml.evalModel(ds.testX.map((r) => nn.predictProb(r)), ds.testY);
+  assert(isFinite(nnTest.acc), 'MLP vanilla akurasi numerik: ' + nnTest.acc + '%');
+  assert(isFinite(nnTest.logLoss), 'MLP vanilla log-loss numerik (bukan NaN)');
+  const nnProbs = ds.testX.map((r) => nn.predictProb(r));
+  assert(nnProbs.every((p) => isFinite(p)), 'MLP vanilla tidak menghasilkan prediksi NaN/Inf');
+
+  /* scaler anti-lookahead: mean/std dihitung hanya dari fitur latih */
+  assert(ds.scaler && Array.isArray(ds.scaler.mu) && ds.scaler.mu.length > 0, 'scaler menyimpan mean per fitur (fit latih saja)');
+  const row = ml.scaleRow(ds.scaler, fe.X[fe.X.length - 1]);
+  assert(row.every((v) => isFinite(v)), 'scaleRow mengeluarkan nilai finite');
+})();
+
 /* ---------- stream.js ---------- */
 suite('lib/stream.js (parser SSE)');
 const w3 = loadBrowser('lib/stream.js');
