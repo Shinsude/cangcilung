@@ -3029,7 +3029,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     html += '<div id="sig-conf-body" style="color:var(--text-dim);font-size:13px">Menghitung…</div>';
     html += '</div>';
 
-    html += '<div class="sig-tip">Auto-memantau ' + (cur || 'adaptive').toUpperCase() + ' · BUY/SELL = arah kuat & searah; WAIT = tunggu konfirmasi. Bukan saran investasi.</div>';
+    html += '<div class="sig-tip">Auto-memantau ' + (cur || 'adaptive').toUpperCase() + ' · BUY/SELL = arah kuat & searah; WAIT = tunggu konfirmasi; keputusan dihitung saat pasar buka. Bukan saran investasi.</div>';
     html += '</div>';
     container.innerHTML = html;
 
@@ -3054,6 +3054,17 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
           var dec = conf.decision || 'wait';
           var decMap = { buy: { txt: 'BUY', sym: '▲', cls: 'c-up', bg: 'bg-up' }, sell: { txt: 'SELL', sym: '▼', cls: 'c-down', bg: 'bg-down' }, wait: { txt: 'WAIT', sym: '⏳', cls: 'c-warn', bg: 'bg-warn' } };
           var d = decMap[dec] || decMap.wait;
+          /* Saat market tutup / data basi: keputusan bukan live — demote ke MENUNGGU,
+             analisis tetap ditampilkan sebagai pratayang yang jujur. */
+          var closed = !!(mInfo && !mInfo.open);
+          var fresh = !closed && (typeof ta.barIsFresh !== 'function' || ta.barIsFresh(r && r.data ? r.data : (r || null)));
+          var demote = closed || !fresh;
+          if (demote) {
+            var preview = dec === 'buy' ? 'BUY' : dec === 'sell' ? 'SELL' : 'WAIT';
+            d = decMap.wait;
+            why = (closed ? '⛔ Market ' + mInfo.label : 'Data pasar belum mutakhir') +
+              ' — keputusan BUY/SELL baru dihitung saat pasar buka. Analisis pratayang saat ini: ' + preview + '.';
+          }
           var h = '<div class="sig-decision">';
           h += '<div class="sig-dec-symbol ' + d.cls + '">' + d.sym + '</div>';
           h += '<div class="sig-dec-txt ' + d.cls + '">' + d.txt + '</div>';
@@ -3073,11 +3084,11 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
           }
           h += '<div class="sig-dec-why">' + why + '</div>';
           h += '</div>';
-          /* Info batas data saat market tutup — jangan ditafsirkan sebagai sinyal real-time */
-          if (mInfo && !mInfo.open) {
+          /* Info batas data saat market tutup / data basi — jangan ditafsirkan sebagai sinyal real-time */
+          if (demote) {
             var lastT = (r && r.data && r.data.length) ? r.data[r.data.length - 1].time : null;
             var barDate = lastT ? new Date(lastT * 1000).toISOString().slice(0, 10) : '';
-            h += '<div style="color:var(--warn);font-size:12px;margin-top:8px">Data penutupan terakhir: <b>' + (barDate || '—') + '</b>. Market ' + mInfo.label + ' — evaluasi ulang saat pasar buka.</div>';
+            h += '<div style="color:var(--warn);font-size:12px;margin-top:8px">Data penutupan terakhir: <b>' + (barDate || '—') + '</b>. Market ' + (mInfo ? mInfo.label : '') + ' — evaluasi ulang saat pasar buka.</div>';
           }
           bodyEl.innerHTML = h;
           /* ledakan visual kecil saat keputusan berganti */
