@@ -2566,6 +2566,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       setStatus('Technical Analysis tidak dimuat.', true);
       return;
     }
+    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
     var ta = window.CC.ta;
     var container = openChartModal(symbol.toUpperCase() + ' RSI(' + period + ')');
     if (!container) return;
@@ -2611,11 +2612,25 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     return parts.length ? '### 📌 Catatan personal untuk kamu\n' + parts.join(' ') : '';
   }
 
+  /* Fokus trading: Cangcilung berdiri untuk XAUUSD (emas) saja.
+     Semua perintah analisis trading dialihkan ke XAUUSD bila simbol lain diminta. */
+  function focusSym(symbol) {
+    var u = String(symbol || 'XAUUSD').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (u === 'XAUUSD' || u === 'XAU' || u === 'GOLD' || u === 'EMAS') return { s: 'XAUUSD', forced: false };
+    return { s: 'XAUUSD', forced: true, req: String(symbol).toUpperCase().trim() };
+  }
+  function focusNote(f) {
+    if (!f || !f.forced) return;
+    history.push({ role: 'assistant', content: '🔒 Cangcilung difokuskan pada **XAUUSD (emas)** — permintaan *' + f.req + '* dialihkan ke XAUUSD.', t: nowTime() });
+    saveHistory();
+  }
+
   function handleTA(symbol) {
     if (!window.CC || !window.CC.ta) {
       setStatus('Technical Analysis tidak dimuat.', true);
       return;
     }
+    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
     var ta = window.CC.ta;
     busy = true;
     setSendUI(true);
@@ -2670,6 +2685,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
 
   function handleRekomendasi(symbol) {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
     var ta = window.CC.ta;
     busy = true;
     setSendUI(true);
@@ -2760,6 +2776,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
 
   function handleBacktest(symbol, strategy, rawParams) {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
     var ta = window.CC.ta;
     var params = {};
     var oos = false;
@@ -2781,7 +2798,10 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
         var wf = ta.walkforward(result.data, strategy, params);
         out = ta.formatWalkforward(wf, symbol) + '\n\n*Sumber: ' + (result.source || 'yahoo') + ' — sinyal dari data historis; % uji = data terbaru.*';
       } else {
-        out = ta.formatBacktest(r, symbol) + '\n\n*Sumber: ' + (result.source || 'yahoo') + ' — 1 setel per-TF. Semua sinyal dihitung dari data historis.*';
+        out = ta.formatBacktest(r, symbol);
+        var mc = ta.monteCarlo(r, 2000);
+        if (!mc.error) out += '\n\n' + ta.formatMonteCarlo(mc, symbol);
+        out += '\n\n*Sumber: ' + (result.source || 'yahoo') + ' — 1 setel per-TF. Semua sinyal dihitung dari data historis.*';
       }
       removeTyping(bubble);
       history.push({ role: 'assistant', content: out, t: nowTime() });
@@ -2857,6 +2877,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
 
   function handleSignalAdd(symbol, strategy, rawParams) {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
     var ta = window.CC.ta;
     var params = {};
     (rawParams || []).forEach(function (p) {
@@ -3171,46 +3192,66 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     renderHistory();
     busy = false; setSendUI(false); setStatus('');
   }
-  // /ml SYM — latih model arah (Model A) + laporan validasi
+  // /ml SYM — latih model arah (Model A) + laporan validasi.
+  // Vanilla: training di-chunk (UI tidak beku), deterministik (seed 42) & hasil disimpan di
+  // localStorage -> pemanggilan berikutnya langsung dari cache (instan, tanpa training ulang).
   function handleML(symbol, optsArr) {
     if (!window.CC || !window.CC.ml) { setStatus('ML tidak dimuat.', true); return; }
     if (!window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
     var ml = window.CC.ml, ta = window.CC.ta;
     var opts = parseMLOpts(optsArr);
     busy = true; setSendUI(true);
-    setStatus('Training model ' + symbol + '...');
+    setStatus('Mengambil data ' + symbol + '...');
     var bubble = addBubble('assistant', null);
     showTyping(bubble);
     ta.fetchYahoo(symbol, '1d').then(function (o) {
-      if (!o || !o.data || o.data.length < 200) throw new Error('Data harian tidak cukup (< 200 bar)');
-      removeTyping(bubble);
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
+      if (!o || !o.data || o.data.length < 150) throw new Error('Data harian tidak cukup (< 150 bar)');
+      var ds = ml.buildDatasets(o.data, opts);
+      if (ds.error) throw new Error(ds.error);
+      var canCache = opts.engine !== 'tfjs';
+      var sig = ml.dataSig(o.data);
+      var key = canCache ? ml.cacheKey(symbol, ds.H, ds.n, sig) : null;
+      if (canCache) {
+        var cache = ml.loadModelCache(key);
+        if (cache && cache.st && cache.st.W1) {
+          var m = ml.restoreMLP(cache.st);
+          var tr = ml.evalModel(ds.trainX.map(function (x) { return m.predictProb(x); }), ds.trainY);
+          var te = ml.evalModel(ds.testX.map(function (x) { return m.predictProb(x); }), ds.testY, ds.trainY.filter(function (y) { return y === 1; }).length / ds.trainY.length);
+          var repC = { ok: true, engine: 'vanilla', kind: m.kind, model: m, train: tr, test: te, scaler: ds.scaler, names: ds.names, ds: ds, H: ds.H, seed: opts.seed || 42, cached: true };
+          return ml.formatMl(repC, symbol);
+        }
+      }
+      opts.onProgress = function (e, total) { setStatus('Training model ' + symbol + '... ' + e + '/' + total + ' epoch'); };
       return ml.trainDirection(o.data, opts).then(function (r) {
-        return (r.error ? '⚠️ ' + r.error : ml.formatMl(r, symbol));
+        if (r.error) return '⚠️ ' + r.error;
+        if (canCache && r.engine === 'vanilla' && r.model && r.model._state) ml.saveModelCache(key, { st: r.model._state });
+        return ml.formatMl(r, symbol);
       });
     }).then(finalizeMessage).catch(function (err) { failMessage(bubble, err); });
   }
-  // /ml-signal SYM STRAT — prediksi arah (Model A) + skor sinyal TA (Model B)
+  // /ml-signal SYM STRAT — prediksi arah (Model A) + skor sinyal TA (Model B, pakai hasil Model A)
   function handleMLSignal(symbol, strategy, rawParams) {
     if (!window.CC || !window.CC.ml) { setStatus('ML tidak dimuat.', true); return; }
     if (!window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
     var ml = window.CC.ml, ta = window.CC.ta;
     var opts = parseMLOpts(rawParams);
     busy = true; setSendUI(true);
     setStatus('Menganalisis arah ' + symbol + ' dengan ML...');
     var bubble = addBubble('assistant', null);
     showTyping(bubble);
+    opts.onProgress = function (e, total) { setStatus('Training model arah... ' + e + '/' + total + ' epoch'); };
     ta.fetchYahoo(symbol, '1d').then(function (o) {
-      if (!o || !o.data || o.data.length < 200) throw new Error('Data harian tidak cukup (< 200 bar)');
+      if (!o || !o.data || o.data.length < 150) throw new Error('Data harian tidak cukup (< 150 bar)');
       removeTyping(bubble);
       if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      return Promise.all([
-        ml.predictDirection(o.data, opts),
-        ml.scoreSignal(o.data, strategy, null, opts)
-      ]).then(function (res) {
-        var p = res[0], s = res[1];
-        return (p.error ? '⚠️ ' + p.error : ml.formatPredict(p, symbol)) +
-               '\n\n' + (s.error ? '⚠️ ' + s.error : ml.formatSignalScore(s, symbol));
+      return ml.predictDirection(o.data, opts).then(function (p) {
+        if (p.error) return '⚠️ ' + p.error;
+        var sOpts = Object.assign({}, opts, { pre: p });
+        return ml.scoreSignal(o.data, strategy, null, sOpts).then(function (s) {
+          return ml.formatPredict(p, symbol) + '\n\n' + (s.error ? '⚠️ ' + s.error : ml.formatSignalScore(s, symbol));
+        });
       });
     }).then(finalizeMessage).catch(function (err) { failMessage(bubble, err); });
   }
@@ -3302,6 +3343,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
   }
   function handleHelpCommand() {
     var out = '## Perintah CangCilung 📊\n\n';
+    out += '> 🔒 Cangcilung **fokus khusus XAUUSD (emas)** — semua analisis trading otomatis memakai XAUUSD.`\n';
     out += '### Trading / Market\n';
     out += '- `/ta XAUUSD` — analisis lengkap semua indikator + SMC + verdict\n';
     out += '- `/rekomendasi XAUUSD` — arah (BUY/SELL/WATCH) + entry/SL/TP/RR\n';
@@ -3313,7 +3355,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '- `/profile XAUUSD 1h` — volume profile (POC/HVN/LVN)\n';
     out += '- `/risk XAUUSD 10000 1` — risk management (SL/TP/lot)\n';
     out += '- `/corr XAUUSD` — korelasi XAU vs DXY (atau NDX vs VIX)\n';
-    out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/bb/sma/ema/vwap/ma/smc/cvd/all/adaptive) + Sharpe + heatmap hari/jam\n';
+    out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/bb/sma/ema/vwap/ma/smc/cvd/all/adaptive) + Sharpe + heatmap hari/jam + **Monte Carlo & stress-test otomatis**\n';
     out += '  · ⭐ `adaptive` = otomatis memilih strategi terbaik per kondisi market (NAIK→all-long, TURUN→smc, RANGE→bb) & jadi default\n';
     out += '  · opsional `cost:N` utk biaya per trade (mis. `cost:0.5`) agar hasil lebih realistis\n';
     out += '  · tambah `oos` utk validasi anti-overfitting (uji data terbaru)\n';
@@ -3325,6 +3367,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '  · `/sinyal-list` lihat aktif · `/sinyal-history` riwayat · `/sinyal-del <id>` hapus · `/sinyal-clear` bersihkan\n';
     out += '### Machine Learning / Deep Learning (baru) 🧠\n';
     out += '- `/ml XAUUSD` — latih neural network di browser (TensorFlow.js online / fallback offline) → prediksi arah harga + laporan validasi OOS (anti-overfit)\n';
+    out += '  · deterministik (seed 42) + hasil **disimpan** (panggil ulang → instan dari cache)\n';
     out += '  · opsional `engine:vanilla` (offline murni JS & tanpa CDN) · `horizon:N` (default 3) · `epochs:N`\n';
     out += '- `/ml-signal XAUUSD rsi` — prediksi arah ML + probabilitas sinyal TA (BUY/SELL) saat ini benar (rsi/bb/sma/ema/vwap/ma/smc/cvd/all/adaptive)\n';
     out += '  · contoh: `/ml-signal XAUUSD adaptive` · `/ml XAUUSD engine:vanilla`\n\n';
@@ -3347,6 +3390,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
 
   function handleStructure(symbol) {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
     var ta = window.CC.ta;
     busy = true; setSendUI(true);
     setStatus('Analisis struktur market ' + symbol + '...');
@@ -3378,6 +3422,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
 
   function handleStructureMtf(symbol) {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
     var ta = window.CC.ta;
     busy = true; setSendUI(true);
     setStatus('Dashboard struktur multi-timeframe ' + symbol + '...');
@@ -3416,6 +3461,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
 
   function handleRisk(symbol, accSize, riskPct) {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
     var ta = window.CC.ta;
     busy = true; setSendUI(true);
     setStatus('Kalkulasi risk management ' + symbol + '...');
@@ -3449,6 +3495,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
 
   function handleCorrelation(symbol) {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
     var ta = window.CC.ta;
     busy = true; setSendUI(true);
     setStatus('Analisis korelasi ' + symbol + '...');
@@ -3483,6 +3530,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
 
   function handleProfile(symbol, tf) {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
+    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
     var ta = window.CC.ta;
     busy = true; setSendUI(true);
     setStatus('Menghitung Volume Profile ' + symbol + '...');

@@ -251,6 +251,33 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(/Out-of-Sample|OOS|oos/i.test(fmtWF) || /uji/i.test(fmtWF), 'formatWalkforward memuat label OOS');
   assert(fmtWF.indexOf('Latih /') === -1 && /latih/i.test(fmtWF), 'formatWalkforward memuat label latih/uji');
 
+  /* --- MONTE CARLO & STRESS-TEST (ketahanan urutan trade) --- */
+  assert(typeof ta.monteCarlo === 'function', 'monteCarlo terdefinisi');
+  assert(bt.pnls && Array.isArray(bt.pnls), 'backtest mengekspos pnls per trade utk Monte Carlo');
+  assert(bt.pnls.every((p) => typeof p === 'number'), 'semua pnls numerik');
+  if (bt.pnls.length < 10) {
+    const mcLt = ta.monteCarlo(bt, 500);
+    assert(mcLt && mcLt.error && /minimal 10/i.test(mcLt.error), 'monteCarlo memberi pesan jelas bila trade < 10');
+  }
+  /* path positif wajib: seri panjang dgn volatilitas tinggi -> banyak trade */
+  let bp = 2000;
+  const big = [];
+  for (let i = 0; i < 600; i++) {
+    bp += Math.sin(i / 5) * 14 + ((i * 31) % 30 < 9 ? -18 : 10);
+    big.push({ time: 900000000 + i * 86400, open: bp, high: bp + 8, low: bp - 8, close: bp + (i % 2 ? 6 : -4), volume: 800 });
+  }
+  const bigBT = ta.backtest(big, 'rsi', { period: 14, overbought: 70, oversold: 30 });
+  assert(bigBT.closedSignals >= 10, 'data uji MC menghasilkan >=10 trade: ' + bigBT.closedSignals);
+  const mc = ta.monteCarlo(bigBT, 500);
+  assert(mc.ok === true, 'monteCarlo berjalan pada data trade cukup: ' + (mc.error || ''));
+  assert(mc.runs === 500 && mc.n === bigBT.pnls.length, 'monteCarlo memakai jumlah trade aktual');
+  assert(typeof mc.probLoss === 'number' && mc.probLoss >= 0 && mc.probLoss <= 1, 'probLoss dalam 0-1: ' + mc.probLoss);
+  assert(mc.p05 <= mc.p50 && mc.p50 <= mc.p95, 'urutan persentil benar (P05<=P50<=P95): ' + mc.p05 + '/' + mc.p50 + '/' + mc.p95);
+  assert(typeof mc.worstPath.maxDD === 'number' && typeof mc.bestPath.maxDD === 'number', 'stress-test punya skenario MaxDD terbaik/terburuk');
+  assert(mc.worstPath.maxDD >= mc.bestPath.maxDD, 'MaxDD skenario rugi-dulu lebih dalam dari untung-dulu: ' + mc.worstPath.maxDD + ' vs ' + mc.bestPath.maxDD);
+  assert(typeof mc.losingStreak === 'number' && mc.losingStreak >= 1, 'losing streak > 0: ' + mc.losingStreak);
+  assert(typeof ta.formatMonteCarlo(mc, 'XAUUSD') === 'string', 'formatMonteCarlo string');
+
   /* --- Live Signal (strategi cross, notifikasi BUY/SELL) --- */
   assert(typeof ta.addSignalAlert === 'function', 'addSignalAlert terdefinisi');
   const sig = ta.addSignalAlert('XAUUSD', 'rsi', { period: 14, overbought: 70, oversold: 30 });
@@ -372,6 +399,30 @@ suite('lib/ml.js (Machine Learning & Deep Learning)');
   assert(ds.scaler && Array.isArray(ds.scaler.mu) && ds.scaler.mu.length > 0, 'scaler menyimpan mean per fitur (fit latih saja)');
   const row = ml.scaleRow(ds.scaler, fe.X[fe.X.length - 1]);
   assert(row.every((v) => isFinite(v)), 'scaleRow mengeluarkan nilai finite');
+
+  /* determinisme: seed sama -> bobot & prediksi identik (fix ketidakpastian ML) */
+  const det1 = ml.trainMLP(ds.trainX, ds.trainY, { epochs: 40, seed: 7 });
+  const det2 = ml.trainMLP(ds.trainX, ds.trainY, { epochs: 40, seed: 7 });
+  const detP1 = ds.testX.map((r) => det1.predictProb(r));
+  const detP2 = ds.testX.map((r) => det2.predictProb(r));
+  assert(JSON.stringify(detP1) === JSON.stringify(detP2), 'training MLP deterministik dgn seed sama (hasil identik)');
+  assert(typeof ml.setSeed === 'function', 'setSeed terdefinisi di CC.ml');
+
+  /* persistensi: ekspor state model -> restore -> prediksi identik (fitur model cache) */
+  assert(typeof ml.mlpState === 'function' && typeof ml.restoreMLP === 'function', 'mlpState & restoreMLP terdefinisi');
+  const st = ml.mlpState({ _state: det1._state });
+  assert(st.st && Array.isArray(st.st.W1), 'mlpState mengambil bobot tersimpan (W1)');
+  const det3 = ml.restoreMLP(st.st);
+  const detP3 = ds.testX.map((r) => det3.predictProb(r));
+  assert(JSON.stringify(detP1) === JSON.stringify(detP3), 'restore bobot menghasilkan prediksi identik dengan training asli');
+
+  /* penanda/identitas model cache */
+  assert(typeof ml.dataSig === 'function' && typeof ml.cacheKey === 'function', 'dataSig & cacheKey terdefinisi');
+  const sig = ml.dataSig(mdata);
+  assert(typeof sig === 'string' && sig.length > 0, 'dataSig menghasilkan fingerprint string');
+  const key = ml.cacheKey('XAUUSD', 3, ds.n, sig);
+  assert(key.indexOf('XAUUSD') !== -1, 'cacheKey memuat simbol: ' + key);
+  assert(typeof ml.saveModelCache === 'function' && typeof ml.loadModelCache === 'function', 'save/loadModelCache terdefinisi');
 })();
 
 /* ---------- stream.js ---------- */
