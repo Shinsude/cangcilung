@@ -203,6 +203,27 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(btCost.costPerTrade === 5, 'costPerTrade tersimpan (got ' + btCost.costPerTrade + ')');
   assert(btCost.netProfit < bt.netProfit, 'biaya per-trade menurunkan netProfit: ' + bt.netProfit + ' -> ' + btCost.netProfit);
 
+  /* --- REGRESI SL/TP SHORT (bug lama: short memakai SL/TP arah LONG sehingga
+     hampir selalu "menang" +2 ATR artifisial). Data: rally curam (RSI>70) ->
+     1 bar drop (sinyal SHORT) -> rally keras (SL di ATAS entry tersentuh).
+     Seharusnya short MERUGI, bukan menang artifisial. --- */
+  let sdp = 100;
+  const dwn = [];
+  for (let i = 0; i < 220; i++) {
+    if (i < 40) sdp += 4; else if (i < 41) sdp -= 6; else sdp += 8;
+    const so = sdp - 3, sc = sdp + 3;
+    dwn.push({ time: 970000000 + i * 86400, open: so, high: Math.max(so, sc) + 8, low: Math.min(so, sc) - 2, close: sc, volume: 1000 });
+  }
+  const dwnSigs = ta.genSignals(dwn, 'rsi', { period: 14, overbought: 70, oversold: 30 });
+  const hasShort = dwnSigs.indexOf('short') !== -1;
+  assert(hasShort, 'data uji SL/TP short memicu sinyal SHORT');
+  if (hasShort) {
+    const dwnBT = ta.backtest(dwn, 'rsi', { period: 14, overbought: 70, oversold: 30, cost: 0 });
+    assert(typeof dwnBT.closedSignals === 'number' && dwnBT.closedSignals > 0, 'backtest SL/TP short menutup trade: ' + dwnBT.closedSignals);
+    assert(typeof dwnBT.netProfit === 'number', 'backtest SL/TP short netProfit numerik');
+    assert(dwnBT.netProfit < 0, 'SHORT di pasar rally harus RUGI (SL di atas entry tersentuh), bukan menang artifisial: net=' + dwnBT.netProfit);
+  }
+
   /* --- Walk-forward / out-of-sample (anti overfitting) --- */
   assert(typeof ta.walkforward === 'function', 'walkforward terdefinisi');
   const wf = ta.walkforward(osc, 'rsi', params);
