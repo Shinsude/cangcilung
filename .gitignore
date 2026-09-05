@@ -3,6 +3,7 @@ node_modules/
 *.log
 .vercel/
 .env*
+!.env.local.example
 
 # Artefak riset/screenshot sekali pakai
 bukti_auto_sd.png
