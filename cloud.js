@@ -290,14 +290,46 @@
     }
   }
 
-  function signInAnon() {
+  /* Endpoint anonymous beda per versi GoTrue:
+       - lama:            POST /auth/v1/signin/anonymous  (dipakai supabase-js 2.112.3)
+       - LibreAuth baru:  POST /auth/v1/signup kosong → session anonim
+     Di server ini (/auth/v1/settings → external.anonymous_users:true) rute lama
+     ternyata 404. Bila signInAnonymously gagal 404, fallback manual via /signup
+     lalu setSession agar seluruh alur pull/push tetap berjalan. */
+  function anonViaSignup(cfg) {
+    return fetch((cfg.supabaseUrl || '').replace(/\/+$/, '') + '/auth/v1/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': cfg.supabaseAnonKey || '',
+        'Authorization': 'Bearer ' + (cfg.supabaseAnonKey || '')
+      },
+      body: '{}'
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.access_token) throw new Error((j && (j.error_description || j.msg || j.error)) || 'fallback anon /signup gagal');
+      return j;
+    });
+  }
+
+  function runAnonSignIn(cfg) {
     return state.client.auth.signInAnonymously()
-      .then(function (r) { if (r.error) throw r.error; })
+      .then(function (r) { if (r.error) throw r.error; return r; })
+      .catch(function (e) {
+        var is404 = e && (e.status === 404 || /404/.test(String((e.message || e.code) || '')));
+        if (is404 && cfg && cfg.supabaseUrl) {
+          log('signInAnonymously tak didukung server ini → fallback /signup', e);
+          return anonViaSignup(cfg).then(function (j) {
+            return state.client.auth.setSession({ access_token: j.access_token, refresh_token: j.refresh_token })
+              .then(function (x) { if (x && x.error) throw x.error; log('anon via /signup OK'); });
+          });
+        }
+        throw e;
+      })
       .catch(function (e) {
         log('signInAnon gagal', e);
         var hint = cloudErrorHint(e && e.message ? e.message : e);
         if (hint) { setInd('err', hint); log(hint); return; }
-        setInd('err', 'Anonymous sign-in belum diaktifkan di dashboard Supabase');
+        setInd('err', 'Autentikasi anonim gagal — periksa pengaturan Auth (Anonymous sign-ins) & koneksi.');
       });
   }
 
@@ -365,7 +397,7 @@
         state.client = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
         state.enabled = true;
         state.client.auth.onAuthStateChange(function (ev, session) { onAuthChange(ev, session); });
-        signInAnon();
+        runAnonSignIn(cfg);
       })
       .catch(function (e) { log('config gagal', e); setInd('off'); });
   };
