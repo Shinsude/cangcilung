@@ -295,7 +295,19 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(ta.listSignalAlerts().length === 1, 'listSignalAlerts berisi 1 sinyal');
   const chk = ta.checkSignalAlerts({ symbol: sig.signal.symbol, data: osc });
   assert(typeof chk.fired.length === 'number', 'checkSignalAlerts mengembalikan fired array');
+  assert(chk.market && typeof chk.market.open === 'boolean', 'checkSignalAlerts menyertakan status market');
   assert(typeof ta.formatSignalAlerts() === 'string', 'formatSignalAlerts string');
+
+  /* --- status sesi pasar (signal jangan menyesatkan saat market tutup) --- */
+  assert(typeof ta.marketOpen === 'function', 'marketOpen terdefinisi');
+  assert(typeof ta.marketStatusInfo === 'function', 'marketStatusInfo terdefinisi');
+  assert(typeof ta.barIsFresh === 'function', 'barIsFresh terdefinisi');
+  const mInfo = ta.marketStatusInfo();
+  assert(typeof mInfo.open === 'boolean', 'marketStatusInfo.open boolean: ' + mInfo.open);
+  assert(typeof mInfo.label === 'string' && mInfo.label.length > 0, 'marketStatusInfo.label string');
+  assert(typeof ta.barIsFresh(osc) === 'boolean', 'barIsFresh mengembalikan boolean pada data sintetis');
+  assert(typeof ta.barIsFresh([{ time: 0 }]) === 'boolean', 'barIsFresh tetap boolean pada bar kuno');
+
   const rem = ta.removeSignalAlert(sig.signal.id);
   assert(rem.removed === 1, 'removeSignalAlert menghapus 1');
   assert(ta.listSignalAlerts().length === 0, 'listSignalAlerts kosong setelah hapus');

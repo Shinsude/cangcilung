@@ -780,6 +780,11 @@ body.drag-over::after {
 
 /* ── Live Signal — tampilan dashboard (tema-aware) ── */
 .sig-panel { display: flex; flex-direction: column; gap: 14px; color: var(--text); }
+.sig-banner {
+  font-size: 12px; line-height: 1.5; padding: 8px 12px; border-radius: 10px;
+  background: var(--warn-dim, rgba(245,158,11,.12)); border: 1px solid var(--warn, #f59e0b); color: var(--warn, #f59e0b);
+}
+.sig-banner.sig-open { background: var(--ok-dim, rgba(16,185,129,.12)); border-color: var(--ok, #10b981); color: var(--ok, #10b981); }
 .sig-intro { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
 .sig-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
 .sig-label { font-size: 11px; letter-spacing: .05em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 8px; font-weight: 700; }

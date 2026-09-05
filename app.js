@@ -3011,7 +3011,15 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     var xau = active.filter(function (s) { return s.symbol === 'XAUUSD'; });
     var cur = (xau.length ? xau[0].strategy : 'adaptive').toLowerCase();
     var log = ta.listSignalLog ? ta.listSignalLog() : [];
+    var mInfo = typeof ta.marketStatusInfo === 'function' ? ta.marketStatusInfo() : null;
     var html = '<div class="sig-panel">';
+
+    /* Banner status pasar: selalu tampil, paling mencolok saat TUTUP */
+    if (mInfo) {
+      html += '<div class="sig-banner' + (mInfo.open ? ' sig-open' : '') + '">' +
+        (mInfo.open ? '🟢 Market ' + mInfo.label + ' — data live' : '⛔ Market ' + mInfo.label + ' — sinyal berdasar bar penutupan terakhir hingga Jumat 21:00 UTC. Mulai lagi saat pasar buka (Min 22:00 UTC)') +
+        '</div>';
+    }
 
     /* Kartu keputusan BUY/SELL/WAIT (satu-satunya tampilan) */
     html += '<div class="sig-card"><div class="sig-label" style="text-align:center">Keputusan Live</div>';
@@ -3062,6 +3070,12 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
           }
           h += '<div class="sig-dec-why">' + why + '</div>';
           h += '</div>';
+          /* Info batas data saat market tutup — jangan ditafsirkan sebagai sinyal real-time */
+          if (mInfo && !mInfo.open) {
+            var lastT = (r && r.data && r.data.length) ? r.data[r.data.length - 1].time : null;
+            var barDate = lastT ? new Date(lastT * 1000).toISOString().slice(0, 10) : '';
+            h += '<div style="color:var(--warn);font-size:12px;margin-top:8px">Data penutupan terakhir: <b>' + (barDate || '—') + '</b>. Market ' + mInfo.label + ' — evaluasi ulang saat pasar buka.</div>';
+          }
           bodyEl.innerHTML = h;
           /* ledakan visual kecil saat keputusan berganti */
           try { bodyEl.style.transition = 'none'; bodyEl.style.opacity = '.2'; void bodyEl.offsetWidth; bodyEl.style.transition = 'opacity .3s'; bodyEl.style.opacity = '1'; } catch (e) {}
@@ -3082,6 +3096,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       if (s.regime) body += '\nRegime: ' + s.regime;
       if (s.gate) body += '\n⚠ ' + s.gate;
       if (s.reasons && s.reasons.length) body += '\n' + s.reasons.slice(0, 3).join(' · ');
+      if (s.sessionOpen === false) body += '\n⛔ MARKET TUTUP — data ' + (s.barDate || 'tersedia') + ', bukan sinyal real-time saat pasar buka.';
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         var n = new Notification(title, { body: body, tag: 'cangcilung-signal' });
         n.onclick = function () { try { window.focus(); n.close(); } catch (e) {} };
@@ -3115,9 +3130,11 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
           res.fired.forEach(function (f) {
             var confTxt = f.confluence != null ? ' · konfluensi ' + f.confluence + '% (' + f.verdict + ')' : '';
             var gateTxt = f.gate ? ' · ' + f.gate : '';
-            if (window.CC && window.CC.ui) window.CC.ui.showToast((f.side === 'long' ? '🟢 BUY' : '🔴 SELL') + ' ' + f.symbol + ' (' + f.strategy + ')' + confTxt + gateTxt + ' @ ' + f.price);
+            /* market tutup (Sabtu/Minggu/libur): info tetap, tapi diberi label jelas + tanpa suara alarm */
+            var closedTxt = f.sessionOpen === false ? ' · ⚠️ MARKET TUTUP (' + (f.sessionLabel || '') + ') — data ' + (f.barDate || 'sebelumnya') : '';
+            if (window.CC && window.CC.ui) window.CC.ui.showToast((f.side === 'long' ? '🟢 BUY' : '🔴 SELL') + ' ' + f.symbol + ' (' + f.strategy + ')' + confTxt + gateTxt + closedTxt + ' @ ' + f.price);
             showSignalNotification(f);
-            playAlertSound();
+            if (f.sessionOpen !== false) playAlertSound();
           });
           signalChecking = false;
         }).catch(function () { signalChecking = false; });
