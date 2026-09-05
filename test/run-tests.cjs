@@ -308,6 +308,14 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(typeof ta.barIsFresh(osc) === 'boolean', 'barIsFresh mengembalikan boolean pada data sintetis');
   assert(typeof ta.barIsFresh([{ time: 0 }]) === 'boolean', 'barIsFresh tetap boolean pada bar kuno');
 
+  /* sinyal TIDAK diumumkan dari data basi (>96 jam) — simulasikan crossing pd data kuno */
+  const staleSig = ta.addSignalAlert('XAUUSD', 'rsi', {});
+  const staleData = osc.map((x, i) => ({ time: 800000000 + i * 86400, open: x.open, high: x.high, low: x.low, close: x.close, volume: x.volume }));
+  const staleChk = ta.checkSignalAlerts({ symbol: 'XAUUSD', data: staleData });
+  assert(staleChk.fired.length === 0, 'sinyal TIDAK diumumkan dari data kuno (stale guard): ' + staleChk.fired.length);
+  const remStale = ta.removeSignalAlert(staleSig.signal.id);
+  assert(remStale.removed === 1, 'hapus signal stale-guard');
+
   const rem = ta.removeSignalAlert(sig.signal.id);
   assert(rem.removed === 1, 'removeSignalAlert menghapus 1');
   assert(ta.listSignalAlerts().length === 0, 'listSignalAlerts kosong setelah hapus');
