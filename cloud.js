@@ -213,6 +213,19 @@
     }
   }
 
+  function cloudErrorHint(e) {
+    var s = (e && (e.message || e.error_description || e.code || '')) || String(e || '');
+    if (s.indexOf('PGRST205') !== -1 || s.indexOf('Could not find the table') !== -1) return 'Tabel belum ada — jalankan supabase/schema.sql di SQL Editor Supabase.';
+    if (s.indexOf('422') !== -1 || /anonymous/i.test(s)) return 'Anonymous sign-in belum diaktifkan — Settings → Auth → Providers → Anonymous.';
+    if (s.indexOf('401') !== -1) return 'Kunci Supabase tidak valid — periksa SUPABASE_ANON_KEY di Vercel.';
+    return null;
+  }
+  function cloudErr(msg, e) {
+    var hint = cloudErrorHint(e);
+    setInd('err', hint ? (msg + ' — ' + hint) : msg);
+    return hint;
+  }
+
   function pullAll() {
     if (!state.enabled || !state.ready || !state.user || state.syncing) return;
     state.syncing = true;
@@ -229,7 +242,7 @@
       mergeCloud(rows, true, true);
     }).catch(function (e) {
       log('pull gagal', e);
-      setInd('err', 'Gagal memuat data cloud');
+      cloudErr('Gagal memuat data cloud', e && e.message ? e.message : e);
     }).finally(function () { state.syncing = false; });
   }
 
@@ -282,6 +295,8 @@
       .then(function (r) { if (r.error) throw r.error; })
       .catch(function (e) {
         log('signInAnon gagal', e);
+        var hint = cloudErrorHint(e && e.message ? e.message : e);
+        if (hint) { setInd('err', hint); log(hint); return; }
         setInd('err', 'Anonymous sign-in belum diaktifkan di dashboard Supabase');
       });
   }
