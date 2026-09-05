@@ -316,6 +316,23 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   const remStale = ta.removeSignalAlert(staleSig.signal.id);
   assert(remStale.removed === 1, 'hapus signal stale-guard');
 
+  /* --- biaya realistis per sesi pasar (spread dinamis XAUUSD) --- */
+  assert(typeof ta.sessionSpreadAt === 'function', 'sessionSpreadAt terdefinisi');
+  const tAsia = Math.floor(Date.UTC(2024, 2, 13, 2, 0, 0) / 1000);   // Selasa 02:00 UTC
+  const tEur = Math.floor(Date.UTC(2024, 2, 13, 8, 0, 0) / 1000);    // 08:00 UTC
+  const tNy = Math.floor(Date.UTC(2024, 2, 13, 15, 0, 0) / 1000);     // overlap London+NY
+  const spreadAsia = ta.sessionSpreadAt(tAsia, 0.25);
+  const spreadEur = ta.sessionSpreadAt(tEur, 0.25);
+  const spreadNy = ta.sessionSpreadAt(tNy, 0.25);
+  assert(spreadAsia > spreadEur && spreadEur > spreadNy, 'spread Asia>Eropa>NY overlap: ' + spreadAsia + '/' + spreadEur + '/' + spreadNy);
+  assert(spreadNy > 0, 'spread overlap tetap positif: ' + spreadNy);
+  const sBT = ta.backtest(osc, 'rsi', { period: 14, overbought: 70, oversold: 30, costModel: 'session', spreadBase: 0.25, commission: 0.1 });
+  assert(sBT.costModel === 'session', 'costModel session tercatat di hasil backtest');
+  assert(sBT.costPerTrade > 0, 'biaya per trade model session > 0: ' + sBT.costPerTrade);
+  assert(sBT.spreadBase === 0.25, 'spreadBase tercatat di hasil backtest');
+  const zBT = ta.backtest(osc, 'rsi', { period: 14, overbought: 70, oversold: 30, cost: 0 });
+  assert(sBT.netProfit < zBT.netProfit, 'biaya session menekan net vs tanpa biaya: ' + sBT.netProfit + ' vs ' + zBT.netProfit);
+
   const rem = ta.removeSignalAlert(sig.signal.id);
   assert(rem.removed === 1, 'removeSignalAlert menghapus 1');
   assert(ta.listSignalAlerts().length === 0, 'listSignalAlerts kosong setelah hapus');
@@ -453,6 +470,25 @@ suite('lib/ml.js (Machine Learning & Deep Learning)');
   const key = ml.cacheKey('XAUUSD', 3, ds.n, sig);
   assert(key.indexOf('XAUUSD') !== -1, 'cacheKey memuat simbol: ' + key);
   assert(typeof ml.saveModelCache === 'function' && typeof ml.loadModelCache === 'function', 'save/loadModelCache terdefinisi');
+
+  /* skor sinyal FUSION ML×TA (Model B+) */
+  assert(typeof ml.scoreSignal === 'function', 'scoreSignal terdefinisi');
+  const preM = { ok: true, engine: 'vanilla', kind: 'Deep MLP (vanilla)', pUp: 0.62, pDown: 0.38, confidence: 24, H: 3 };
+  const sOptsCommon = { period: 14, overbought: 70, oversold: 30 };
+  ml.scoreSignal(mdata, 'rsi', sOptsCommon, { pre: preM }).then((sFus) => {
+    assert(sFus.ok === true, 'scoreSignal fusion berjalan: ' + (sFus.error || ''));
+    assert(typeof sFus.fusion === 'number' && sFus.fusion >= 0 && sFus.fusion <= 1, 'fusion dalam 0-1: ' + sFus.fusion);
+    assert(sFus.fusionPct >= 0 && sFus.fusionPct <= 100, 'fusionPct dalam 0-100: ' + sFus.fusionPct);
+    assert(typeof sFus.verdict === 'string' && /^(BUY|SELL|WAIT)/.test(sFus.verdict), 'verdict fusion valid: ' + sFus.verdict);
+    assert(sFus.confluence && typeof sFus.confluence.score === 'number', 'fusion menyertakan skor TA (konfluensi): ' + (sFus.confluence && sFus.confluence.score));
+    assert(typeof sFus.weights.ml === 'number' && typeof sFus.weights.ta === 'number', 'weights fusion terdefinisi');
+    return ml.scoreSignal(mdata, 'rsi', sOptsCommon, { pre: preM });
+  }).then((sFus2) => {
+    assert(sFus2.fusion !== undefined && sFus2.fusion >= 0, 'fusion kedua valid');
+  }).catch((e) => { fail++; errors.push('FAIL: fusion error: ' + e); });
+  ml.scoreSignal(mdata, 'rsi', sOptsCommon, { pre: preM, skipConfluence: true }).then((sSkip) => {
+    assert(sSkip.taScore === 0.5 && sSkip.confluence === null, 'skipConfluence menonaktifkan bobot TA (netral)');
+  }).catch((e) => { fail++; errors.push('FAIL: skipConfluence error: ' + e); });
 })();
 
 /* ---------- stream.js ---------- */

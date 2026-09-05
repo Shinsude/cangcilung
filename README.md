@@ -126,7 +126,7 @@ Fitur menyimpan dokumen teks ke cloud Supabase, di-embed menjadi vektor, lalu di
 
 Cangcilung punya mesin analisis trading terintegrasi. **Semua perintah trading otomatis dipaksa ke XAUUSD** (emas): ketik simbol lain, perintah tetap memakai emas. Semua perhitungan berjalan **di browser Anda** (data historis dari Yahoo Finance via proxy Vercel, hingga **10 tahun** untuk data harian).
 
-> ⚠️ Edukasi & simulasi, **bukan saran investasi**. Data hanya dari pasar historis; biaya spread/komisi tidak otomatis — perhitungkan dengan `cost:N`.
+> ⚠️ Edukasi & simulasi, **bukan saran investasi**. Data hanya dari pasar historis. Biaya default `flat` (`cost:N`, contoh `cost:0.5`); pakai **`costModel:session`** agar spread emas dihitung dinamis per sesi (Asia lebih lebar, overlap London+NY paling ketat) + komisi opsional (`spreadBase:0.25 commission:0.1`).
 
 ### Perintah analisis
 
@@ -143,7 +143,7 @@ Cangcilung punya mesin analisis trading terintegrasi. **Semua perintah trading o
 | `/sinyal XAUUSD rsi` | **Live signal** BUY/SELL — polling tiap 60 detik, notifikasi browser + suara + toast |
 | `/sinyal-list` · `/sinyal-history` · `/sinyal-del <id>` · `/sinyal-clear` · `/sinyal-test` | Kelola live signal, riwayat, dan uji notifikasi |
 | `/ml XAUUSD` | Latih **neural network di browser** → prediksi arah harga + laporan validasi OOS |
-| `/ml-signal XAUUSD adaptive` | Prediksi arah ML + probabilitas benar dari sinyal TA saat ini |
+| `/ml-signal XAUUSD adaptive` | **Skor sinyal FUSION** — prediksi arah ML (Model A) × konfluensi TA (Model B+) berbobot |
 | `/alert XAUUSD 2400` | Alert harga (polling tiap menit) |
 | `/news XAUUSD` | Sentimen berita |
 
@@ -157,6 +157,7 @@ Strategi didukung: `rsi`, `bb`, `sma`, `ema`, `vwap`, `ma`, `smc`, `cvd`, `all`,
 - **Persisten**: model vanilla otomatis **disimpan di localStorage**; pemanggilan ulang memakai cache (instan, tanpa training ulang — ditandai ⚡ di output). Cache divalidasi integritasnya & dibersihkan otomatis saat kuota penuh.
 - **UI anti-freeze**: training di-chunk per epoch — halaman tetap responsif, progres tampil di status.
 - Opsi: `engine:tfjs|vanilla` · `horizon:N` (default 3) · `epochs:N` · `seed:N`. Butuh ≥ **150 bar** data harian.
+- **Fusion ML×TA** (`/ml-signal`): sinyal digabung berbobot — keyakinan arah ML (55%) × skor konfluensi TA (35%) × kesesuaian regime pasar (10%) → skor 0–100 & verdict `BUY/SELL KUAT · diizinkan · lemah`. Lebih konservatif: sinyal "BUY kuat" secara TA tetap diturunkan bila ML belum yakin atau regime menentang.
 
 ### Validasi anti-overfitting
 
