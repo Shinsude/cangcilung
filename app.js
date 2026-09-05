@@ -2934,8 +2934,8 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     if (!container) return;
     if (window._signalPanelTimer) clearInterval(window._signalPanelTimer);
 
-    /* Auto-mulai: pastikan ada signal XAUUSD RSI (jika belum ada). */
-    ensureXauusdSignal('rsi');
+    /* Auto-mulai: pastikan ada signal XAUUSD ADAPTIVE (jika belum ada). */
+    ensureXauusdSignal('adaptive');
 
     /* Auto-refresh tiap 45 dtk selama panel terbuka */
     window._signalPanelTimer = setInterval(function () {
@@ -2969,7 +2969,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     var ta = window.CC.ta;
     var active = ta.listSignalAlerts ? ta.listSignalAlerts() : [];
     var xau = active.filter(function (s) { return s.symbol === 'XAUUSD'; });
-    var cur = (xau.length ? xau[0].strategy : 'rsi').toLowerCase();
+    var cur = (xau.length ? xau[0].strategy : 'adaptive').toLowerCase();
     var log = ta.listSignalLog ? ta.listSignalLog() : [];
     var html = '<div class="sig-panel">';
 
@@ -2978,7 +2978,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     html += '<div id="sig-conf-body" style="color:var(--text-dim);font-size:13px">Menghitung…</div>';
     html += '</div>';
 
-    html += '<div class="sig-tip">Auto-memantau ' + (cur || 'rsi').toUpperCase() + ' · BUY/SELL = arah kuat & searah; WAIT = tunggu konfirmasi. Bukan saran investasi.</div>';
+    html += '<div class="sig-tip">Auto-memantau ' + (cur || 'adaptive').toUpperCase() + ' · BUY/SELL = arah kuat & searah; WAIT = tunggu konfirmasi. Bukan saran investasi.</div>';
     html += '</div>';
     container.innerHTML = html;
 
@@ -2997,7 +2997,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
         /* Hard timeout agar status "Menghitung…" tidak menggantung selamanya */
         withTimeout(ta.fetchYahoo('XAUUSD', '1d'), 15000).then(function (r) {
           if (!bodyEl) return;
-          var strat = sig && sig.strategy ? sig.strategy : 'rsi';
+          var strat = sig && sig.strategy ? sig.strategy : 'adaptive';
           var params = (sig && sig.params) ? sig.params : { period: 14, overbought: 70, oversold: 30 };
           var conf = ta.analyzeConfluence(r ? (r.data || r) : null, strat, params);
           var dec = conf.decision || 'wait';
@@ -3008,10 +3008,18 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
           h += '<div class="sig-dec-txt ' + d.cls + '">' + d.txt + '</div>';
           /* alasan singkat */
           var why;
-          if (dec === 'buy') why = 'Arah kuat & searah regime — layak pertimbangkan masuk BUY.';
-          else if (dec === 'sell') why = 'Arah kuat & searah regime — layak pertimbangkan masuk SELL.';
-          else if (conf.signal === 'flat' || !conf.signal) why = 'Belum ada arah jelas dari indikator. Tunggu crossing.';
-          else why = 'Sinyal ada tapi belum cukup kuat/searah — tunggu konfirmasi lebih dulu.';
+          if (strat === 'adaptive' && conf.slopeRegime && conf.slopeRegime.ok) {
+            var routed = conf.slopeRegime.regime === 'trending' ? (conf.slopeRegime.dir === 'up' ? 'NAIK → all (long)' : 'TURUN → smc (long+short)') : 'RANGE → bb (long)';
+            if (dec === 'buy') why = 'ADAPTIF (' + routed + '): arah kuat & searah — layak pertimbangkan BUY.';
+            else if (dec === 'sell') why = 'ADAPTIF (' + routed + '): tren TURUN terkonfirmasi — layak pertimbangkan SELL.';
+            else if (conf.signal === 'flat' || !conf.signal) why = 'ADAPTIF (' + routed + '): belum ada crossing yang sah. Tunggu sinyal.';
+            else why = 'ADAPTIF (' + routed + '): sinyal ada tapi belum cukup kuat — tunggu konfirmasi.';
+          } else {
+            if (dec === 'buy') why = 'Arah kuat & searah regime — layak pertimbangkan masuk BUY.';
+            else if (dec === 'sell') why = 'Arah kuat & searah regime — layak pertimbangkan masuk SELL.';
+            else if (conf.signal === 'flat' || !conf.signal) why = 'Belum ada arah jelas dari indikator. Tunggu crossing.';
+            else why = 'Sinyal ada tapi belum cukup kuat/searah — tunggu konfirmasi lebih dulu.';
+          }
           h += '<div class="sig-dec-why">' + why + '</div>';
           h += '</div>';
           bodyEl.innerHTML = h;
@@ -3148,11 +3156,11 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       case 'profile': return handleProfile((args[0] || 'XAUUSD'), (args[1] || '1d'));
       case 'risk': return handleRisk((args[0] || 'XAUUSD'), (parseFloat(String(args[1] || '10000').replace(/,/g, '')) || 10000), (parseFloat(args[2]) || 1));
       case 'corr': return handleCorrelation((args[0] || 'XAUUSD'));
-      case 'backtest': return handleBacktest((args[0] || 'XAUUSD'), (args[1] || 'rsi'), (args[2] || ''));
+      case 'backtest': return handleBacktest((args[0] || 'XAUUSD'), (args[1] || 'adaptive'), (args[2] || ''));
       case 'news': return handleNews((args[0] || 'XAUUSD'));
       case 'alert': return handleAlertAdd((args[0] || 'XAUUSD'), (args[1] || ''), '');
       case 'alerts': return handleAlertsList();
-      case 'signal': return handleSignalAdd((args[0] || 'XAUUSD'), (args[1] || 'rsi'), [].concat(args[2] || []));
+      case 'signal': return handleSignalAdd((args[0] || 'XAUUSD'), (args[1] || 'adaptive'), [].concat(args[2] || []));
       case 'signals': return handleSignalList();
       case 'signal-del': return handleSignalDelete(args[0] || '');
       case 'signal-clear': return handleSignalClear();
@@ -3229,13 +3237,14 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '- `/profile XAUUSD 1h` — volume profile (POC/HVN/LVN)\n';
     out += '- `/risk XAUUSD 10000 1` — risk management (SL/TP/lot)\n';
     out += '- `/corr XAUUSD` — korelasi XAU vs DXY (atau NDX vs VIX)\n';
-    out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/bb/sma/ema/vwap/ma/smc/cvd/all) + Sharpe + heatmap hari/jam\n';
+    out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/bb/sma/ema/vwap/ma/smc/cvd/all/adaptive) + Sharpe + heatmap hari/jam\n';
+    out += '  · ⭐ `adaptive` = otomatis memilih strategi terbaik per kondisi market (NAIK→all-long, TURUN→smc, RANGE→bb) & jadi default\n';
     out += '  · opsional `cost:N` utk biaya per trade (mis. `cost:0.5`) agar hasil lebih realistis\n';
     out += '  · tambah `oos` utk validasi anti-overfitting (uji data terbaru)\n';
     out += '- `/news XAUUSD` atau `/berita XAUUSD` — sentimen berita terbaru\n';
     out += '- `/alert XAUUSD 3200` — pasang alert harga\n';
     out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n';
-    out += '- `/sinyal XAUUSD rsi` — pantau live signal BUY/SELL + konfluensi, regime & kekuatan (rsi/bb/sma/ema/vwap/ma/smc/cvd/all)\n';
+    out += '- `/sinyal XAUUSD rsi` — pantau live signal BUY/SELL + konfluensi, regime & kekuatan (rsi/bb/sma/ema/vwap/ma/smc/cvd/all/adaptive)\n';
     out += '  · opsional `period:14:70:30` utk parameter (mis. `period:9:70:30`)\n';
     out += '  · `/sinyal-list` lihat aktif · `/sinyal-history` riwayat · `/sinyal-del <id>` hapus · `/sinyal-clear` bersihkan\n\n';
     out += '### Bundel (alur analisis, baru)\n';
@@ -3653,7 +3662,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       if (sm) { input.value = ''; handleSignalDelete(sm[1]); return; }
       var sm2 = text.match(/^\/(?:sinyal|livesignal|sig)\s+(\S+)\s*([a-z]+)?\s*(.*)/i);
       input.value = '';
-      handleSignalAdd(sm2 && sm2[1] ? sm2[1] : 'XAUUSD', sm2 && sm2[2] ? sm2[2].toLowerCase() : 'rsi', (sm2 && sm2[3] ? sm2[3].trim().split(/\s+/).filter(Boolean) : []));
+      handleSignalAdd(sm2 && sm2[1] ? sm2[1] : 'XAUUSD', sm2 && sm2[2] ? sm2[2].toLowerCase() : 'adaptive', (sm2 && sm2[3] ? sm2[3].trim().split(/\s+/).filter(Boolean) : []));
       return;
     }
     if (/^\/(news|berita)\b/i.test(text)) {
@@ -3666,7 +3675,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     if (/^\/backtest\b/i.test(text)) {
       var m = text.match(/^\/backtest\s+(\S+)\s+(\S+)\s*(.*)/i);
       var sym = m && m[1] ? m[1] : 'XAUUSD';
-      var strat = m && m[2] ? m[2].toLowerCase() : 'rsi';
+      var strat = m && m[2] ? m[2].toLowerCase() : 'adaptive';
       var rawParams = m && m[3] ? m[3].trim().split(/\s+/).filter(Boolean) : [];
       input.value = '';
       handleBacktest(sym, strat, rawParams);

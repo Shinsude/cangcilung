@@ -203,6 +203,21 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   assert(btCost.costPerTrade === 5, 'costPerTrade tersimpan (got ' + btCost.costPerTrade + ')');
   assert(btCost.netProfit < bt.netProfit, 'biaya per-trade menurunkan netProfit: ' + bt.netProfit + ' -> ' + btCost.netProfit);
 
+  /* --- Strategi ADAPTIVE terdaftar & bekerja (regime-adaptive: NAIK->all-long,
+     TURUN->smc L/S, RANGE->bb-long) --- */
+  assert(typeof ta.genSignals === 'function', 'genSignals terdefinisi');
+  const adaSigs = ta.genSignals(osc, 'adaptive', params);
+  assert(Array.isArray(adaSigs), 'genSignals(adaptive) mengembalikan array');
+  assert(adaSigs.length === osc.length, 'genSignals(adaptive) panjang sama dgn data');
+  const adaBt = ta.backtest(osc, 'adaptive', params);
+  assert(adaBt.error === undefined, 'backtest(adaptive) tidak error: ' + (adaBt.error || ''));
+  assert(typeof adaBt.netProfit === 'number' && !isNaN(adaBt.netProfit), 'backtest(adaptive) netProfit numerik');
+  const adaConf = ta.analyzeConfluence(osc, 'adaptive', params);
+  assert(adaConf.slopeRegime !== undefined, 'analyzeConfluence(adaptive) menyertakan slopeRegime');
+  assert(adaConf.decision === 'buy' || adaConf.decision === 'sell' || adaConf.decision === 'wait', 'analyzeConfluence(adaptive) keputusan valid: ' + adaConf.decision);
+  const adaWF = ta.walkforward(osc, 'adaptive', params);
+  assert(typeof adaWF.oos.winRate === 'number' && !isNaN(adaWF.oos.winRate), 'walkforward(adaptive) oos.winRate numerik');
+
   /* --- REGRESI SL/TP SHORT (bug lama: short memakai SL/TP arah LONG sehingga
      hampir selalu "menang" +2 ATR artifisial). Data: rally curam (RSI>70) ->
      1 bar drop (sinyal SHORT) -> rally keras (SL di ATAS entry tersentuh).
