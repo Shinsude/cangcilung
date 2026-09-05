@@ -3229,13 +3229,13 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '- `/profile XAUUSD 1h` — volume profile (POC/HVN/LVN)\n';
     out += '- `/risk XAUUSD 10000 1` — risk management (SL/TP/lot)\n';
     out += '- `/corr XAUUSD` — korelasi XAU vs DXY (atau NDX vs VIX)\n';
-    out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/macd/bb/sma/ema/vwap/ma/smc/cvd/all) + Sharpe + heatmap hari/jam\n';
+    out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/bb/sma/ema/vwap/ma/smc/cvd/all) + Sharpe + heatmap hari/jam\n';
     out += '  · opsional `cost:N` utk biaya per trade (mis. `cost:0.5`) agar hasil lebih realistis\n';
     out += '  · tambah `oos` utk validasi anti-overfitting (uji data terbaru)\n';
     out += '- `/news XAUUSD` atau `/berita XAUUSD` — sentimen berita terbaru\n';
     out += '- `/alert XAUUSD 3200` — pasang alert harga\n';
     out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n';
-    out += '- `/sinyal XAUUSD rsi` — pantau live signal BUY/SELL + konfluensi, regime & kekuatan (rsi/macd/bb/sma/ema/vwap/ma/smc/cvd/all)\n';
+    out += '- `/sinyal XAUUSD rsi` — pantau live signal BUY/SELL + konfluensi, regime & kekuatan (rsi/bb/sma/ema/vwap/ma/smc/cvd/all)\n';
     out += '  · opsional `period:14:70:30` utk parameter (mis. `period:9:70:30`)\n';
     out += '  · `/sinyal-list` lihat aktif · `/sinyal-history` riwayat · `/sinyal-del <id>` hapus · `/sinyal-clear` bersihkan\n\n';
     out += '### Bundel (alur analisis, baru)\n';
