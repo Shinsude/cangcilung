@@ -1,6 +1,6 @@
-/* cangcilung — Asisten AI gratis
- * Chat murni: satu tab, kirim pesan, dapat jawaban streaming.
- * Backend OpenAI-compatible /v1/chat/completions: OpenRouter (cloud, gratis) atau server lokal.
+/* cangcilung — Konsol ML & DL signal trading
+ * Konsol perintah trading: analisis teknikal (TA), machine learning/deep learning,
+ * backtest, sinyal live, risk & korelasi untuk XAUUSD dan lainnya.
  */
 
 (function () {
@@ -967,7 +967,7 @@
       var edBtn = document.createElement('button');
       edBtn.className = 'bubble-act';
       edBtn.textContent = '✏️';
-      edBtn.title = 'Edit pesan';
+      edBtn.title = 'Edit perintah';
       edBtn.dataset.action = 'edit';
       actions.appendChild(edBtn);
     }
@@ -975,7 +975,7 @@
       var reBtn = document.createElement('button');
       reBtn.className = 'bubble-act';
       reBtn.textContent = '🔁';
-      reBtn.title = 'Ulangi jawaban';
+      reBtn.title = 'Ulangi analisis';
       reBtn.dataset.action = 'regenerate';
       actions.appendChild(reBtn);
     }
@@ -983,7 +983,7 @@
       var pinBtn = document.createElement('button');
       pinBtn.className = 'bubble-act';
       pinBtn.textContent = '📌';
-      pinBtn.title = 'Semat pesan';
+      pinBtn.title = 'Semat output';
       pinBtn.dataset.action = 'pin';
       actions.appendChild(pinBtn);
     }
@@ -1002,7 +1002,7 @@
     editingIndex = index;
     var input = $('chat-input');
     if (input) { input.value = history[index].content; input.focus(); }
-    setStatus('✏️ Mengedit pesan. Kirim untuk memperbarui dan meminta jawaban ulang.');
+    setStatus('✏️ Edit perintah. Jalankan untuk memperbarui & menganalisis ulang.');
   }
 
   function copyText(text) {
@@ -1120,7 +1120,7 @@
         var edBtn = document.createElement('button');
         edBtn.className = 'bubble-act';
         edBtn.textContent = '✏️';
-        edBtn.title = 'Edit pesan';
+        edBtn.title = 'Edit perintah';
         edBtn.dataset.action = 'edit';
         actions.appendChild(edBtn);
       }
@@ -1128,7 +1128,7 @@
         var reBtn = document.createElement('button');
         reBtn.className = 'bubble-act';
         reBtn.textContent = '🔁';
-        reBtn.title = 'Ulangi jawaban';
+        reBtn.title = 'Ulangi analisis';
         reBtn.dataset.action = 'regenerate';
         actions.appendChild(reBtn);
       }
@@ -1136,7 +1136,7 @@
         var pinBtn = document.createElement('button');
         pinBtn.className = 'bubble-act';
         pinBtn.textContent = '📌';
-        pinBtn.title = 'Semat pesan';
+        pinBtn.title = 'Semat output';
         pinBtn.dataset.action = 'pin';
         actions.appendChild(pinBtn);
       }
@@ -1151,7 +1151,7 @@
       var sent = document.createElement('div');
       sent.id = 'load-older-sentinel';
       sent.className = 'load-older-sentinel';
-      sent.textContent = '⬆️ Muat pesan lebih lama…';
+      sent.textContent = '⬆️ Muat riwayat lebih lama…';
       box.insertBefore(sent, box.firstChild);
     }
     _setupLoadOlder();
@@ -1165,8 +1165,8 @@
     wrap.className = 'dash-home';
     wrap.innerHTML =
       '<div class="dash-head">' +
-        '<div class="dash-title">📶 Live Signal — XAUUSD</div>' +
-        '<button class="icon-btn" id="dash-open-modal" title="Buka panel modal" aria-label="Buka panel modal">⛶</button>' +
+        '<div class="dash-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/></svg> Live Signal — XAUUSD</div>' +
+        '<button class="icon-btn" id="dash-open-modal" title="Buka panel modal" aria-label="Buka panel modal"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>' +
       '</div>' +
       '<div id="dash-panel"></div>' +
       '<div class="dash-hint">Ketik perintah atau pilih pintasan di bawah, lalu Enter.</div>' +
@@ -1252,7 +1252,7 @@
         var sent = document.createElement('div');
         sent.id = 'load-older-sentinel';
         sent.className = 'load-older-sentinel';
-        sent.textContent = '⬆️ Muat pesan lebih lama…';
+        sent.textContent = '⬆️ Muat riwayat lebih lama…';
         box.appendChild(sent);
       }
     }
@@ -1269,7 +1269,7 @@
         var sent2 = document.createElement('div');
         sent2.id = 'load-older-sentinel';
         sent2.className = 'load-older-sentinel';
-        sent2.textContent = '⬆️ Muat pesan lebih lama…';
+        sent2.textContent = '⬆️ Muat riwayat lebih lama…';
         box.insertBefore(sent2, box.firstChild);
       }
       _setupLoadOlder();
@@ -1482,11 +1482,11 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     if (!btn) return;
     if (streaming) {
       btn.textContent = '⏹';
-      btn.title = 'Hentikan jawaban';
+      btn.title = 'Hentikan proses';
       btn.disabled = false;
     } else {
-      btn.textContent = '➤';
-      btn.title = 'Kirim pesan';
+      btn.textContent = '>';
+      btn.title = 'Jalankan perintah';
       btn.disabled = false;
     }
   }
@@ -1497,6 +1497,22 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     busy = false;
     setSendUI(false);
     setStatus('');
+    clearProgress();
+  }
+
+  /* Progress bar operasi panjang (training ML dkk). */
+  function setProgress(e, total, label) {
+    var row = $('prog-row'), fill = $('prog-fill'), lb = $('prog-label');
+    if (!row || !fill) return;
+    row.hidden = false;
+    var pct = total > 0 ? Math.min(100, Math.round((e / total) * 100)) : 0;
+    fill.style.width = pct + '%';
+    if (lb) lb.textContent = (label || 'Proses') + ' — ' + e + '/' + total;
+  }
+  function clearProgress() {
+    var row = $('prog-row'), fill = $('prog-fill');
+    if (row) row.hidden = true;
+    if (fill) fill.style.width = '0%';
   }
 
   function openChartModal(title) {
@@ -2011,7 +2027,8 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     html += '<div id="sig-conf-body" style="color:var(--text-dim);font-size:13px">Menghitung…</div>';
     html += '</div>';
 
-    html += '<div class="sig-tip">Auto-memantau ' + (cur || 'adaptive').toUpperCase() + ' · BUY/SELL = arah kuat & searah; WAIT = tunggu konfirmasi; keputusan dihitung saat pasar buka. Bukan saran investasi.</div>';
+    html += '<div class="sig-tip">Auto-memantau ' + (cur || 'adaptive').toUpperCase() + ' · auto-refresh 45 dtk · BUY/SELL = arah kuat & searah; WAIT = tunggu konfirmasi; keputusan dihitung saat pasar buka.</div>';
+    html += '<div class="sig-source">Sumber data: Yahoo Finance (via proxy Vercel) — bar harian XAUUSD. Analisis dihasilkan mesin (TA + contekan konfluensi); diperiksa mandiri sebelum trading — bukan saran investasi/finansial.</div>';
     html += '</div>';
     container.innerHTML = html;
 
@@ -2220,7 +2237,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
   function finalizeMessage(out) {
     history.push({ role: 'assistant', content: out, t: nowTime() });
     saveHistory(); renderHistory();
-    busy = false; setSendUI(false); setStatus('');
+    busy = false; setSendUI(false); setStatus(''); clearProgress();
   }
   function failMessage(bubble, err) {
     removeTyping(bubble);
@@ -2229,7 +2246,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     saveHistory();
     if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
     renderHistory();
-    busy = false; setSendUI(false); setStatus('');
+    busy = false; setSendUI(false); setStatus(''); clearProgress();
   }
   // /ml SYM — latih model arah (Model A) + laporan validasi.
   // Vanilla: training di-chunk (UI tidak beku), deterministik (seed 42) & hasil disimpan di
@@ -2263,7 +2280,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
           }
         }
       }
-      opts.onProgress = function (e, total) { setStatus('Training model ' + symbol + '... ' + e + '/' + total + ' epoch'); };
+      opts.onProgress = function (e, total) { setStatus('Training model ' + symbol + '... ' + e + '/' + total + ' epoch'); setProgress(e, total, 'Training ' + symbol); };
       return ml.trainDirection(o.data, opts).then(function (r) {
         if (r.error) return '⚠️ ' + r.error;
         if (canCache && r.engine === 'vanilla' && r.model && r.model._state) ml.saveModelCache(key, { st: r.model._state });
@@ -2282,7 +2299,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     setStatus('Menganalisis arah ' + symbol + ' dengan ML...');
     var bubble = addBubble('assistant', null);
     showTyping(bubble);
-    opts.onProgress = function (e, total) { setStatus('Training model arah... ' + e + '/' + total + ' epoch'); };
+    opts.onProgress = function (e, total) { setStatus('Training model arah... ' + e + '/' + total + ' epoch'); setProgress(e, total, 'Training model arah'); };
     ta.fetchYahoo(symbol, '1d').then(function (o) {
       if (!o || !o.data || o.data.length < 150) throw new Error('Data harian tidak cukup (< 150 bar)');
       removeTyping(bubble);

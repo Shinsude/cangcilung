@@ -208,6 +208,11 @@ html { scrollbar-width: thin; scrollbar-color: #424242 transparent; }
 }
 .header-actions { display: flex; align-items: center; gap: 2px; }
 
+/* ── Ikon SVG bawaan (gaya konsol, tahan tema) ── */
+.ico { width: 17px; height: 17px; flex-shrink: 0; display: block; }
+.icon-btn .ico { width: 16px; height: 16px; }
+.signal-btn .ico { width: 15px; height: 15px; }
+
 /* ── Buttons ── */
 .ghost-btn {
   padding: 6px 12px; font-size: 13px;
@@ -290,20 +295,29 @@ html { scrollbar-width: thin; scrollbar-color: #424242 transparent; }
 .msg.user { margin-left: 0; }
 .msg.assistant { padding-left: 0; }
 
-/* ── Avatar ── */
-.msg.assistant::before {
-  content: '✦';
-  width: 28px; height: 28px; min-width: 28px;
-  border-radius: 50%;
-  background: var(--accent-grad);
-  color: #fff; font-size: 12px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  margin-top: 2px;
+/* ── Avatar: gaya konsol — prompt ❯ utk perintah, tanpa avatar bulat klise ── */
+.msg.assistant::before { content: none; display: none; }
+.msg.user::before {
+  content: '❯';
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700; font-size: 15px; line-height: 1.5;
+  flex-shrink: 0; margin-top: 2px;
 }
-.msg.user::after { content: none; }
-
-/* ── Bubble — ChatGPT style: no background on user msgs ── */
+.msg.user .msg-bubble {
+  background: transparent;
+  color: var(--text);
+  border-radius: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13.5px;
+}
+.msg.assistant .msg-bubble {
+  background: transparent;
+  border: none;
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  border-radius: 0;
+}
 .msg-bubble {
   max-width: 700px;
   padding: 0;
@@ -313,16 +327,6 @@ html { scrollbar-width: thin; scrollbar-color: #424242 transparent; }
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;
-}
-.msg.user .msg-bubble {
-  background: transparent;
-  color: var(--text);
-  border-radius: 0;
-}
-.msg.assistant .msg-bubble {
-  background: transparent;
-  border: none;
-  border-radius: 0;
 }
 .msg-note {
   font-size: 12px; color: var(--text-dim);
@@ -378,7 +382,7 @@ html { scrollbar-width: thin; scrollbar-color: #424242 transparent; }
 /* Dashboard layar-pertama: panel Live Signal + pintasan */
 .dash-home { display: flex; flex-direction: column; gap: 14px; padding: 6px 0 10px; }
 .dash-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.dash-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.dash-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: var(--text); }
 .dash-hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
 
 .welcome {
@@ -438,15 +442,21 @@ html { scrollbar-width: thin; scrollbar-color: #424242 transparent; }
   padding: 0 0 12px; position: relative; flex-shrink: 0;
 }
 .chat-input-wrap {
-  display: flex; align-items: flex-end; gap: 8px;
+  display: flex; align-items: center; gap: 8px;
   background: #404040; border: none;
-  border-radius: 24px; padding: 10px 14px;
+  border-radius: 12px; padding: 10px 14px;
   transition: background .15s;
+}
+.chat-input-wrap::before {
+  content: '❯';
+  color: var(--accent); font-weight: 700;
+  font-family: 'JetBrains Mono', monospace; font-size: 15px;
+  flex-shrink: 0; line-height: 1;
 }
 .chat-input-wrap:focus-within { background: #4a4a4a; }
 #chat-input {
   flex: 1; resize: none; border: none; background: transparent;
-  color: var(--text); font-family: 'Inter', sans-serif; font-size: 16px;
+  color: var(--text); font-family: 'JetBrains Mono', 'Inter', monospace; font-size: 14px;
   outline: none; padding: 2px 0; line-height: 1.5; max-height: 160px;
 }
 #chat-input::placeholder { color: var(--text-dim); }
@@ -455,6 +465,7 @@ html { scrollbar-width: thin; scrollbar-color: #424242 transparent; }
   width: 34px; height: 34px; flex-shrink: 0; cursor: pointer;
   border: none; border-radius: 50%;
   background: var(--text); color: #171717; font-size: 14px;
+  font-family: 'JetBrains Mono', monospace;
   display: flex; align-items: center; justify-content: center;
   transition: opacity .15s;
 }
@@ -653,6 +664,11 @@ body.drag-over::after {
   transition: background .1s;
 }
 .scroll-down-btn:hover { background: #404040; }
+
+.prog-row { display: flex; align-items: center; gap: 10px; padding: 6px 4px 0; }
+.prog-track { flex: 1; height: 6px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.prog-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #22c55e); border-radius: 4px; transition: width .15s; }
+.prog-label { font-size: 11px; color: var(--text-dim); white-space: nowrap; font-family: 'JetBrains Mono', monospace; }
 
 .input-count {
   font-size: 11px; color: var(--text-dim); text-align: right;
@@ -867,6 +883,7 @@ body.drag-over::after {
 .sig-hist-row .when { color: var(--text-dim); text-align: right; font-size: 11px; }
 .sig-empty { color: var(--text-dim); font-size: 13px; padding: 8px 2px; }
 .sig-tip { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+.sig-source { font-size: 11px; color: var(--text-dim); line-height: 1.5; opacity: .75; border-top: 1px dashed var(--border); padding-top: 8px; }
 
 /* Warna status */
 .c-up { color: var(--ok) !important; }
