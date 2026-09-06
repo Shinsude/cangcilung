@@ -1,7 +1,7 @@
 {
-  "name": "cangcilung - Asisten AI",
-  "short_name": "cangcilung",
-  "description": "Asisten AI gratis: chat, analisa file/gambar, web search, suara.",
+  "name": "CangCilung - ML & DL Signal Trading",
+  "short_name": "CangCilung",
+  "description": "Platform analisis & sinyal trading: teknikal (TA) + machine learning & deep learning. XAUUSD, USA100, dan lainnya.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f0a1f",

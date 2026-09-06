@@ -1159,12 +1159,7 @@
   function connSub() {
     var el = $('conn-sub');
     if (!el) return;
-    var where = settings.model
-      ? settings.model
-      : (baseUrl() || DEFAULT_BASE);
-    el.textContent = settings.model
-      ? 'Model: ' + settings.model
-      : 'Base: ' + where;
+    el.textContent = 'ML & DL Signal Trading • XAUUSD • USA100 • NDX • DXY';
   }
 
   function setStatus(msg, isError) {
@@ -1793,29 +1788,22 @@
         _virtualStart = 0;
         var welcome = document.createElement('div');
         welcome.className = 'welcome';
-        welcome.innerHTML = '<div class="welcome-avatar">A</div><p>Halo, saya cangcilung. Asisten AI Indonesia — tanya apa saja, saya siap membantu!</p><div class="welcome-chips"></div>';
-        ['💡 Apa itu RAG?', '📊 Jelaskan cara kerja RAM', '🧮 Hitung 15% dari 3400', '📝 Tulis surat izin sakit'].forEach(function (c) {
+        welcome.innerHTML = '<div class="welcome-avatar">📶</div><p>CangCilung — <strong>ML &amp; DL Signal Trading</strong>. Analisis &amp; sinyal trading teknikal (TA) + machine learning &amp; deep learning untuk XAUUSD, USA100, dan lainnya.</p><div class="welcome-chips"></div>';
+        [['📶 Panel Signal', '@panel'], ['🛠 Backtest', '/backtest XAUUSD adaptive'], ['🤖 Latih ML', '/ml XAUUSD'], ['📊 Chart', '/chart XAUUSD 1d'], ['🧠 Struktur', '/structure XAUUSD'], ['🗞 Sentimen', '/news XAUUSD'], ['🧘 Skills', '/skills'], ['📋 Bantuan', '/help']].forEach(function (c) {
           var b = document.createElement('button');
           b.className = 'welcome-chip';
-          b.textContent = c;
+          b.textContent = c[0];
           b.addEventListener('click', function () {
+            if (c[1] === '@panel') { openSignalPanel(); return; }
             var inp = $('chat-input');
-            if (inp) { inp.value = c; inp.focus(); updateInputCount(); }
+            if (inp) { inp.value = c[1]; }
+            sendChat();
           });
           welcome.querySelector('.welcome-chips').appendChild(b);
         });
-        var features = document.createElement('div');
-        features.className = 'welcome-features';
-        [['📎', 'Lampirkan file'], ['🌐', 'Cari di web'], ['🧠', 'Basis pengetahuan'], ['🎤', 'Bicara']].forEach(function (f) {
-          var d = document.createElement('div');
-          d.className = 'welcome-feature';
-          d.innerHTML = '<span>' + f[0] + '</span>' + f[1];
-          features.appendChild(d);
-        });
-        welcome.appendChild(features);
         var hint = document.createElement('div');
         hint.className = 'welcome-hint';
-        hint.textContent = '📎 File • 🌐 Web search • 🧠 Knowledge base • 🎤 Voice';
+        hint.textContent = 'Ketik perintah → Enter. Contoh: /sinyal XAUUSD adaptive • /ml XAUUSD • /backtest XAUUSD adaptive eval';
         welcome.appendChild(hint);
         box.appendChild(welcome);
         return;
@@ -3899,6 +3887,44 @@ if (/^\/ml-signal\b/i.test(text)) {
       handleSkillsCommand(text);
       return;
     }
+    /* ── CangCilung = konsol ML & DL signal trading ── */
+    /* Perintah natural-language TA (mis. "analisis XAUUSD") sudah ditangkap
+       di atas. Sisanya = teks bebas → tayang bantuan perintah trading.
+       Jalur LLM/chat (di bawah, setelah titik ini) TIDAK PERNAH dijangkau. */
+    if (/^\/analyze\b/i.test(text)) {
+      var am = text.match(/^\/analyze\s+(\S+)/i);
+      input.value = '';
+      handleTA(am && am[1] ? am[1] : 'XAUUSD');
+      return;
+    }
+    if (!text) return;
+    if (busy) { if (abortCtrl) abortCtrl.abort(); else { busy = false; setSendUI(false); setStatus('⏹ Dihentikan.'); } return; }
+
+    addUserMessage(text);
+
+    finalizeMessage(
+      'CangCilung adalah platform **ML & DL signal trading** — fitur chat/LLM sudah dihapus.\n\n' +
+      'Gunakan salah satu perintah berikut:\n\n' +
+      '- `/chart [SYM] [TF]` — grafik candlestick (mis. `/chart XAUUSD 1h`)\n' +
+      '- `/rsi [SYM] [periode]` — indikator RSI\n' +
+      '- `/ta [SYM]` — analisis teknikal lengkap\n' +
+      '- `/rekomendasi [SYM]` — keputusan BUY/SELL/WAIT\n' +
+      '- `/ml [SYM] [engine:vanilla|tfjs] [epochs]` — latih model Machine/Deep Learning\n' +
+      '- `/ml-signal [SYM] [strategi]` — sinyal fusion ML×TA\n' +
+      '- `/backtest [SYM] [strategi] [opts]` — backtest + walk-forward + Monte Carlo\n' +
+      '- `/structure [SYM]` • `/structure-mtf [SYM]` — market structure (MTF)\n' +
+      '- `/news [SYM]` — sentimen berita\n' +
+      '- `/risk [SYM] [akun] [persen]` — manajemen risiko\n' +
+      '- `/corr [SYM]` — korelasi antar aset\n' +
+      '- `/profile [SYM]` — volume profile\n' +
+      '- `/sinyal [SYM] [strategi]` — tambah signal live\n' +
+      '- `/sinyal-list` • `/sinyal-history` • `/sinyal-clear` — kelola signal\n' +
+      '- `/alerts` • `/alert SYM target label` — alert harga\n' +
+      '- `/skills` — skills & bundle trading (mantra)\n' +
+      '- `/help` — daftar lengkap perintah\n\n' +
+      'Panel **Live Signal 📶** ada di tombol header atas.'
+    );
+    return;
     var forceAnalysis = false;
     if (/^\/analyze\b/i.test(text)) {
       forceAnalysis = true;
@@ -4329,20 +4355,11 @@ if (/^\/ml-signal\b/i.test(text)) {
   }
 
   function openSettings() {
-    $('set-baseurl').value = settings.baseUrl;
-    $('set-model').value = settings.model || DEFAULT_MODEL;
-    $('set-model-analy').value = settings.analyModel || '';
-    $('set-apikey').value = settings.apiKey || '';
-    $('set-persona').value = settings.persona || 'default';
-    $('set-verify').checked = settings.verifyEnabled;
-    $('set-embed-baseurl').value = settings.embedBaseUrl || DEFAULT_EMBED_BASE;
-    $('set-embed-key').value = settings.embedKey || '';
-    $('set-embed-model').value = settings.embedModel || DEFAULT_EMBED_MODEL;
+    var st = $('set-status');
+    if (st) st.textContent = '';
     if ($('set-news-key')) $('set-news-key').value = settings.newsKey || '';
-    $('set-status').textContent = '';
     openModal('settings-modal');
-    $('set-baseurl').focus();
-    populateVoices();
+    if ($('set-news-key')) $('set-news-key').focus();
   }
 
   function closeSettings() {
@@ -4350,19 +4367,8 @@ if (/^\/ml-signal\b/i.test(text)) {
   }
 
   function saveSettingsFromModal() {
-    settings.baseUrl = $('set-baseurl').value.trim();
-    settings.model = $('set-model').value.trim();
-    settings.analyModel = $('set-model-analy').value.trim();
-    settings.apiKey = $('set-apikey').value.trim();
-    settings.persona = $('set-persona').value || 'default';
-    settings.verifyEnabled = $('set-verify').checked;
-    settings.voice = $('set-voice').value || '';
-    settings.embedBaseUrl = $('set-embed-baseurl').value.trim() || DEFAULT_EMBED_BASE;
-    settings.embedKey = $('set-embed-key').value.trim();
-    settings.embedModel = $('set-embed-model').value.trim() || DEFAULT_EMBED_MODEL;
     if ($('set-news-key')) settings.newsKey = $('set-news-key').value.trim();
     saveSettings();
-    syncPersonaButton();
     connSub();
     closeSettings();
     setStatus('Pengaturan disimpan.');
@@ -4551,61 +4557,36 @@ if (/^\/ml-signal\b/i.test(text)) {
     applyOnline();
     renderHistory();
     renderUsage();
-    syncPersonaButton();
     applyTheme(settings.theme);
     applyFont();
-    populateQuickModel();
-    var qmb = $('quick-model-btn');
-    var qml = $('quick-model-list');
-    if (qmb && qml) {
-      qmb.addEventListener('click', function () {
-        var opening = !qml.classList.contains('open');
-        qml.classList.toggle('open', opening);
-        qmb.setAttribute('aria-expanded', String(opening));
-      });
-      document.addEventListener('click', function (e) {
-        if (!e.target.closest('.model-dropdown')) {
-          qml.classList.remove('open');
-          qmb.setAttribute('aria-expanded', 'false');
+
+    /* ── Konsol perintah trading ── */
+    var inp = $('chat-input');
+    if (inp) {
+      inp.addEventListener('input', updateInputCount);
+      inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+          e.preventDefault();
+          sendChat();
         }
       });
     }
-    loadPinned();
-    
-    startAlertChecker();
-    startSignalChecker();
-    updateSignalBadge();
-    
-    if ($('btn-stats-close')) $('btn-stats-close').addEventListener('click', function () { closeModal('stats-modal'); });
-    if ($('stats-modal')) $('stats-modal').addEventListener('click', function (e) { if (e.target === $('stats-modal')) closeModal('stats-modal'); });
-    if ($('btn-pins')) $('btn-pins').addEventListener('click', openPins);
-    $('btn-pins-close').addEventListener('click', closePins);
-    $('pins-modal').addEventListener('click', function (e) { if (e.target === $('pins-modal')) closePins(); });
-    $('btn-backup').addEventListener('click', openBackup);
-    $('btn-backup-close').addEventListener('click', closeBackup);
-    $('backup-modal').addEventListener('click', function (e) { if (e.target === $('backup-modal')) closeBackup(); });
-    $('backup-download').addEventListener('click', backupData);
-    $('backup-file').addEventListener('change', function () {
-      if (this.files && this.files[0]) restoreData(this.files[0]);
-    });
-    $('btn-scroll-down').addEventListener('click', scrollToBottom);
-    $('chat-messages').addEventListener('scroll', onChatScroll);
-    $('chat-input').addEventListener('input', updateInputCount);
+    var sendBtn = $('btn-send');
+    if (sendBtn) sendBtn.addEventListener('click', sendChat);
 
-    $('btn-send').addEventListener('click', sendChat);
-    $('btn-attach').addEventListener('click', function () { $('file-input').click(); });
-    $('file-input').addEventListener('change', function () {
-      if (this.files && this.files[0]) {
-        var f = this.files[0];
-        if (/\.(png|jpe?g|webp|gif)$/i.test(f.name || '')) attachImage(f);
-        else attachFile(f);
-      }
-      this.value = '';
-    });
-    $('btn-file-summary').addEventListener('click', summarizeFile);
-    $('btn-attach-clear').addEventListener('click', clearAttachment);
-    $('btn-img-clear').addEventListener('click', clearImage);
-    $('chat-messages').addEventListener('click', function (e) {
+    var themeBtn = $('btn-theme');
+    if (themeBtn) themeBtn.addEventListener('click', cycleTheme);
+
+    var signalBtn = $('btn-signal');
+    if (signalBtn) signalBtn.addEventListener('click', openSignalPanel);
+
+    var scrollBtn = $('btn-scroll-down');
+    if (scrollBtn) scrollBtn.addEventListener('click', scrollToBottom);
+    var messages = $('chat-messages');
+    if (messages) messages.addEventListener('scroll', onChatScroll);
+
+    /* ── Aksi pada bubble output (salin/edit/ulang/semat) ── */
+    if (messages) messages.addEventListener('click', function (e) {
       var btn = e.target.closest('.bubble-act, .run-btn');
       if (!btn) return;
       var action = btn.dataset.action;
@@ -4624,130 +4605,35 @@ if (/^\/ml-signal\b/i.test(text)) {
       else if (action === 'regenerate') { regenerateLast(); }
       else if (action === 'pin' && idx != null) { togglePin(idx); }
     });
-    $('btn-web').addEventListener('click', function () { toggleWebMode(); closeInputMore(); });
-    $('btn-web-clear').addEventListener('click', toggleWebMode);
-    suggestEnabled = settings.suggestEnabled === true;
-    if (suggestEnabled) { var sb = $('btn-suggest'); if (sb) { sb.classList.add('active'); sb.setAttribute('aria-pressed', 'true'); } }
-    $('btn-speak').addEventListener('click', function () { toggleSpeak(); closeInputMore(); });
-    $('btn-suggest').addEventListener('click', function () { toggleSuggest(); closeInputMore(); });
-    $('btn-translate').addEventListener('click', function () { toggleTranslate(); closeInputMore(); });
-    $('btn-theme').addEventListener('click', cycleTheme);
-    $('btn-mic').addEventListener('click', toggleMic);
-    $('btn-sessions').addEventListener('click', openSessions);
-    $('btn-sessions-close').addEventListener('click', closeSessions);
-    if ($('sidebar-signal')) $('sidebar-signal').addEventListener('click', openSignalPanel);
-    $('btn-session-new').addEventListener('click', newSession);
-    $('btn-rename-ok').addEventListener('click', submitRename);
-    $('btn-rename-cancel').addEventListener('click', closeRename);
-    $('btn-rename-close').addEventListener('click', closeRename);
-    $('rename-modal').addEventListener('click', function (e) { if (e.target === $('rename-modal')) closeRename(); });
-    $('rename-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submitRename(); } });
-    $('sessions-modal').addEventListener('click', function (e) {
-      if (e.target === $('sessions-modal')) closeSessions();
-    });
-    $('btn-export').addEventListener('click', openExportMenu);
-    $('btn-persona').addEventListener('click', cyclePersona);
-    if ($('btn-search')) $('btn-search').addEventListener('click', toggleSearch);
-    $('search-close').addEventListener('click', clearSearch);
-    $('search-prev').addEventListener('click', function () { searchNav(-1); });
-    $('search-next').addEventListener('click', function () { searchNav(1); });
-    $('search-input').addEventListener('input', runSearch);
-    $('search-input').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); searchNav(e.shiftKey ? -1 : 1); }
-    });
-    $('export-modal').addEventListener('click', function (e) { if (e.target === $('export-modal')) closeExportMenu(); });
-    $('btn-export-close').addEventListener('click', closeExportMenu);
-    $('export-txt').addEventListener('click', function () { exportChat('txt'); });
-    $('export-md').addEventListener('click', function () { exportChat('md'); });
-    $('export-json').addEventListener('click', function () { exportChat('json'); });
-    $('btn-url').addEventListener('click', openUrlModal);
-    $('btn-url-ok').addEventListener('click', submitUrl);
-    $('btn-url-cancel').addEventListener('click', closeUrlModal);
-    $('btn-url-close').addEventListener('click', closeUrlModal);
-    $('url-modal').addEventListener('click', function (e) { if (e.target === $('url-modal')) closeUrlModal(); });
-    $('url-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submitUrl(); } });
-    var dragCounter = 0;
-    document.addEventListener('dragover', function (e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-    document.addEventListener('dragenter', function (e) { e.preventDefault(); dragCounter++; document.body.classList.add('drag-over'); });
-    document.addEventListener('dragleave', function () { if (--dragCounter <= 0) { dragCounter = 0; document.body.classList.remove('drag-over'); } });
-    document.addEventListener('drop', function (e) {
-      e.preventDefault();
-      dragCounter = 0;
-      document.body.classList.remove('drag-over');
-      var dt = e.dataTransfer;
-      if (dt && dt.files && dt.files.length) {
-        var f = dt.files[0];
-        if (/\.(png|jpe?g|webp|gif)$/i.test(f.name || '')) attachImage(f);
-        else attachFile(f);
-      }
-    });
-    $('chat-input').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-        e.preventDefault();
-        sendChat();
-      }
-    });
-    $('btn-clear-chat').addEventListener('click', function () { doClearChat(); });
-    $('btn-tools').addEventListener('click', function () {
-      var m = $('tools-menu');
-      var opening = m.hidden;
-      m.hidden = !opening;
-      this.setAttribute('aria-expanded', String(opening));
-    });
-    document.addEventListener('click', function (e) {
-      var m = $('tools-menu');
-      if (m && !m.hidden && e.target.closest && !e.target.closest('.tools-wrap')) closeToolsMenu();
-      var im = $('input-more-menu');
-      if (im && !im.hidden && e.target.closest && !e.target.closest('.input-more-wrap')) closeInputMore();
-    });
-    $('btn-input-more').addEventListener('click', function () {
-      var m = $('input-more-menu');
-      var opening = m.hidden;
-      m.hidden = !opening;
-      this.setAttribute('aria-expanded', String(opening));
-    });
-    $('btn-confirm-ok').addEventListener('click', function () {
-      if (confirmCb) { var cb = confirmCb; closeConfirm(); cb(); }
-    });
-    $('btn-confirm-cancel').addEventListener('click', closeConfirm);
-    $('btn-confirm-close').addEventListener('click', closeConfirm);
-    $('confirm-modal').addEventListener('click', function (e) {
-      if (e.target === $('confirm-modal')) closeConfirm();
-    });
-    $('btn-settings').addEventListener('click', openSettings);
 
-    // ── Sidebar events ──
-    $('btn-sidebar-toggle').addEventListener('click', toggleSidebar);
-    $('btn-new-chat').addEventListener('click', function () { newSession(); closeSidebar(); });
-    if ($('sidebar-search')) $('sidebar-search').addEventListener('click', function () { toggleSearch(); closeSidebar(); });
-    if ($('sidebar-pins')) $('sidebar-pins').addEventListener('click', function () { openPins(); closeSidebar(); });
-    $('sidebar-export').addEventListener('click', function () { openExportMenu(); closeSidebar(); });
-    $('sidebar-backup').addEventListener('click', function () { openBackup(); closeSidebar(); });
-    $('sidebar-kb').addEventListener('click', function () { if (window.__kb && window.__kb.openKb) window.__kb.openKb(); closeSidebar(); });
-    $('sidebar-clear-chat').addEventListener('click', function () { doClearChat(); closeSidebar(); });
-    $('sidebar-theme').addEventListener('click', function () { cycleTheme(); closeSidebar(); });
-    $('sidebar-settings').addEventListener('click', function () { openSettings(); closeSidebar(); });
-    $('sidebar-cloud').addEventListener('click', function () { if (window.cangcilung && window.cangcilung.openCloudModal) window.cangcilung.openCloudModal(); closeSidebar(); });
-    $('btn-modal-close').addEventListener('click', closeSettings);
-    $('btn-set-cancel').addEventListener('click', closeSettings);
-    $('btn-set-save').addEventListener('click', saveSettingsFromModal);
-    $('btn-set-test').addEventListener('click', testConnection);
-    $('settings-modal').addEventListener('click', function (e) {
-      if (e.target === $('settings-modal')) closeSettings();
-    });
+    /* ── Modal Pengaturan ── */
+    var settingsBtn = $('btn-settings');
+    if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+    var setClose = $('btn-modal-close'), setCancel = $('btn-set-cancel'), setSave = $('btn-set-save');
+    if (setClose) setClose.addEventListener('click', closeSettings);
+    if (setCancel) setCancel.addEventListener('click', closeSettings);
+    if (setSave) setSave.addEventListener('click', saveSettingsFromModal);
+    var settingsModal = $('settings-modal');
+    if (settingsModal) settingsModal.addEventListener('click', function (e) { if (e.target === settingsModal) closeSettings(); });
 
-    var settingsTabs = $('settings-modal').querySelectorAll('.settings-tab');
-    Array.prototype.forEach.call(settingsTabs, function (tab) {
-      tab.addEventListener('click', function () {
-        var target = tab.dataset.tab;
-        Array.prototype.forEach.call(settingsTabs, function (t) { t.classList.remove('active'); });
-        tab.classList.add('active');
-        var panels = $('settings-modal').querySelectorAll('.settings-panel');
-        Array.prototype.forEach.call(panels, function (p) {
-          p.classList.toggle('active', p.dataset.panel === target);
-        });
-      });
-    });
+    /* ── Modal Konfirmasi ── */
+    var okBtn = $('btn-confirm-ok');
+    if (okBtn) okBtn.addEventListener('click', function () { if (confirmCb) { var cb = confirmCb; closeConfirm(); cb(); } });
+    var cancelBtn = $('btn-confirm-cancel'), closeBtn = $('btn-confirm-close');
+    if (cancelBtn) cancelBtn.addEventListener('click', closeConfirm);
+    if (closeBtn) closeBtn.addEventListener('click', closeConfirm);
+    var cfmModal = $('confirm-modal');
+    if (cfmModal) cfmModal.addEventListener('click', function (e) { if (e.target === cfmModal) closeConfirm(); });
+
+    /* ── Modal Chart / Panel Signal ── */
+    var chartClose = $('btn-chart-close');
+    if (chartClose) chartClose.addEventListener('click', function () { closeModal('chart-modal'); });
+    var chartModal = $('chart-modal');
+    if (chartModal) chartModal.addEventListener('click', function (e) { if (e.target === chartModal) closeModal('chart-modal'); });
+
+    startAlertChecker();
+    startSignalChecker();
+    updateSignalBadge();
   }
 
   /** @type {Object} Public API for cloud.js, kb.js, and external consumers */

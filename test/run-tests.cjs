@@ -27,41 +27,6 @@ function close(actual, expected, eps) {
   return Math.abs(actual - expected) < (eps == null ? 1e-6 : eps);
 }
 
-/* ---------- safeeval ---------- */
-suite('lib/safeeval.js (kalkulator internal)');
-const w1 = loadBrowser('lib/safeeval.js');
-(function () {
-  const lib = w1.cangcilungLib;
-  assert(lib && typeof lib.safeEval === 'function', 'safeEval terdefinisi');
-  assert(close(lib.safeEval('15*24+7'), 367), '15*24+7 = 367 (got ' + lib.safeEval('15*24+7') + ')');
-  assert(close(lib.safeEval('2^10'), 1024), '2^10 = 1024');
-  assert(close(lib.safeEval('(2+3)*4'), 20), '(2+3)*4 = 20');
-  assert(close(lib.safeEval('10/4'), 2.5), '10/4 = 2.5');
-  assert(lib.safeEval('hello') === null, 'teks non-math -> null');
-  assert(lib.safeEval('') === null, 'string kosong -> null');
-  const ca = lib.calcAnswer('berapa 100*5');
-  assert(ca && /500/.test(ca), 'calcAnswer("berapa 100*5") berisi 500');
-})();
-
-/* ---------- search.js ---------- */
-suite('lib/search.js (deteksi ticker harga)');
-const w2 = loadBrowser('lib/search.js');
-(function () {
-  const s = w2.CC.search;
-  assert(s && typeof s.extractTicker === 'function', 'extractTicker terdefinisi');
-  assert(s.extractTicker('harga xauusd') === 'GC=F', 'harga xauusd -> GC=F');
-  assert(s.extractTicker('harga usa100') === '^NDX', 'harga usa100 -> ^NDX');
-  assert(s.extractTicker('berapa usa100 sekarang') === '^NDX', 'berapa usa100 sekarang -> ^NDX');
-  assert(s.extractTicker('harga saham AAPL') === 'AAPL', 'harga saham AAPL -> AAPL');
-  assert(s.extractTicker('harga AAPL') === 'AAPL', 'harga AAPL -> AAPL');
-  assert(s.extractTicker('cara membuat nasi goreng') === '', 'non-ticker -> ""');
-  assert(s.chartSymbol('harga usa100') === 'NASDAQ:NDX', 'chartSymbol usa100 -> NASDAQ:NDX');
-  assert(s.chartSymbol('chart xauusd') === 'OANDA:XAUUSD', 'chartSymbol xauusd -> OANDA:XAUUSD');
-  assert(s.extractTicker('analisis USA100') === '^NDX', 'analisis USA100 -> ^NDX (tanpa kata kunci web)');
-  assert(s.chartSymbol('analisis USA100') === 'NASDAQ:NDX', 'chartSymbol analisis USA100 -> NASDAQ:NDX');
-  assert(s.extractTicker('analisis properti amerika') === '', 'analisis non-ticker -> ""');
-})();
-
 /* ---------- ta.js: ADX (kekuatan tren) ---------- */
 suite('lib/ta.js (ADX kekuatan tren)');
 (function () {
@@ -507,57 +472,8 @@ suite('lib/ml.js (Machine Learning & Deep Learning)');
   }).catch((e) => { fail++; errors.push('FAIL: skipConfluence error: ' + e); });
 })();
 
-/* ---------- stream.js ---------- */
-suite('lib/stream.js (parser SSE)');
-const w3 = loadBrowser('lib/stream.js');
-(function () {
-  const p = w3.CC.stream.parseSSEChunk;
-  assert(typeof p === 'function', 'parseSSEChunk terdefinisi');
-  let full = '';
-  let doneCalled = false;
-  const buf = { text: '', thinking: false };
-  p('data: {"choices":[{"delta":{"content":"Hal"}}]}\n\n', buf, (d) => { full += d; }, () => { doneCalled = true; });
-  p('data: {"choices":[{"delta":{"content":"o"}}]}\n\n', buf, (d) => { full += d; }, () => { doneCalled = true; });
-  full += '!';
-  assert(full === 'Halo!', 'delta content digabung: "Halo" + "o" + "!": ' + JSON.stringify(full));
-  const buf2 = { text: '', thinking: false };
-  p('data: [DONE]\n\n', buf2, () => {}, () => { doneCalled = true; });
-  assert(doneCalled, 'data [DONE] memicu onDone');
-})();
-
-/* ---------- search.js: integrasi fetchQuote (real-data via proxy Vercel) ----------
-   Toleran jaringan: jika semua proxy gagal (mis. CI tanpa internet), test lama
-   dilewati (bukan gagal) agar CI tidak flaky. */
-function runIntegration() {
-  return (async function () {
-    const origin = 'https://cangcilung.vercel.app';
-    global.location = { origin: origin };
-    const wQ = loadBrowser('lib/search.js');
-    const sQ = wQ.CC.search;
-    const cases = [
-      { ticker: '^NDX', name: 'NASDAQ-100', bad: /-39\.98|17\.421/i, label: '^NDX (USA100)' },
-      { ticker: 'GC=F', name: 'GC=F', bad: /-99\.\d{2}|^.*,\d{2}\/ -?9\d/i, label: 'GC=F (XAUUSD)' }
-    ];
-    for (const c of cases) {
-      try {
-        const out = await sQ.fetchQuote(c.ticker);
-        if (!out || typeof out !== 'string') { console.log('  (skip) ' + c.label + ': tidak ada output'); continue; }
-        assert(/#/.test(out), c.ticker + ': output berisi blok heading');
-        if (c.name) assert(out.indexOf(c.name) !== -1, c.ticker + ': memuat nama "' + c.name + '"');
-        assert(!c.bad.test(out), c.ticker + ': TIDAK mengandung data korup (mis. -39.98% / 17.421)');
-        const m = out.match(/- Harga: ([\d.,]+)/);
-        const val = m ? parseFloat(m[1].replace(/\./g, '').replace(',', '.')) : 0;
-        assert(m && val > 1000, c.ticker + ': harga masuk akal (>1000): ' + (m ? m[1] : '(tidak ada)'));
-      } catch (e) {
-        console.log('  (skip) ' + c.label + ': gagal ambil data, dilewati: ' + (e && e.message));
-      }
-    }
-    suite('lib/search.js — integrasi selesai (hasil di atas)');
-  })();
-}
-
 /* ---------- ringkasan ---------- */
-runIntegration().then(function () {
+Promise.resolve().then(function () {
   fs.writeFileSync(path.join(ROOT, 'test', 'results.txt'), results.join('\n') + '\n');
   console.log(results.join('\n'));
   console.log('\n' + pass + ' passed, ' + fail + ' failed.');

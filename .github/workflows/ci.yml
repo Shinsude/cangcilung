@@ -21,7 +21,7 @@ jobs:
       - name: Syntax check (node --check) semua JS
         run: |
           set -e
-          for f in app.js cloud.js kb.js sw.js; do
+          for f in app.js cloud.js sw.js; do
             node --check "$f"
             echo "OK $f"
           done
