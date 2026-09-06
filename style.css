@@ -375,6 +375,12 @@ html { scrollbar-width: thin; scrollbar-color: #424242 transparent; }
 .bubble-act:hover { background: var(--card); color: var(--text); }
 
 /* ═══════════ WELCOME ═══════════ */
+/* Dashboard layar-pertama: panel Live Signal + pintasan */
+.dash-home { display: flex; flex-direction: column; gap: 14px; padding: 6px 0 10px; }
+.dash-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dash-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.dash-hint { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+
 .welcome {
   text-align: center; padding: 60px 16px 40px; color: var(--text-dim);
 }

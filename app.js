@@ -1157,6 +1157,64 @@
     _setupLoadOlder();
   }
 
+  /* Dashboard layar-pertama: panel Live Signal XAUUSD inline + pintasan perintah.
+     Ditampilkan selama tidak ada riwayat perintah. Auto-refresh saat aktif. */
+  var _dashTimer = null;
+  function renderDashboard(box) {
+    var wrap = document.createElement('div');
+    wrap.className = 'dash-home';
+    wrap.innerHTML =
+      '<div class="dash-head">' +
+        '<div class="dash-title">📶 Live Signal — XAUUSD</div>' +
+        '<button class="icon-btn" id="dash-open-modal" title="Buka panel modal" aria-label="Buka panel modal">⛶</button>' +
+      '</div>' +
+      '<div id="dash-panel"></div>' +
+      '<div class="dash-hint">Ketik perintah atau pilih pintasan di bawah, lalu Enter.</div>' +
+      '<div class="welcome-chips" id="dash-chips"></div>';
+    box.appendChild(wrap);
+
+    var panel = wrap.querySelector('#dash-panel');
+    var confBody = document.createElement('div');
+    confBody.id = 'dash-conf-body';
+    panel.appendChild(confBody);
+    renderSignalPanelInline(panel);
+
+    [['🛠 Backtest', '/backtest XAUUSD adaptive'], ['🤖 Latih ML', '/ml XAUUSD'], ['📊 Chart', '/chart XAUUSD 1d'], ['🧠 Struktur', '/structure XAUUSD'], ['🗞 Sentimen', '/news XAUUSD'], ['🧘 Skills', '/skills'], ['📋 Bantuan', '/help']].forEach(function (c) {
+      var b = document.createElement('button');
+      b.className = 'welcome-chip';
+      b.textContent = c[0];
+      b.addEventListener('click', function () {
+        var inp = $('chat-input');
+        if (inp) { inp.value = c[1]; }
+        sendChat();
+      });
+      wrap.querySelector('#dash-chips').appendChild(b);
+    });
+    var open = wrap.querySelector('#dash-open-modal');
+    if (open) open.addEventListener('click', openSignalPanel);
+
+    /* Auto-refresh dashboard tiap 45 dtk selama masih tampil & history masih kosong */
+    if (_dashTimer) clearInterval(_dashTimer);
+    _dashTimer = setInterval(function () {
+      if ($('#chat-messages') && !$('#chat-messages').children.length) return;
+      if (history.length) { clearInterval(_dashTimer); _dashTimer = null; return; }
+      renderSignalPanelInline(panel);
+    }, 45000);
+  }
+
+  /* Render panel Live Signal ke dalam div (dipakai dashboard & modal), otomatis
+     memastikan ada signal XAUUSD dan memulai pemeriksa alert. */
+  function renderSignalPanelInline(container) {
+    if (!window.CC || !window.CC.ta) return;
+    var ta = window.CC.ta;
+    requestSignalPermission();
+    ensureXauusdSignal('adaptive');
+    startAlertChecker();
+    startSignalChecker();
+    updateSignalBadge();
+    renderSignalPanel(container);
+  }
+
   function renderHistory(forceFull) {
     var box = $('chat-messages');
     if (!box) return;
@@ -1179,26 +1237,7 @@
       _renderedCount = 0;
       if (!history.length) {
         _virtualStart = 0;
-        var welcome = document.createElement('div');
-        welcome.className = 'welcome';
-        welcome.innerHTML = '<div class="welcome-avatar">📶</div><p>CangCilung — <strong>ML &amp; DL Signal Trading</strong>. Analisis &amp; sinyal trading teknikal (TA) + machine learning &amp; deep learning untuk XAUUSD, USA100, dan lainnya.</p><div class="welcome-chips"></div>';
-        [['📶 Panel Signal', '@panel'], ['🛠 Backtest', '/backtest XAUUSD adaptive'], ['🤖 Latih ML', '/ml XAUUSD'], ['📊 Chart', '/chart XAUUSD 1d'], ['🧠 Struktur', '/structure XAUUSD'], ['🗞 Sentimen', '/news XAUUSD'], ['🧘 Skills', '/skills'], ['📋 Bantuan', '/help']].forEach(function (c) {
-          var b = document.createElement('button');
-          b.className = 'welcome-chip';
-          b.textContent = c[0];
-          b.addEventListener('click', function () {
-            if (c[1] === '@panel') { openSignalPanel(); return; }
-            var inp = $('chat-input');
-            if (inp) { inp.value = c[1]; }
-            sendChat();
-          });
-          welcome.querySelector('.welcome-chips').appendChild(b);
-        });
-        var hint = document.createElement('div');
-        hint.className = 'welcome-hint';
-        hint.textContent = 'Ketik perintah → Enter. Contoh: /sinyal XAUUSD adaptive • /ml XAUUSD • /backtest XAUUSD adaptive eval';
-        welcome.appendChild(hint);
-        box.appendChild(welcome);
+        renderDashboard(box);
         return;
       }
       if (searchActive) {
