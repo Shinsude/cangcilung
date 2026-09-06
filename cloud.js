@@ -49,7 +49,6 @@
     if (mode === 'off') { el.hidden = true; return; }
     el.hidden = false;
     el.dataset.state = mode;
-    el.textContent = mode === 'sync' ? '⏳' : mode === 'err' ? '⚠️' : '☁️';
     el.title = title || (mode === 'sync' ? 'Menyinkronkan...' : mode === 'ok' ? 'Cloud tersinkron' : 'Sinkronisasi bermasalah');
   }
 
