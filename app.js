@@ -3056,14 +3056,12 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
           var d = decMap[dec] || decMap.wait;
           /* Saat market tutup / data basi: keputusan bukan live — demote ke MENUNGGU,
              analisis tetap ditampilkan sebagai pratayang yang jujur. */
-          var closed = !!(mInfo && !mInfo.open);
-          var fresh = !closed && (typeof ta.barIsFresh !== 'function' || ta.barIsFresh(r && r.data ? r.data : (r || null)));
-          var demote = closed || !fresh;
+          var fresh = !(mInfo && !mInfo.open) && (typeof ta.barIsFresh !== 'function' || ta.barIsFresh(r && r.data ? r.data : (r || null)));
+          var pDec = typeof ta.panelDecision === 'function' ? ta.panelDecision(mInfo, fresh, dec) : { demote: false, preview: (dec === 'buy' ? 'BUY' : dec === 'sell' ? 'SELL' : 'WAIT') };
+          var demote = pDec.demote;
           if (demote) {
-            var preview = dec === 'buy' ? 'BUY' : dec === 'sell' ? 'SELL' : 'WAIT';
             d = decMap.wait;
-            why = (closed ? '⛔ Market ' + mInfo.label : 'Data pasar belum mutakhir') +
-              ' — keputusan BUY/SELL baru dihitung saat pasar buka. Analisis pratayang saat ini: ' + preview + '.';
+            why = pDec.reason || (('Market tutup / data basi — keputusan BUY/SELL baru dihitung saat pasar buka. Analisis pratayang saat ini: ' + pDec.preview) + '.');
           }
           var h = '<div class="sig-decision">';
           h += '<div class="sig-dec-symbol ' + d.cls + '">' + d.sym + '</div>';

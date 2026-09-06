@@ -316,6 +316,22 @@ suite('lib/ta.js (genSignals & backtest regresi + golden RSI)');
   const remStale = ta.removeSignalAlert(staleSig.signal.id);
   assert(remStale.removed === 1, 'hapus signal stale-guard');
 
+  /* --- kartu keputusan panel: demote ke MENUNGGU saat market tutup/data basi --- */
+  assert(typeof ta.panelDecision === 'function', 'panelDecision terdefinisi');
+  const sabtu = { open: false, label: 'Tutup (Sabtu)' };
+  const buka = { open: true, label: 'Buka' };
+  const saatSabtuBuy = ta.panelDecision(sabtu, true, 'buy');
+  assert(saatSabtuBuy.demote === true, 'panel: market tutup → demote MENUNGGU (buy)');
+  assert(saatSabtuBuy.preview === 'BUY', 'panel: pratayang jujur = BUY saat dibuy: ' + saatSabtuBuy.preview);
+  const saatSabtuSell = ta.panelDecision(sabtu, true, 'sell');
+  assert(saatSabtuSell.demote === true && saatSabtuSell.preview === 'SELL', 'panel: baris sell juga demote + pratayang SELL');
+  const saatBukaFresh = ta.panelDecision(buka, true, 'buy');
+  assert(saatBukaFresh.demote === false, 'panel: market buka + segar → tidak demote');
+  const saatBukaBasi = ta.panelDecision(buka, false, 'sell');
+  assert(saatBukaBasi.demote === true, 'panel: data basi walau buka → tetap demote');
+  const tanpaMInfo = ta.panelDecision(null, true, 'wait');
+  assert(tanpaMInfo.demote === false, 'panel: tanpa info market → tidak demote gegabah');
+
   /* --- biaya realistis per sesi pasar (spread dinamis XAUUSD) --- */
   assert(typeof ta.sessionSpreadAt === 'function', 'sessionSpreadAt terdefinisi');
   const tAsia = Math.floor(Date.UTC(2024, 2, 13, 2, 0, 0) / 1000);   // Selasa 02:00 UTC
