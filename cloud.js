@@ -461,6 +461,8 @@
       signInEmail(email, password)
         .then(function (m) {
           $('cloud-msg').textContent = m;
+          $('cloud-password').value = '';
+          setTimeout(function () { openCloudModal(); }, 250);
           loginBtn.disabled = false;
         })
         .catch(function (e) {
