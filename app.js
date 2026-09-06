@@ -4575,7 +4575,7 @@ if (/^\/ml-signal\b/i.test(text)) {
     if (sendBtn) sendBtn.addEventListener('click', sendChat);
 
     var themeBtn = $('btn-theme');
-    if (themeBtn) themeBtn.addEventListener('click', cycleTheme);
+    if (themeBtn) { themeBtn.hidden = false; themeBtn.addEventListener('click', cycleTheme); }
 
     var signalBtn = $('btn-signal');
     if (signalBtn) signalBtn.addEventListener('click', openSignalPanel);
@@ -4608,7 +4608,7 @@ if (/^\/ml-signal\b/i.test(text)) {
 
     /* ── Modal Pengaturan ── */
     var settingsBtn = $('btn-settings');
-    if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+    if (settingsBtn) { settingsBtn.hidden = false; settingsBtn.addEventListener('click', openSettings); }
     var setClose = $('btn-modal-close'), setCancel = $('btn-set-cancel'), setSave = $('btn-set-save');
     if (setClose) setClose.addEventListener('click', closeSettings);
     if (setCancel) setCancel.addEventListener('click', closeSettings);
