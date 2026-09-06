@@ -316,13 +316,13 @@
       item.className = 'pin-item';
       var role = document.createElement('div');
       role.className = 'pin-role';
-      role.textContent = p.role === 'user' ? '🧑 Anda' : '🤖 cangcilung';
+      role.textContent = p.role === 'user' ? 'Anda' : 'CangCilung';
       var body = document.createElement('div');
       body.className = 'pin-body';
       body.textContent = p.content.slice(0, 500);
       var act = document.createElement('button');
       act.className = 'pin-act';
-      act.textContent = '📌 Lepas';
+      act.innerHTML = actionSvg('pin') + ' Lepas';
       act.addEventListener('click', function () {
         pinned = pinned.filter(function (x) { return x.content !== p.content; });
         savePinned();
@@ -800,7 +800,7 @@
   function connSub() {
     var el = $('conn-sub');
     if (!el) return;
-    el.textContent = 'ML & DL Signal Trading • XAUUSD • USA100 • NDX • DXY';
+    el.textContent = 'XAUUSD • NDX • US30 • SPX • DXY • VIX';
   }
 
   function setStatus(msg, isError) {
@@ -940,6 +940,15 @@
 
   function nowTime() { return window.CC && window.CC.utils ? window.CC.utils.nowTime() : (function () { var d = new Date(), h = d.getHours(), m = d.getMinutes(); return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m; })(); }
 
+  /* Ikon aksi bubble — SVG inline konsisten (bukan emoji). */
+  var ACT_ICONS = {
+    copy: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    edit: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+    regen: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    pin: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>'
+  };
+  function actionSvg(name) { return ACT_ICONS[name] || ''; }
+
   function addBubble(role, text, index, ts) {
     var wrap = document.createElement('div');
     wrap.className = 'msg ' + role;
@@ -959,14 +968,14 @@
     actions.className = 'msg-actions';
     var copyBtn = document.createElement('button');
     copyBtn.className = 'bubble-act';
-    copyBtn.textContent = '📋';
+    copyBtn.innerHTML = actionSvg('copy');
     copyBtn.title = 'Salin';
     copyBtn.dataset.action = 'copy';
     actions.appendChild(copyBtn);
     if (role === 'user' && index != null) {
       var edBtn = document.createElement('button');
       edBtn.className = 'bubble-act';
-      edBtn.textContent = '✏️';
+      edBtn.innerHTML = actionSvg('edit');
       edBtn.title = 'Edit perintah';
       edBtn.dataset.action = 'edit';
       actions.appendChild(edBtn);
@@ -974,7 +983,7 @@
     if (role === 'assistant' && text && index === history.length - 1) {
       var reBtn = document.createElement('button');
       reBtn.className = 'bubble-act';
-      reBtn.textContent = '🔁';
+      reBtn.innerHTML = actionSvg('regen');
       reBtn.title = 'Ulangi analisis';
       reBtn.dataset.action = 'regenerate';
       actions.appendChild(reBtn);
@@ -982,7 +991,7 @@
     if (index != null) {
       var pinBtn = document.createElement('button');
       pinBtn.className = 'bubble-act';
-      pinBtn.textContent = '📌';
+      pinBtn.innerHTML = actionSvg('pin');
       pinBtn.title = 'Semat output';
       pinBtn.dataset.action = 'pin';
       actions.appendChild(pinBtn);
@@ -1112,14 +1121,14 @@
       actions.className = 'msg-actions';
       var copyBtn = document.createElement('button');
       copyBtn.className = 'bubble-act';
-      copyBtn.textContent = '📋';
+      copyBtn.innerHTML = actionSvg('copy');
       copyBtn.title = 'Salin';
       copyBtn.dataset.action = 'copy';
       actions.appendChild(copyBtn);
       if (m.role === 'user' && i != null) {
         var edBtn = document.createElement('button');
         edBtn.className = 'bubble-act';
-        edBtn.textContent = '✏️';
+        edBtn.innerHTML = actionSvg('edit');
         edBtn.title = 'Edit perintah';
         edBtn.dataset.action = 'edit';
         actions.appendChild(edBtn);
@@ -1127,7 +1136,7 @@
       if (m.role === 'assistant' && m.content && i === history.length - 1) {
         var reBtn = document.createElement('button');
         reBtn.className = 'bubble-act';
-        reBtn.textContent = '🔁';
+        reBtn.innerHTML = actionSvg('regen');
         reBtn.title = 'Ulangi analisis';
         reBtn.dataset.action = 'regenerate';
         actions.appendChild(reBtn);
@@ -1135,7 +1144,7 @@
       if (i != null) {
         var pinBtn = document.createElement('button');
         pinBtn.className = 'bubble-act';
-        pinBtn.textContent = '📌';
+        pinBtn.innerHTML = actionSvg('pin');
         pinBtn.title = 'Semat output';
         pinBtn.dataset.action = 'pin';
         actions.appendChild(pinBtn);
@@ -1151,7 +1160,7 @@
       var sent = document.createElement('div');
       sent.id = 'load-older-sentinel';
       sent.className = 'load-older-sentinel';
-      sent.textContent = '⬆️ Muat riwayat lebih lama…';
+      sent.textContent = 'Muat riwayat lebih lama…';
       box.insertBefore(sent, box.firstChild);
     }
     _setupLoadOlder();
@@ -1179,13 +1188,22 @@
     panel.appendChild(confBody);
     renderSignalPanelInline(panel);
 
-    [['🛠 Backtest', '/backtest XAUUSD adaptive'], ['🤖 Latih ML', '/ml XAUUSD'], ['📊 Chart', '/chart XAUUSD 1d'], ['🧠 Struktur', '/structure XAUUSD'], ['🗞 Sentimen', '/news XAUUSD'], ['🧘 Skills', '/skills'], ['📋 Bantuan', '/help']].forEach(function (c) {
+    var chips = [
+      ['<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>', 'Backtest', '/backtest XAUUSD adaptive'],
+      ['<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>', 'Latih ML', '/ml XAUUSD'],
+      ['<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', 'Chart', '/chart XAUUSD 1d'],
+      ['<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>', 'Struktur', '/structure XAUUSD'],
+      ['<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>', 'Sentimen', '/news XAUUSD'],
+      ['<path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/>', 'Skills', '/skills'],
+      ['<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>', 'Bantuan', '/help']
+    ];
+    chips.forEach(function (c) {
       var b = document.createElement('button');
       b.className = 'welcome-chip';
-      b.textContent = c[0];
+      b.innerHTML = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + c[0] + '</svg><span>' + c[1] + '</span>';
       b.addEventListener('click', function () {
         var inp = $('chat-input');
-        if (inp) { inp.value = c[1]; }
+        if (inp) { inp.value = c[2]; }
         sendChat();
       });
       wrap.querySelector('#dash-chips').appendChild(b);
@@ -1252,7 +1270,7 @@
         var sent = document.createElement('div');
         sent.id = 'load-older-sentinel';
         sent.className = 'load-older-sentinel';
-        sent.textContent = '⬆️ Muat riwayat lebih lama…';
+sent.textContent = 'Muat riwayat lebih lama…';
         box.appendChild(sent);
       }
     }
@@ -1269,7 +1287,7 @@
         var sent2 = document.createElement('div');
         sent2.id = 'load-older-sentinel';
         sent2.className = 'load-older-sentinel';
-        sent2.textContent = '⬆️ Muat riwayat lebih lama…';
+        sent2.textContent = 'Muat riwayat lebih lama…';
         box.insertBefore(sent2, box.firstChild);
       }
       _setupLoadOlder();
@@ -1958,7 +1976,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     if (!badge) return;
     try {
       var n = window.CC && window.CC.ta && window.CC.ta.listSignalAlerts ? window.CC.ta.listSignalAlerts().length : 0;
-      if (n > 0) { badge.textContent = n; badge.hidden = false; }
+      if (n > 0) { badge.textContent = n > 99 ? '99+' : n; badge.hidden = false; }
       else badge.hidden = true;
     } catch (e) {}
   }
@@ -1970,7 +1988,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
     var ta = window.CC.ta;
     requestSignalPermission();
-    var container = openChartModal('📶 Live Signal — XAUUSD');
+    var container = openChartModal('Live Signal — XAUUSD');
     if (!container) return;
     if (window._signalPanelTimer) clearInterval(window._signalPanelTimer);
 
@@ -2868,27 +2886,23 @@ if (/^\/ml-signal\b/i.test(text)) {
 
     addUserMessage(text);
 
+    var g = text.replace(/[.,!?;:]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (g.length <= 40 && /(^|\s)(hi|halo|hallo|helo|hello|hai|oy|hey|p|oke|ok|okay|sip|mantap|makasih|terima kasih|thanks|thank you|assalamualaikum|pagi|siang|sore|malam)(\s|$)/.test(g) && !/\//.test(text)) {
+      finalizeMessage(
+        'Halo! Konsol **ML &amp; DL signal trading** siap dipakai.\n\n' +
+        'Coba: `/ta XAUUSD`, `/backtest XAUUSD adaptive`, `/ml XAUUSD`, atau lihat **Signal XAUUSD** di header.\n' +
+        'Ketik `/help` untuk daftar lengkap perintah.'
+      );
+      return;
+    }
+
     finalizeMessage(
-      'CangCilung adalah platform **ML & DL signal trading** — fitur chat/LLM sudah dihapus.\n\n' +
-      'Gunakan salah satu perintah berikut:\n\n' +
-      '- `/chart [SYM] [TF]` — grafik candlestick (mis. `/chart XAUUSD 1h`)\n' +
-      '- `/rsi [SYM] [periode]` — indikator RSI\n' +
-      '- `/ta [SYM]` — analisis teknikal lengkap\n' +
-      '- `/rekomendasi [SYM]` — keputusan BUY/SELL/WAIT\n' +
-      '- `/ml [SYM] [engine:vanilla|tfjs] [epochs]` — latih model Machine/Deep Learning\n' +
-      '- `/ml-signal [SYM] [strategi]` — sinyal fusion ML×TA\n' +
-      '- `/backtest [SYM] [strategi] [opts]` — backtest + walk-forward + Monte Carlo\n' +
-      '- `/structure [SYM]` • `/structure-mtf [SYM]` — market structure (MTF)\n' +
-      '- `/news [SYM]` — sentimen berita\n' +
-      '- `/risk [SYM] [akun] [persen]` — manajemen risiko\n' +
-      '- `/corr [SYM]` — korelasi antar aset\n' +
-      '- `/profile [SYM]` — volume profile\n' +
-      '- `/sinyal [SYM] [strategi]` — tambah signal live\n' +
-      '- `/sinyal-list` • `/sinyal-history` • `/sinyal-clear` — kelola signal\n' +
-      '- `/alerts` • `/alert SYM target label` — alert harga\n' +
-      '- `/skills` — skills & bundle trading (mantra)\n' +
-      '- `/help` — daftar lengkap perintah\n\n' +
-      'Panel **Live Signal 📶** ada di tombol header atas.'
+      'Perintah **tidak dikenali**: `' + text + '`\n\n' +
+      'Konsol ini untuk perintah trading. Contoh cepat:\n\n' +
+      '- `/ta XAUUSD` — analisis teknikal lengkap\n' +
+      '- `/ml XAUUSD` — latih model machine/deep learning\n' +
+      '- `/sinyal XAUUSD adaptive` — pantau sinyal live\n\n' +
+      'Ketik `/help` untuk daftar perintah lengkap.'
     );
     return;
   }
@@ -3027,7 +3041,7 @@ if (/^\/ml-signal\b/i.test(text)) {
         var cs = $('conn-sub');
         if (!cs) return;
         if (navigator.onLine === false) {
-          cs.textContent = '📴 Offline — tanpa internet (chat mungkin tak tersedia)';
+          cs.textContent = 'Offline — tanpa internet, data tidak diperbarui';
           cs.classList.add('offline');
         } else {
           cs.classList.remove('offline');

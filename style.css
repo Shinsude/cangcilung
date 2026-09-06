@@ -377,6 +377,10 @@ html { scrollbar-width: thin; scrollbar-color: #424242 transparent; }
   transition: background .1s;
 }
 .bubble-act:hover { background: var(--card); color: var(--text); }
+.bubble-act .ico { width: 14px; height: 14px; display: block; }
+.pin-act .ico { width: 13px; height: 13px; vertical-align: -2px; }
+.welcome-chip { display: inline-flex; align-items: center; gap: 6px; }
+.welcome-chip .ico { width: 14px; height: 14px; }
 
 /* ═══════════ WELCOME ═══════════ */
 /* Dashboard layar-pertama: panel Live Signal + pintasan */
