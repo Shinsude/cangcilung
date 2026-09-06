@@ -373,16 +373,22 @@
       </div>
       <div class="modal-body">
         <p id="cloud-msg" class="set-hint"></p>
-        <label class="set-field" id="cloud-email-wrap">
-          <span>Email (opsional)</span>
+        <label class="set-field" id="cloud-email-wrap" hidden>
+          <span>Email</span>
           <input type="email" id="cloud-email" placeholder="nama@email.com" autocomplete="email" spellcheck="false">
         </label>
-        <p class="set-hint" id="cloud-email-note">Hubungkan email agar riwayat tetap tersedia di perangkat lain.</p>
+        <label class="set-field" id="cloud-pass-wrap" hidden>
+          <span>Password (min. 6 karakter)</span>
+          <input type="password" id="cloud-password" minlength="6" autocomplete="current-password" placeholder="••••••••">
+        </label>
+        <p class="set-hint" id="cloud-email-note" hidden>Buat akun di email ini: konfirmasi dikirim, lalu pakai email+password ini saat <strong>Masuk</strong> di perangkat mana pun.</p>
+        <p class="set-hint" id="cloud-login-note" hidden>Sudah punya akun email? Isi email + password lalu tekan <strong>Masuk</strong> agar riwayat tampil di perangkat ini.</p>
       </div>
       <div class="modal-footer">
         <button id="btn-cloud-out" class="ghost-btn tools-danger" hidden>Keluar</button>
         <span class="modal-spacer"></span>
-        <button id="btn-cloud-link" class="primary-btn" hidden>Hubungkan email</button>
+        <button id="btn-cloud-link" class="primary-btn" hidden>Buat akun & hubungkan</button>
+        <button id="btn-cloud-login" class="ghost-btn" hidden>Masuk</button>
         <button class="ghost-btn" data-cloud-close>Tutup</button>
       </div>
     </div>

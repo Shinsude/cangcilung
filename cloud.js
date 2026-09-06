@@ -333,14 +333,34 @@
       });
   }
 
-  function linkEmail(email) {
+  function linkEmail(email, password) {
     if (!state.user) return Promise.resolve('Belum terautentikasi.');
-    return state.client.auth.updateUser({ email: email })
+    return state.client.auth.updateUser({ email: email, password: password })
       .then(function (r) {
         if (r.error) throw r.error;
-        return 'Link konfirmasi dikirim ke ' + email + '. Setelah dikonfirmasi, akun ini terhubung ke email dan bisa dipakai di perangkat lain.';
+        return 'Konfirmasi dikirim ke ' + email + '. Klik tautannya, lalu pakai email+password ini saat Masuk di perangkat mana pun.';
       })
-      .catch(function (e) { return 'Gagal menghubungkan: ' + (e.message || e); });
+      .catch(function (e) {
+        var m = e && (e.message || e) || e;
+        m = String(m);
+        if (/already registered|user_already_exists|already been registered/i.test(m)) return 'Email ' + email + ' sudah dipakai akun lain. Gunakan Masuk dengan email+password yang sama, atau pakai email lain.';
+        if (/password/i.test(m) && /(character|length|6)/i.test(m)) return 'Password minimal 6 karakter.';
+        return 'Gagal menghubungkan: ' + m;
+      });
+  }
+
+  function signInEmail(email, password) {
+    return state.client.auth.signInWithPassword({ email: email, password: password })
+      .then(function (r) {
+        if (r.error) throw r.error;
+        return 'Berhasil masuk: ' + email + '. Riwayat akun ini kini tampil di perangkat ini.';
+      })
+      .catch(function (e) {
+        var m = String((e && (e.message || e)) || e);
+        if (/invalid login credentials/i.test(m)) return 'Email/password salah.';
+        if (/not confirmed/i.test(m)) return 'Email ' + email + ' belum dikonfirmasi — cek kotak masuknya.';
+        throw e; /* biarkan handler umum menampilkan pesan */
+      });
   }
 
   function signOut() {
@@ -353,27 +373,36 @@
   function openCloudModal() {
     var a = app();
     if (!a || !$('cloud-modal')) return;
-    var msg = $('cloud-msg'), emailWrap = $('cloud-email-wrap'), emailNote = $('cloud-email-note'), linkBtn = $('btn-cloud-link'), outBtn = $('btn-cloud-out');
+    var msg = $('cloud-msg'), emailWrap = $('cloud-email-wrap'), passWrap = $('cloud-pass-wrap');
+    var emailNote = $('cloud-email-note'), loginNote = $('cloud-login-note');
+    var linkBtn = $('btn-cloud-link'), loginBtn = $('btn-cloud-login'), outBtn = $('btn-cloud-out');
+    function hideAll() {
+      if (emailWrap) emailWrap.hidden = true;
+      if (passWrap) passWrap.hidden = true;
+      if (emailNote) emailNote.hidden = true;
+      if (loginNote) loginNote.hidden = true;
+      if (linkBtn) linkBtn.hidden = true;
+      if (loginBtn) loginBtn.hidden = true;
+      if (outBtn) outBtn.hidden = true;
+    }
     if (!state.enabled) {
       if (msg) msg.textContent = 'Sinkronisasi cloud belum aktif di lingkungan ini.';
-      if (emailWrap) emailWrap.hidden = true;
-      if (emailNote) emailNote.hidden = true;
-      if (linkBtn) linkBtn.hidden = true;
-      if (outBtn) outBtn.hidden = true;
+      hideAll();
     } else if (!state.user) {
       if (msg) msg.textContent = 'Menunggu autentikasi...';
-      if (emailWrap) emailWrap.hidden = true;
-      if (emailNote) emailNote.hidden = true;
-      if (linkBtn) linkBtn.hidden = true;
-      if (outBtn) outBtn.hidden = true;
+      hideAll();
+    } else if (state.user.is_anonymous) {
+      if (msg) msg.textContent = 'Tersambung sebagai pengguna anonim. Riwayat disinkronkan otomatis (cadangan perangkat ini). Untuk lintas perangkat, buat akun email atau Masuk.';
+      if (emailWrap) emailWrap.hidden = false;
+      if (passWrap) passWrap.hidden = false;
+      if (emailNote) emailNote.hidden = false;
+      if (loginNote) loginNote.hidden = false;
+      if (linkBtn) linkBtn.hidden = false;
+      if (loginBtn) loginBtn.hidden = false;
+      if (outBtn) outBtn.hidden = false;
     } else {
-      var anon = !!state.user.is_anonymous;
-      if (msg) msg.textContent = anon
-        ? 'Tersambung sebagai pengguna anonim. Riwayat disinkronkan otomatis. Hubungkan email untuk memakai di perangkat lain.'
-        : 'Tersambung dengan akun: ' + (state.user.email || state.user.id);
-      if (emailWrap) emailWrap.hidden = !anon;
-      if (emailNote) emailNote.hidden = !anon;
-      if (linkBtn) linkBtn.hidden = !anon;
+      if (msg) msg.textContent = 'Tersambung dengan akun: ' + (state.user.email || state.user.id) + '. Riwayat sinkron lintas perangkat.';
+      hideAll();
       if (outBtn) outBtn.hidden = false;
     }
     a.openModal('cloud-modal');
@@ -413,12 +442,31 @@
     var linkBtn = $('btn-cloud-link');
     if (linkBtn) linkBtn.addEventListener('click', function () {
       var email = ($('cloud-email').value || '').trim();
+      var password = ($('cloud-password').value || '');
       if (!email) { $('cloud-msg').textContent = 'Masukkan alamat email.'; return; }
+      if (password.length < 6) { $('cloud-msg').textContent = 'Password minimal 6 karakter.'; return; }
       linkBtn.disabled = true;
-      linkEmail(email).then(function (m) {
+      linkEmail(email, password).then(function (m) {
         $('cloud-msg').textContent = m;
+        if (!/Buat akun|sudah dipakai|Gagal/.test(m)) $('cloud-password').value = '';
         linkBtn.disabled = false;
       });
+    });
+    var loginBtn = $('btn-cloud-login');
+    if (loginBtn) loginBtn.addEventListener('click', function () {
+      var email = ($('cloud-email').value || '').trim();
+      var password = ($('cloud-password').value || '');
+      if (!email || !password) { $('cloud-msg').textContent = 'Isi email dan password.'; return; }
+      loginBtn.disabled = true;
+      signInEmail(email, password)
+        .then(function (m) {
+          $('cloud-msg').textContent = m;
+          loginBtn.disabled = false;
+        })
+        .catch(function (e) {
+          $('cloud-msg').textContent = 'Gagal masuk: ' + (e && e.message || e);
+          loginBtn.disabled = false;
+        });
     });
     var outBtn = $('btn-cloud-out');
     if (outBtn) outBtn.addEventListener('click', function () {
