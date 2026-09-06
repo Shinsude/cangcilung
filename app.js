@@ -88,13 +88,6 @@
     if (s) s.updatedAt = Date.now();
   }
 
-  function loadSummary() {
-    try {
-      var s = currentSession();
-      if (s) { summary = s.summary || ''; return; }
-      summary = localStorage.getItem(SUMMARY_KEY) || '';
-    } catch (e) {}
-  }
 
 
   var _cryptoKey = null;
@@ -293,17 +286,6 @@
     if (s) { s.pinned = pinned; touchSession(); saveSessions(); }
   }
 
-  function togglePin(index) {
-    if (index < 0 || index >= history.length) return;
-    var m = history[index];
-    var key = m.content;
-    var found = pinned.some(function (p) { return p.content === key; });
-    if (found) pinned = pinned.filter(function (p) { return p.content !== key; });
-    else pinned.unshift({ role: m.role, content: m.content });
-    savePinned();
-    renderPins();
-    setStatus(found ? 'Pin dilepas.' : 'Pesan disematkan.');
-  }
 
   function renderPins() {
     var list = $('pins-list');
@@ -458,16 +440,6 @@
   }
 
 
-  function autoTitle(text) {
-    var s = currentSession();
-    if (!s) return;
-    if (s.history.length > 1) return;
-    var clean = String(text).replace(/\s+/g, ' ').trim();
-    if (clean.length > 48) clean = clean.slice(0, 48) + '…';
-    s.name = clean || s.name;
-    touchSession();
-    saveSessions();
-  }
 
   function selectSession(id) {
     if (busy) { abortAll(); }
@@ -606,28 +578,11 @@
     closeModal('sessions-modal');
   }
 
-  function loadHistory() {
-    try {
-      var s = currentSession();
-      if (s) { history = s.history.slice(); }
-    } catch (e) {}
-  }
 
   function saveHistory() {
-    try {
-      var s = currentSession();
-      if (s) { s.history = history.slice(-MAX_HISTORY); touchSession(); saveSessions(); }
-    } catch (e) {}
+    /* Transkrip murni in-memory; tidak dipersist. */
   }
 
-  function loadMemory() {
-    try {
-      var raw = localStorage.getItem(MEMORY_KEY);
-      if (raw) memory = JSON.parse(raw);
-      if (!memory.prefs) memory.prefs = {};
-      if (!memory.entities) memory.entities = { names: {}, dates: {}, facts: [] };
-    } catch (e) {}
-  }
   function saveMemory() {
     try {
       var v = JSON.stringify(memory);
@@ -642,108 +597,6 @@
       }
       safeSetItem(MEMORY_KEY, JSON.stringify(memory));
     } catch (e) {}
-  }
-  function trackTopic(text) {
-    var words = (text.toLowerCase().match(/[a-z0-9]{4,}/g) || []);
-    var STOP = ['yang', 'dengan', 'untuk', 'dalam', 'adalah', 'ini', 'itu', 'bagaimana', 'mengapa', 'kenapa', 'apakah', 'tolong', 'jelaskan', 'buatkan', 'tulis', 'adalah', 'bisa', 'akan', 'sudah', 'belum', 'cara', 'apa'];
-    words.forEach(function (w) { if (STOP.indexOf(w) === -1) memory.topics[w] = (memory.topics[w] || 0) + 1; });
-    var top = Object.keys(memory.topics).sort(function (a, b) { return memory.topics[b] - memory.topics[a]; }).slice(0, 30);
-    var slim = {};
-    top.forEach(function (k) { slim[k] = memory.topics[k]; });
-    memory.topics = slim;
-    trackPrefs(text);
-    trackEntities(text);
-    trackTrading(text);
-    saveMemory();
-  }
-  function trackTrading(text) {
-    if (!memory.trading) memory.trading = { risk: '', capital: 0, symbols: [], style: '' };
-    var t = text.toLowerCase();
-    var m;
-    var changed = false;
-    if (/\b(risk (?:3|2|1)|risiko (?:3|2|1)|agresif|konservatif|moderat|safe|aman)\b/i.test(t)) {
-      if (/\bagresif\b/.test(t)) memory.trading.risk = 'agresif';
-      else if (/\bkonservatif\b/.test(t) || /\b(aman|safe)\b/.test(t)) memory.trading.risk = 'konservatif';
-      else { m = t.match(/\brisk\s+(\d)\b|\brisiko\s+(\d)\b/); memory.trading.risk = m && (m[1] || m[2]) ? 'level ' + (m[1] || m[2]) : 'moderat'; }
-      changed = true;
-    }
-    m = t.match(/\b(modal|capital|deposit)\s*(?:saya|aku)?\s*(?::|=|dari|nya)?\s*(?:rp\s*|idr\s*|\$\s*)?([\d.,]+)\s*k?\b/i);
-    if (m && m[1]) {
-      var num = parseFloat(String(m[1]).replace(/,/g, ''));
-      if (!isNaN(num) && num > 0 && num < 1e12) {
-        memory.trading.capital = /\b(rp|idr)\b|\./i.test(t) ? num : num;
-        changed = true;
-      }
-    }
-    var symStrings = t.match(/\b(xau(?:usd)?|gold|emas|ndx|nasdaq|dji|dow|spx|s&p|dxy|vix|us30)\b/g);
-    if (symStrings) {
-      var canonical = { gold: 'XAUUSD', emas: 'XAUUSD', xau: 'XAUUSD', xauusd: 'XAUUSD', ndx: 'NDX', nasdaq: 'NDX', dji: 'US30', dow: 'US30', us30: 'US30', spx: 'SPX', 's&p': 'SPX', dxy: 'DXY', vix: 'VIX' };
-      symStrings.forEach(function (s) { var c = canonical[s.toLowerCase()]; if (c && memory.trading.symbols.indexOf(c) === -1) { memory.trading.symbols.push(c); changed = true; } });
-      memory.trading.symbols = memory.trading.symbols.slice(-5);
-    }
-    if (/\b(day trading|intraday|scalping|swing|position trading|long term|jangka panjang|hari ini)\b/i.test(t)) {
-      if (/\b(day trading|intraday)\b/.test(t)) memory.trading.style = 'intraday';
-      else if (/\bscalping\b/.test(t)) memory.trading.style = 'scalping';
-      else if (/\b(swing)\b/.test(t)) memory.trading.style = 'swing';
-      else if (/\b(long term|jangka panjang)\b/.test(t)) memory.trading.style = 'long term';
-      changed = true;
-    }
-    if (changed) {
-      memory.trading.updatedAt = nowTime();
-    }
-  }
-  function trackPrefs(text) {
-    var t = text.toLowerCase();
-    if (!memory.prefs) memory.prefs = {};
-    if (/\b(bahasa indonesia|pakai bahasa|gunakan bahasa|indo|id)\b/i.test(t)) memory.prefs.lang = 'id';
-    if (/\b(bahasa inggris|english|use english|pakai english)\b/i.test(t)) memory.prefs.lang = 'en';
-    if (/\b(singkat|pendek|short|brief|to the point|langsung ke poin)\b/i.test(t)) memory.prefs.style = 'concise';
-    if (/\b(detail|lengkap|panjang|elaborate|jelaskan panjang|step by step)\b/i.test(t)) memory.prefs.style = 'detailed';
-    if (/\b(formal|baku|terstruktur|rapi)\b/i.test(t)) memory.prefs.tone = 'formal';
-    if (/\b(santai|gaul|casual|kasual|asik|fun)\b/i.test(t)) memory.prefs.tone = 'casual';
-    var prefKeys = Object.keys(memory.prefs);
-    if (prefKeys.length > 5) {
-      var newPrefs = {};
-      prefKeys.slice(-5).forEach(function (k) { newPrefs[k] = memory.prefs[k]; });
-      memory.prefs = newPrefs;
-    }
-  }
-  function trackEntities(text) {
-    if (!memory.entities) memory.entities = { names: {}, dates: {}, facts: [] };
-    var nameMatches = text.match(/\b(saya\s+namaku?|nama\s+saya|aku\s+namaku?|my\s+name\s+is|panggil\s+saya|call\s+me)\s+([a-zA-Z][a-zA-Z\s]{1,39})/gi);
-    if (nameMatches) {
-      nameMatches.forEach(function (m) {
-        var name = m.replace(/^(saya\s+namaku?|nama\s+saya|aku\s+namaku?|my\s+name\s+is|panggil\s+saya|call\s+me)\s+/i, '').trim();
-        if (name && name.length > 1 && name.length < 40) memory.entities.names[name.toLowerCase()] = (memory.entities.names[name.toLowerCase()] || 0) + 1;
-      });
-    }
-    var dateMatches = text.match(/\b(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\b/g);
-    if (dateMatches) {
-      dateMatches.forEach(function (d) { memory.entities.dates[d] = (memory.entities.dates[d] || 0) + 1; });
-      var topDates = Object.keys(memory.entities.dates).sort(function (a, b) { return memory.entities.dates[b] - memory.entities.dates[a]; }).slice(0, 10);
-      var slimDates = {};
-      topDates.forEach(function (k) { slimDates[k] = memory.entities.dates[k]; });
-      memory.entities.dates = slimDates;
-    }
-    var factMatches = text.match(/\b(saya\s+kerja|kerja\s+di|work\s+at|bekerja\s+di|tinggal\s+di|live\s+in|domisili|asal\s+dari|berasal\s+dari)\s+(.{3,40})/gi);
-    if (factMatches) {
-      var FACT_CATEGORIES = { 'kerja di': 'pekerjaan', 'work at': 'pekerjaan', 'bekerja di': 'pekerjaan', 'saya kerja': 'pekerjaan', 'tinggal di': 'domisili', 'live in': 'domisili', 'domisili': 'domisili', 'asal dari': 'asal', 'berasal dari': 'asal' };
-      factMatches.forEach(function (f) {
-        var fact = f.trim().toLowerCase();
-        var cat = null;
-        Object.keys(FACT_CATEGORIES).forEach(function (k) { if (fact.indexOf(k) !== -1) cat = FACT_CATEGORIES[k]; });
-        if (cat) {
-          memory.entities.facts = memory.entities.facts.filter(function (ef) {
-            var efCat = null;
-            Object.keys(FACT_CATEGORIES).forEach(function (k) { if (ef.indexOf(k) === 0) efCat = FACT_CATEGORIES[k]; });
-            return efCat !== cat;
-          });
-        }
-        if (memory.entities.facts.indexOf(fact) === -1 && memory.entities.facts.length < 15) {
-          memory.entities.facts.push(fact);
-        }
-      });
-    }
   }
 
   /* Utilitas bahasa/sentimen didelegasikan ke lib/langti.js (sumber tunggal). */
@@ -952,105 +805,27 @@
   function actionSvg(name) { return ACT_ICONS[name] || ''; }
 
   function addBubble(role, text, index, ts) {
-    var wrap = document.createElement('div');
-    wrap.className = 'msg ' + role;
-    if (index != null) wrap.dataset.index = index;
-    var bubble = document.createElement('div');
-    bubble.className = 'msg-bubble';
-    if (text != null) {
-      if (role === 'user') bubble.textContent = text;
-      else renderMarkdown(bubble, text || '…');
+    var box = $('chat-messages');
+    var el = document.createElement('div');
+    if (role === 'user') {
+      el.className = 'c-in';
+      if (text != null) el.textContent = text;
+    } else {
+      el.className = 'c-out';
+      if (text != null) renderMarkdown(el, text || '…');
     }
-    var time = document.createElement('div');
-    time.className = 'msg-time';
-    time.textContent = ts || nowTime();
-    wrap.appendChild(bubble);
-    wrap.appendChild(time);
-    var actions = document.createElement('div');
-    actions.className = 'msg-actions';
-    var copyBtn = document.createElement('button');
-    copyBtn.className = 'bubble-act';
-    copyBtn.innerHTML = actionSvg('copy');
-    copyBtn.title = 'Salin';
-    copyBtn.dataset.action = 'copy';
-    actions.appendChild(copyBtn);
-    if (role === 'user' && index != null) {
-      var edBtn = document.createElement('button');
-      edBtn.className = 'bubble-act';
-      edBtn.innerHTML = actionSvg('edit');
-      edBtn.title = 'Edit perintah';
-      edBtn.dataset.action = 'edit';
-      actions.appendChild(edBtn);
-    }
-    if (role === 'assistant' && text && index === history.length - 1) {
-      var reBtn = document.createElement('button');
-      reBtn.className = 'bubble-act';
-      reBtn.innerHTML = actionSvg('regen');
-      reBtn.title = 'Ulangi analisis';
-      reBtn.dataset.action = 'regenerate';
-      actions.appendChild(reBtn);
-    }
-    if (index != null) {
-      var pinBtn = document.createElement('button');
-      pinBtn.className = 'bubble-act';
-      pinBtn.innerHTML = actionSvg('pin');
-      pinBtn.title = 'Semat output';
-      pinBtn.dataset.action = 'pin';
-      actions.appendChild(pinBtn);
-    }
-    wrap.appendChild(actions);
-    $('chat-messages').appendChild(wrap);
+    box.hidden = false;
+    box.appendChild(el);
     scrollChat();
-    return bubble;
+    return el;
   }
 
   var editingIndex = -1;
 
 
-  function editMessage(index) {
-    if (busy) return;
-    if (index < 0 || index >= history.length || history[index].role !== 'user') return;
-    editingIndex = index;
-    var input = $('chat-input');
-    if (input) { input.value = history[index].content; input.focus(); }
-    setStatus('Edit perintah. Jalankan untuk memperbarui & menganalisis ulang.');
-  }
 
-  function copyText(text) {
-    var done = function () { showToast('📋 Disalin ke clipboard.'); };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
-    } else fallbackCopy(text);
-  }
 
-  function fallbackCopy(text) {
-    try {
-      var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    } catch (e) {}
-  }
 
-  function regenerateLast() {
-    if (busy) return;
-    var lastUser = -1;
-    for (var i = history.length - 1; i >= 0; i--) {
-      if (history[i].role === 'user') { lastUser = i; break; }
-    }
-    if (lastUser === -1) return;
-    var q = history[lastUser].content;
-    history = history.slice(0, lastUser);
-    saveHistory();
-    renderHistory();
-    var input = $('chat-input');
-    if (input) input.value = q;
-    sendChat();
-  }
 
   function scrollChat() {
     var m = $('chat-messages');
@@ -1082,143 +857,21 @@
   var _virtualStart = 0;
   var _loadObserver = null;
 
-  function _setupLoadOlder() {
-    if (_loadObserver) _loadObserver.disconnect();
-    _loadObserver = null;
-    var sentinel = $('load-older-sentinel');
-    if (!sentinel || _virtualStart <= 0) return;
-    _loadObserver = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (e.isIntersecting) loadOlderMessages();
-      });
-    }, { root: $('chat-messages'), threshold: 0.1 });
-    _loadObserver.observe(sentinel);
-  }
 
-  function loadOlderMessages() {
-    if (_loadObserver) _loadObserver.disconnect();
-    var box = $('chat-messages');
-    if (!box || !history.length) return;
-    var prevHeight = box.scrollHeight;
-    var oldStart = _virtualStart;
-    var newStart = Math.max(0, oldStart - VIRTUAL_BATCH);
-    var sentinel = $('load-older-sentinel');
-    if (sentinel) sentinel.remove();
-    for (var i = newStart; i < oldStart; i++) {
-      var m = history[i];
-      var ref = box.children[0] || null;
-      var wrap = document.createElement('div');
-      wrap.className = 'msg ' + m.role;
-      if (i != null) wrap.dataset.index = i;
-      var bubble = document.createElement('div');
-      bubble.className = 'msg-bubble';
-      if (m.role === 'user') bubble.textContent = m.content;
-      else renderMarkdown(bubble, m.content || '…');
-      var time = document.createElement('div');
-      time.className = 'msg-time';
-      time.textContent = m.t || nowTime();
-      wrap.appendChild(bubble);
-      wrap.appendChild(time);
-      var actions = document.createElement('div');
-      actions.className = 'msg-actions';
-      var copyBtn = document.createElement('button');
-      copyBtn.className = 'bubble-act';
-      copyBtn.innerHTML = actionSvg('copy');
-      copyBtn.title = 'Salin';
-      copyBtn.dataset.action = 'copy';
-      actions.appendChild(copyBtn);
-      if (m.role === 'user' && i != null) {
-        var edBtn = document.createElement('button');
-        edBtn.className = 'bubble-act';
-        edBtn.innerHTML = actionSvg('edit');
-        edBtn.title = 'Edit perintah';
-        edBtn.dataset.action = 'edit';
-        actions.appendChild(edBtn);
-      }
-      if (m.role === 'assistant' && m.content && i === history.length - 1) {
-        var reBtn = document.createElement('button');
-        reBtn.className = 'bubble-act';
-        reBtn.innerHTML = actionSvg('regen');
-        reBtn.title = 'Ulangi analisis';
-        reBtn.dataset.action = 'regenerate';
-        actions.appendChild(reBtn);
-      }
-      if (i != null) {
-        var pinBtn = document.createElement('button');
-        pinBtn.className = 'bubble-act';
-        pinBtn.innerHTML = actionSvg('pin');
-        pinBtn.title = 'Semat output';
-        pinBtn.dataset.action = 'pin';
-        actions.appendChild(pinBtn);
-      }
-      wrap.appendChild(actions);
-      box.insertBefore(wrap, ref);
-      if (m.role === 'assistant') addRunButtons(bubble);
-    }
-    _virtualStart = newStart;
-    _renderedCount = history.length;
-    box.scrollTop = box.scrollHeight - prevHeight;
-    if (_virtualStart > 0) {
-      var sent = document.createElement('div');
-      sent.id = 'load-older-sentinel';
-      sent.className = 'load-older-sentinel';
-      sent.textContent = 'Muat riwayat lebih lama…';
-      box.insertBefore(sent, box.firstChild);
-    }
-    _setupLoadOlder();
-  }
 
-  /* Dashboard layar-pertama: panel Live Signal XAUUSD inline + pintasan perintah.
-     Ditampilkan selama tidak ada riwayat perintah. Auto-refresh saat aktif. */
-  var _dashTimer = null;
-  function renderDashboard(box) {
-    var wrap = document.createElement('div');
-    wrap.className = 'dash-home';
-    wrap.innerHTML =
-      '<div class="dash-head">' +
-        '<div class="dash-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/></svg> Live Signal — XAUUSD</div>' +
-        '<button class="icon-btn" id="dash-open-modal" title="Buka panel modal" aria-label="Buka panel modal"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>' +
-      '</div>' +
-      '<div id="dash-panel"></div>' +
-      '<div class="dash-hint">Ketik perintah atau pilih pintasan di bawah, lalu Enter.</div>' +
-      '<div class="welcome-chips" id="dash-chips"></div>';
-    box.appendChild(wrap);
-
-    var panel = wrap.querySelector('#dash-panel');
-    var confBody = document.createElement('div');
-    confBody.id = 'dash-conf-body';
-    panel.appendChild(confBody);
-    renderSignalPanelInline(panel);
-
-    var chips = [
-      ['<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>', 'Backtest', '/backtest XAUUSD adaptive'],
-      ['<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>', 'Latih ML', '/ml XAUUSD'],
-      ['<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', 'Chart', '/chart XAUUSD 1d'],
-      ['<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>', 'Struktur', '/structure XAUUSD'],
-      ['<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>', 'Sentimen', '/news XAUUSD'],
-      ['<path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"/>', 'Skills', '/skills'],
-      ['<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>', 'Bantuan', '/help']
-    ];
-    chips.forEach(function (c) {
-      var b = document.createElement('button');
-      b.className = 'welcome-chip';
-      b.innerHTML = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + c[0] + '</svg><span>' + c[1] + '</span>';
-      b.addEventListener('click', function () {
-        var inp = $('chat-input');
-        if (inp) { inp.value = c[2]; }
-        sendChat();
-      });
-      wrap.querySelector('#dash-chips').appendChild(b);
-    });
-    var open = wrap.querySelector('#dash-open-modal');
-    if (open) open.addEventListener('click', openSignalPanel);
-
-    /* Auto-refresh dashboard tiap 45 dtk selama masih tampil & history masih kosong */
-    if (_dashTimer) clearInterval(_dashTimer);
-    _dashTimer = setInterval(function () {
-      if ($('#chat-messages') && !$('#chat-messages').children.length) return;
-      if (history.length) { clearInterval(_dashTimer); _dashTimer = null; return; }
-      renderSignalPanelInline(panel);
+/* Layar utama = Live Signal XAUUSD (panel penuh, auto-refresh 45 dtk).
+   Dipasang permanen; perintah menambah baris ke transkrip di bawahnya. */
+  var _liveTimer = null;
+  function renderLiveMain() {
+    var body = $('live-main-body');
+    if (!body) return;
+    var zoom = $('live-open-modal');
+    if (zoom && !zoom._wired) { zoom._wired = true; zoom.addEventListener('click', openSignalPanel); }
+    renderSignalPanelInline(body);
+    if (_liveTimer) clearInterval(_liveTimer);
+    _liveTimer = setInterval(function () {
+      var el = $('live-main-body');
+      if (el) renderSignalPanelInline(el);
     }, 45000);
   }
 
@@ -1235,132 +888,45 @@
     renderSignalPanel(container);
   }
 
-  function renderHistory(forceFull) {
+function renderHistory(forceFull) {
     var box = $('chat-messages');
     if (!box) return;
-    if (!forceFull && _renderedCount > 0 && _renderedCount <= history.length) {
-      var prevScrollH = box.scrollHeight;
-      var wasAtBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-      while (_renderedCount < history.length) {
-        var m = history[_renderedCount];
-        var b = addBubble(m.role, m.content, _renderedCount, m.t);
-        if (m.role === 'assistant') addRunButtons(b);
-        _renderedCount++;
-      }
-      if (wasAtBottom) box.scrollTop = box.scrollHeight;
+    if (!history.length) {
+      box.innerHTML = '';
+      box.hidden = true;
+      _renderedCount = 0;
       return;
     }
-    var isFull = forceFull || searchActive || _renderedCount === 0;
-
-    if (isFull) {
-      box.innerHTML = '';
-      _renderedCount = 0;
-      if (!history.length) {
-        _virtualStart = 0;
-        renderDashboard(box);
-        return;
-      }
-      if (searchActive) {
-        _virtualStart = 0;
-      } else if (history.length > VIRTUAL_BATCH) {
-        _virtualStart = history.length - VIRTUAL_BATCH;
+    if (!forceFull && _renderedCount >= history.length) return;
+    box.hidden = false;
+    box.innerHTML = '';
+    _renderedCount = 0;
+    for (var i = 0; i < history.length; i++) {
+      var m = history[i];
+      if (m.role === 'user') {
+        var c = document.createElement('div');
+        c.className = 'c-in';
+        c.textContent = m.content;
+        box.appendChild(c);
       } else {
-        _virtualStart = 0;
+        var o = document.createElement('div');
+        o.className = 'c-out';
+        renderMarkdown(o, m.content || '…');
+        addRunButtons(o);
+        box.appendChild(o);
       }
-      _renderedCount = _virtualStart;
-      if (_virtualStart > 0) {
-        var sent = document.createElement('div');
-        sent.id = 'load-older-sentinel';
-        sent.className = 'load-older-sentinel';
-sent.textContent = 'Muat riwayat lebih lama…';
-        box.appendChild(sent);
-      }
-    }
-
-    while (_renderedCount < history.length) {
-      var m = history[_renderedCount];
-      var b = addBubble(m.role, m.content, _renderedCount, m.t);
-      if (m.role === 'assistant') addRunButtons(b);
       _renderedCount++;
     }
-
-    if (isFull && !searchActive && _virtualStart > 0) {
-      if (!$('load-older-sentinel')) {
-        var sent2 = document.createElement('div');
-        sent2.id = 'load-older-sentinel';
-        sent2.className = 'load-older-sentinel';
-        sent2.textContent = 'Muat riwayat lebih lama…';
-        box.insertBefore(sent2, box.firstChild);
-      }
-      _setupLoadOlder();
-    }
-
-    if (suggestions.length) renderSuggestions();
-    if (searchActive) runSearch();
+    scrollChat();
   }
 
   var searchMatches = [];
   var searchIdx = 0;
   var searchActive = false;
 
-  function toggleSearch() {
-    searchActive = !searchActive;
-    var sec = $('sidebar-search-section');
-    if (sec) sec.hidden = !searchActive;
-    if (searchActive) {
-      var inp = $('search-input');
-      if (inp) { inp.value = ''; inp.focus(); }
-      renderHistory();
-    } else {
-      clearSearch();
-    }
-  }
 
-  function clearSearch() {
-    searchActive = false;
-    searchMatches = [];
-    searchIdx = 0;
-    var cnt = $('search-count');
-    if (cnt) cnt.textContent = '';
-    var inp = $('search-input');
-    if (inp) inp.value = '';
-    renderHistory(true);
-  }
 
-  function runSearch() {
-    var inp = $('search-input');
-    var q = inp ? inp.value.trim().toLowerCase() : '';
-    if (!q) { searchMatches = []; searchIdx = 0; }
-    searchMatches = [];
-    var msgs = document.querySelectorAll('#chat-messages .msg');
-    msgs.forEach(function (el, i) {
-      el.style.border = '';
-      el.style.background = '';
-      var txt = (el.textContent || '').toLowerCase();
-      if (txt.indexOf(q) !== -1) searchMatches.push(i);
-    });
-    searchIdx = searchMatches.length ? 0 : -1;
-    var cnt = $('search-count');
-    if (cnt) cnt.textContent = searchMatches.length ? (searchIdx + 1) + '/' + searchMatches.length + ' ditemukan' : 'Tidak ditemukan';
-    gotoSearch();
-  }
 
-  function gotoSearch() {
-    var msgs = document.querySelectorAll('#chat-messages .msg');
-    msgs.forEach(function (el) {
-      el.style.border = '';
-      el.style.background = '';
-    });
-    if (searchIdx < 0 || searchIdx >= searchMatches.length) return;
-    var idx = searchMatches[searchIdx];
-    var el = msgs[idx];
-    if (!el) return;
-    el.style.border = '1px solid var(--accent)';
-    el.style.background = 'var(--accent-dim)';
-    el.scrollIntoView({ block: 'center' });
-    var cnt = $('search-count');
-    if (cnt && searchMatches.length) cnt.textContent = (searchIdx + 1) + '/' + searchMatches.length + ' ditemukan';
-  }
 
 
 
@@ -1424,30 +990,6 @@ sent.textContent = 'Muat riwayat lebih lama…';
   var PERSONA_LABEL = { default: 'Seimbang', guru: 'Guru', teman: 'Teman', bos: 'Bos', kode: 'Kode', analyst: 'Analis' };
 
 
-  function renderSuggestions() {
-    var box = $('chat-messages');
-    if (!suggestions.length) return;
-    var existing = box.querySelector('.msg.suggest');
-    if (existing) existing.remove();
-    var wrap = document.createElement('div');
-    wrap.className = 'msg suggest';
-    var label = document.createElement('div');
-    label.className = 'msg-note';
-    label.textContent = '💡 Mau tanya lanjutan?';
-    wrap.appendChild(label);
-    suggestions.forEach(function (s) {
-      var b = document.createElement('button');
-      b.className = 'suggest-chip';
-      b.textContent = s;
-      b.addEventListener('click', function () {
-        var input = $('chat-input');
-        if (input) { input.value = s; input.focus(); }
-      });
-      wrap.appendChild(b);
-    });
-    box.appendChild(wrap);
-    scrollChat();
-  }
 
   var suggestions = [];
 
@@ -1754,8 +1296,6 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       busy = false;
       setSendUI(false);
       setStatus('');
-      suggestions = ['/rekomendasi ' + symbol, '/ta ' + symbol, '/risk ' + symbol + ' 10000 1', '/alerts'];
-      renderSuggestions();
     }).catch(function (err) {
       removeTyping(bubble);
       var msg = '⚠️ Gagal membuat rekomendasi: ' + (err.message || err);
@@ -2256,14 +1796,13 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
   }
   function finalizeMessage(out) {
     history.push({ role: 'assistant', content: out, t: nowTime() });
-    saveHistory(); renderHistory();
+    renderHistory();
     busy = false; setSendUI(false); setStatus(''); clearProgress();
   }
   function failMessage(bubble, err) {
     removeTyping(bubble);
     var msg = '⚠️ ML gagal: ' + (err.message || err);
     history.push({ role: 'assistant', content: msg, t: nowTime() });
-    saveHistory();
     if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
     renderHistory();
     busy = false; setSendUI(false); setStatus(''); clearProgress();
@@ -2641,18 +2180,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
 
 
   function addUserMessage(text) {
-    if (editingIndex >= 0) {
-      var ei = editingIndex;
-      editingIndex = -1;
-      history[ei] = { role: 'user', content: text, t: history[ei].t || nowTime() };
-      history = history.slice(0, ei + 1);
-      _renderedCount = 0;
-    } else {
-      history.push({ role: 'user', content: text, t: nowTime() });
-      trackTopic(text);
-      autoTitle(text);
-    }
-    saveHistory();
+    history.push({ role: 'user', content: text, t: nowTime() });
     renderHistory();
   }
 
@@ -2961,18 +2489,11 @@ if (/^\/ml-signal\b/i.test(text)) {
   }
 
   document.addEventListener('keydown', function (e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-      if (!searchActive) toggleSearch();
-      else { var inp = $('search-input'); if (inp) inp.focus(); }
-      e.preventDefault();
-      return;
-    }
     if (e.key === 'Escape') {
       var im = $('input-more-menu');
       if (im && !im.hidden) { closeInputMore(); return; }
       var menu = $('tools-menu');
       if (menu && !menu.hidden) { closeToolsMenu(); return; }
-      if (searchActive) { toggleSearch(); return; }
       var opens = document.querySelectorAll('.modal-overlay:not([hidden])');
       if (opens.length) closeModal(opens[opens.length - 1].id);
       return;
@@ -3027,11 +2548,7 @@ if (/^\/ml-signal\b/i.test(text)) {
     initCrypto().then(function () { return decryptApiKey(); }).catch(function () {});
     loadSettings();
     loadSessions();
-    loadHistory();
-    loadSummary();
-    loadMemory();
     window.addEventListener('beforeunload', function () { if (!window.__skipSave) saveSessionsNow(); });
-    els.btnSend = $('btn-send');
     els.chatInput = $('chat-input');
     els.chatMessages = $('chat-messages');
     if (window.speechSynthesis && window.speechSynthesis.onvoiceschanged !== undefined) {
@@ -3054,6 +2571,7 @@ if (/^\/ml-signal\b/i.test(text)) {
     window.addEventListener('offline', applyOnline);
     window.addEventListener('online', applyOnline);
     applyOnline();
+    renderLiveMain();
     renderHistory();
     renderUsage();
     applyTheme(settings.theme);
@@ -3084,25 +2602,13 @@ if (/^\/ml-signal\b/i.test(text)) {
     var messages = $('chat-messages');
     if (messages) messages.addEventListener('scroll', onChatScroll);
 
-    /* ── Aksi pada bubble output (salin/edit/ulang/semat) ── */
+    /* ── Aksi tombol run pada blok kode output ── */
     if (messages) messages.addEventListener('click', function (e) {
-      var btn = e.target.closest('.bubble-act, .run-btn');
+      var btn = e.target.closest('.run-btn');
       if (!btn) return;
-      var action = btn.dataset.action;
-      if (action === 'run') {
-        var pre = btn.closest('pre');
-        var code = pre ? pre.querySelector('code') : null;
-        if (code) runCode(code.textContent, pre);
-        return;
-      }
-      var wrap = btn.closest('.msg');
-      var idx = wrap && wrap.dataset.index != null ? parseInt(wrap.dataset.index) : null;
-      if (action === 'copy') {
-        var bbl = wrap ? wrap.querySelector('.msg-bubble') : null;
-        copyText(bbl ? bbl.textContent : '');
-      } else if (action === 'edit' && idx != null) { editMessage(idx); }
-      else if (action === 'regenerate') { regenerateLast(); }
-      else if (action === 'pin' && idx != null) { togglePin(idx); }
+      var pre = btn.closest('pre');
+      var code = pre ? pre.querySelector('code') : null;
+      if (code) runCode(code.textContent, pre);
     });
 
     /* ── Modal Pengaturan ── */
