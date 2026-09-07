@@ -535,6 +535,7 @@ html { scrollbar-width: thin; scrollbar-color: var(--accent) var(--bg); }
 .modal-spacer { flex: 1; }
 
 .set-field { display: flex; flex-direction: column; gap: 5px; }
+.row-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .set-field span { font-size: 12px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; }
 .set-field input, .set-field select {
   padding: 10px 12px; font-size: 14px; color: var(--text);
@@ -781,6 +782,14 @@ body.drag-over::after {
 
 /* TradingView chart widget (pelengkap visual) */.tv-widget-wrap { margin: 10px 0 6px; border: 1px dashed var(--border); border-radius: 0; overflow: hidden; background: var(--code-bg); }.tv-widget-label { padding: 6px 10px; font-size: 11px; color: var(--text-dim); background: var(--accent-dim); border-bottom: 1px dashed var(--border); text-transform: uppercase; letter-spacing: .5px; }.tv-widget-frame { width: 100%; height: 380px; display: block; border: 0; }
 
+/* ── Affiliate — dashboard (tema-aware) ── */
+.aff-dash { display: flex; flex-direction: column; gap: 14px; color: var(--text); }
+.aff-stat { font-size: 13px; line-height: 1.7; }
+.aff-stat b { font-family: 'JetBrains Mono', monospace; }
+.aff-box { background: var(--bg-soft); border: 1px dashed var(--border); border-radius: 0; padding: 12px 14px; }
+.aff-box .aff-t { font-size: 11px; letter-spacing: .08em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+.aff-box .aff-t::before { content: '❯ '; color: var(--accent); }
+
 /* ── Live Signal — tampilan dashboard (tema-aware) ── */
 .sig-panel { display: flex; flex-direction: column; gap: 14px; color: var(--text); }
 .sig-banner {
@@ -880,6 +889,10 @@ body.drag-over::after {
   .sig-hist-head { display: none; }
   .sig-hist-row { grid-template-columns: 70px 1fr; }
   .sig-hist-row .when { grid-column: 2; text-align: left; }
+}
+
+@media (max-width: 560px) {
+  .row-2col { grid-template-columns: 1fr; }
 }
 
 /* ═══════════ REDUCED MOTION ═══════════ */

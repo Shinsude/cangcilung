@@ -1,79 +1,57 @@
-# CangCilung — ML & DL Signal Trading
+# CangCilung Affiliate — AI ML & DL
 
-Platform analisis & sinyal trading berbasis web (HTML/CSS/JS murni, satu tab) yang memadukan **analisis teknikal (TA)** dengan **machine learning & deep learning** — khusus **XAUUSD** (emas), plus USA100, NDX, US30, DXY, dan lain-lain.
+Asisten **AI ML & DL** untuk **affiliator penjualan**, berbasis web (HTML/CSS/JS murni, satu tab, offline-ready/PWA). Data produk & komisi yang Anda input diolah mesin learning untuk menghitung profitabilitas, mengoptimasi pilihan produk & konten, memprediksi konversi/pendapatan, dan memberi panduan strategi komisi.
 
-> ⚠️ Edukasi & simulasi, **bukan saran investasi**. Seluruh data dari pasar historis. Fitur chat/LLM telah dihapus — aplikasi ini murni konsol perintah trading.
+> 🔗 Edukasi & pengelolaan bisnis affiliasi, **bukan** jaminan keuntungan. Semua penghitungan berjalan di browser Anda, tanpa server & tanpa pengiriman data.
 
 ## Fitur
 
-- **Konsol perintah trading**: semua interaksi lewat perintah `/...` di kotak input (Enter untuk kirim).
-- **Analisis teknikal lengkap**: trend, RSI, support/resistance, struktur market (MTF), volume profile, korelasi antar aset, manajemen risiko.
-- **Live Signal** (📶): signal BUY/SELL real-time XAUUSD dengan polling otomatis + notifikasi browser, suara & toast — jujur saat market tutup (disebut *pratayang*/MENUNGGU bila data basi).
-- **Backtest + anti-overfit**: backtest historis (banyak strategi: `rsi`, `bb`, `sma`, `ema`, `vwap`, `ma`, `smc`, `cvd`, `all`, `adaptive`), walk-forward out-of-sample, **Monte Carlo/stress-test**, Sharpe ratio, heatmap profit per hari/jam, biaya realistis per sesi pasar (`costModel:session`).
-- **Machine Learning & Deep Learning di browser** (`/ml`): neural network deterministik (seed 42) + logistic regression, 16 fitur teknikal tanpa lookahead, split kronologis 70/30, validasi OOS jujur, cache model di localStorage (instan saat dipanggil ulang), anti-freeze (training di-chunk). Engine TensorFlow.js atau fallback murni JS (`engine:vanilla`).
-- **Fusion ML×TA** (`/ml-signal`): skor sinyal gabungan — keyakinan arah ML (55%) × konfluensi TA (35%) × regime pasar (10%) → skor 0–100 & verdict BUY/SELL/WAIT.
-- **Alert harga** (`/alert`, `/alerts`), **sentimen berita** (`/news`), panel live signal.
-- **Sinkronisasi cloud** (☁️, opsional/Supabase): pengaturan & riwayat konsol lintas perangkat (anonim otomatis + hubungkan email).
-- **PWA**: bisa diinstall & bekerja offline setelah halaman dibuka sekali.
+- **Form input produk**: tambah/ubah produk dengan harga, komisi, klik, konversi, pendapatan, biaya, niche, format konten, dan platform.
+- **Analisis data penjualan** (`/analisis`): pendapatan, biaya, laba bersih, margin, konversi, plus kategori terbaik per niche/platform/format konten.
+- **Optimasi produk & konten** (`/optimasi`): produk **DIGENJOT** vs **DIEVALUASI** berdasarkan laba & ROAS + saran praktis.
+- **Prediksi profitabilitas** (`/prediksi`): neural network (MLP) + logistic regression deterministik (seed 42) dilatih di browser — skor `p(untung)` tiap produk + validasi OOS (anti-overfit) + verdict `GENJOT / PERTAHANKAN / EVALUASI`.
+- **Forecast pendapatan** (`/forecast`): proyeksi periode berikutnya (bulanan/harian/tahunan) dari tren deret waktu.
+- **Strategi affiliator** (`/strategi`): langkah konkret menaikkan komisi.
+- **Dashboard pribadi**: ringkasan laba, margin, dan produk terbaik langsung di header.
+- **Sinkronisasi cloud** (opsional/Supabase): siap untuk data lintas perangkat — struktur API disiapkan untuk backend di kemudian hari.
+- **PWA**: bisa diinstal & bekerja offline setelah halaman dibuka sekali.
 - **Penghitung pemakaian** harian di header.
 
 ## Mulai cepat
 
-Buka `https://cangcilung.vercel.app` (atau `index.html` lokal). Ketik perintah di kotak input:
+Buka `https://cangcilung.vercel.app` (atau `index.html` lokal), lalu ketik di kotak input:
 
 | Perintah | Fungsi |
 |---|---|
-| `/signal` (atau tombol 📶) | Panel Live Signal XAUUSD |
-| `/chart XAUUSD 1h` | Grafik candlestick |
-| `/ta XAUUSD` · `/rsi XAUUSD` | Analisis teknikal lengkap, indikator RSI |
-| `/rekomendasi XAUUSD` | Keputusan BUY/SELL/WAIT + entry/TP/SL |
-| `/ml XAUUSD` · `/ml XAUUSD tf:tfjs epochs:80` | Latih model ML/DL + laporan validasi |
-| `/ml-signal XAUUSD adaptive` | Sinyal fusion ML×TA |
-| `/backtest XAUUSD adaptive` · `... oos` | Backtest + Monte Carlo · walk-forward OOS |
-| `/structure XAUUSD` · `/structure-mtf XAUUSD` | Struktur market, multi-timeframe |
-| `/news XAUUSD` · `/corr XAUUSD` | Sentimen berita, korelasi antar aset |
-| `/risk XAUUSD 10000 1` | Ukuran posisi (lot) berdasar risk % |
-| `/profile XAUUSD 1d` | Volume profile |
-| `/sinyal XAUUSD rsi` | Tambah live signal + notifikasi |
-| `/sinyal-list` · `/sinyal-history` · `/sinyal-clear` | Kelola live signal |
-| `/alerts` · `/alert XAUUSD 2400 label` | Alert harga |
-| `/skills` · `/help` | Skills/bundle (mantra) trading · daftar perintah |
+| `/tambah` | Buka form tambah produk (atau `/tambah nama=.. harga=.. komisi=.. klik=.. konversi=.. pendapatan=.. biaya=..`) |
+| `/daftar` | Tabel semua produk & laba |
+| `/demo` | Muat 10 produk contoh |
+| `/analisis` | Ringkasan penjualan, laba, margin, konversi |
+| `/optimasi` | Produk DIGENJOT vs DIEVALUASI + saran |
+| `/prediksi` | Latih model ML di browser → skor p(untung) + validasi OOS |
+| `/forecast` · `/forecast harian` | Proyeksi pendapatan periode berikutnya |
+| `/strategi` | Langkah menaikkan komisi |
+| `/hapus <nama/id>` · `/beres` | Kelola data produk |
+| `/skills` · `/help` | Katalog skill/bundel · daftar perintah |
 
-Bebas teks non-perintah akan menampilkan daftar perintah ini.
+Teks bebas (mis. *"produk mana yang harus di-genjot?"*) juga diterima dan langsung memicu analisis.
 
-## Strategi backtest
+## Engine ML (lib/affiliate.js)
 
-`rsi` · `bb` · `sma` · `ema` · `vwap` · `ma` · `smc` · `cvd` · `all` · **`adaptive`** (default — memilih strategi sesuai regime pasar: NAIK/RANGE/TURUN).
+- **Fitur**: 10 fitur numerik (harga, komisi %, klik, konversi, conv. rate, EPC, margin, komisi tersedia, ROAS, pendapatan) + one-hot niche/konten/platform — tanpa lookahead.
+- **Label**: `pendapatan − biaya > 0` (produk menguntungkan).
+- **Model**: MLP deterministik (seed 42) via `lib/ml.js` (vanilla offline / TensorFlow.js), split kronologis 70/30, evaluasi OOS jujur, hasil di-cache untuk panggilan ulang yang instan.
+- **Verdict**: `p ≥ 0.66` → GENJOT · `p ≥ 0.50` → PERTAHANKAN · lainnya → EVALUASI.
 
-## Machine Learning (`/ml`)
+## Strategi penamaan konvensi
 
-- 2-layer neural network + logistic regression pembanding.
-- **Deterministik** (`seed:42` default → hasil training identik antar panggilan).
-- **Persisten** (cache model di localStorage, validasi integritas).
-- **Anti-lookahead**: mean/std scaler dihitung dari data latih saja.
-- Butuh ≥ **150 bar** data harian (data dari Yahoo Finance via proxy Vercel). Opsi: `engine:tfjs|vanilla` · `horizon:N` · `epochs:N` · `seed:N`.
+- Modul browser memakai pola `var CC = window.CC || (window.CC = {})` (`CC.ta`, `CC.ml`, `CC.aff`, dst).
+- `lib/affiliate.js` memperlihatkan `CC.aff`: `getProducts/setProducts/addProduct/updateProduct/deleteProduct/clearProducts/seedDemo/buildFeatures/buildDatasets/trainModel/scoreProducts/analyze/optimize/forecast/strategy` + `format*`.
 
-## Deploy ke Vercel
+## Menjalankan/test
 
-1. Push repo ke GitHub.
-2. Di [vercel.com](https://vercel.com) → **Add New → Project** → import repo → **Deploy**.
-3. Workflow `.github/workflows/ci.yml` menjalankan cek sintaks & tes (`node test/run-tests.cjs`) di CI.
+- `node -c app.js` untuk cek sintaks.
+- `node test/run-tests.cjs` untuk unit/sanity test (ta.js, ml.js, affiliate.js).
+- Deploy Vercel: `vercel deploy --prod --yes` (lihat `deploy.bat`).
 
-## Sinkronisasi cloud (opsional, Supabase)
-
-Tanpa konfigurasi, semua berjalan lokal (localStorage). Untuk sinkron lintas perangkat:
-
-1. Buat proyek di [supabase.com](https://supabase.com) (gratis).
-2. **SQL Editor** → jalankan isi `supabase/schema.sql` (tabel `sessions`, `settings`, `usage` + Row Level Security).
-3. **Auth → Sign In/Providers** → aktifkan **Anonymous sign-ins** (dan Email bila ingin hubungkan akun).
-4. **Database → Realtime** → pastikan tabel `sessions` terpublikasi.
-5. Set env vars `SUPABASE_URL` + `SUPABASE_ANON_KEY` di Vercel → **redeploy**.
-6. Klik ☁️ di header untuk melihat status / menghubungkan email.
-
-Rincian: `SETUP.md`.
-
-## Catatan teknis
-
-- Arsitektur statis (tanpa backend): `lib/ta.js` (indikator/backtest/Monte Carlo/live signal/panel), `lib/ml.js` (feature engineering + training + cache), `lib/mantra.js` (skills/bundle), `app.js` (routing perintah, panel UI, polling), `cloud.js` (sync Supabase).
-- Tes regresi: `node test/run-tests.cjs`.
-- API Key News hanya disimpan di localStorage browser Anda.
+Lisensi penggunaan: edukasi & pengelolaan bisnis affiliasi.

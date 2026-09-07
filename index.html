@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CangCilung - ML & DL Signal Trading</title>
-  <meta name="description" content="CangCilung: platform analisis & sinyal trading berbasis teknikal (TA) + machine learning & deep learning. XAUUSD, USA100, dan lainnya.">
+  <title>CangCilung Affiliate - AI ML & DL Affiliator</title>
+  <meta name="description" content="CangCilung Affiliate: AI ML & DL untuk membantu Anda menjadi affiliator penjualan — analisis data produk, optimasi konten/platform, prediksi konversi & pendapatan, dan strategi.">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#7c3aed">
   <link rel="stylesheet" href="style.css">
@@ -17,26 +17,26 @@
     <main class="main">
       <div class="chat-header">
         <div>
-          <h2>CangCilung — ML &amp; DL Signal Trading</h2>
-          <span class="pane-sub" id="conn-sub">XAUUSD • NDX • US30 • SPX • DXY • VIX</span>
+          <h2>CangCilung Affiliate — AI ML &amp; DL</h2>
+          <span class="pane-sub" id="conn-sub">Analisis • Optimasi • Prediksi • Strategi</span>
           <span class="pane-sub" id="usage-sub"></span>
         </div>
         <div class="header-actions">
           <button id="cloud-ind" class="icon-btn" title="Sinkronisasi cloud" aria-label="Sinkronisasi cloud" hidden><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></button>
-          <button id="btn-signal" class="signal-btn" title="Panel Live Signal XAUUSD — pantau BUY/SELL real-time" aria-label="Buka panel Live Signal">
-            <span class="sidebar-item-wrap"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/></svg><span>Signal XAUUSD</span><span id="signal-badge" class="signal-badge" hidden></span></span>
+          <button id="btn-add-product" class="signal-btn" title="Tambah produk affiliator (form)" aria-label="Tambah produk">
+            <span class="sidebar-item-wrap"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Tambah Produk</span></span>
           </button>
           <button id="btn-theme" class="icon-btn" title="Tema: gelap/terang" aria-label="Ganti tema" aria-pressed="false" hidden><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button>
           <button id="btn-settings" class="icon-btn" title="Pengaturan" aria-label="Pengaturan" hidden><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></button>
         </div>
       </div>
-      <div id="live-main" class="live-main" aria-label="Live Signal XAUUSD">
+      <div id="live-main" class="live-main" aria-label="Dashboard Affiliator">
         <div class="live-main-head">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/></svg>
-          <span>Live Signal — XAUUSD</span>
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+          <span>Dashboard Affiliator</span>
         </div>
         <div id="live-main-body"></div>
-        <button id="live-open-modal" class="live-zoom" title="Buka panel modal" aria-label="Buka panel modal">
+        <button id="live-open-modal" class="live-zoom" title="Analisis lengkap" aria-label="Buka analisis lengkap">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
         </button>
       </div>
@@ -85,6 +85,107 @@
     </div>
   </div>
 
+  <!-- ====== MODAL TAMBAH / EDIT PRODUK ====== -->
+  <div class="modal-overlay" id="product-modal" hidden>
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <h3 id="product-modal-title">Tambah Produk</h3>
+        <button id="btn-product-close" class="modal-close" aria-label="Tutup">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="pf-id">
+        <div class="row-2col">
+          <label class="set-field">
+            <span>Nama produk *</span>
+            <input type="text" id="pf-nama" placeholder="mis. Kursus Trading Online">
+          </label>
+          <label class="set-field">
+            <span>Niche</span>
+            <select id="pf-niche">
+              <option value="">— Pilih —</option>
+              <option>Keuangan</option>
+              <option>Kesehatan</option>
+              <option>Olahraga</option>
+              <option>Bisnis</option>
+              <option>Kecantikan</option>
+              <option>Teknologi</option>
+              <option>Digital</option>
+              <option>Fashion</option>
+              <option>Umum</option>
+            </select>
+          </label>
+        </div>
+        <div class="row-2col">
+          <label class="set-field">
+            <span>Harga produk (Rp)</span>
+            <input type="number" id="pf-harga" min="0" step="any" placeholder="e.g. 500000">
+          </label>
+          <label class="set-field">
+            <span>Komisi (%)</span>
+            <input type="number" id="pf-komisi" min="0" max="100" step="any" placeholder="e.g. 30">
+          </label>
+        </div>
+        <div class="row-2col">
+          <label class="set-field">
+            <span>Klik</span>
+            <input type="number" id="pf-klik" min="0" step="1" placeholder="0">
+          </label>
+          <label class="set-field">
+            <span>Konversi (penjualan)</span>
+            <input type="number" id="pf-konversi" min="0" step="1" placeholder="0">
+          </label>
+        </div>
+        <div class="row-2col">
+          <label class="set-field">
+            <span>Pendapatan (Rp)</span>
+            <input type="number" id="pf-pendapatan" min="0" step="any" placeholder="0">
+          </label>
+          <label class="set-field">
+            <span>Biaya iklan/konten (Rp)</span>
+            <input type="number" id="pf-biaya" min="0" step="any" placeholder="0">
+          </label>
+        </div>
+        <div class="row-2col">
+          <label class="set-field">
+            <span>Format konten</span>
+            <select id="pf-konten">
+              <option value="">— Pilih —</option>
+              <option>Video</option>
+              <option>Review</option>
+              <option>Artikel</option>
+              <option>Email</option>
+              <option>Live</option>
+            </select>
+          </label>
+          <label class="set-field">
+            <span>Platform</span>
+            <select id="pf-platform">
+              <option value="">— Pilih —</option>
+              <option>TikTok</option>
+              <option>YouTube</option>
+              <option>Instagram</option>
+              <option>Facebook</option>
+              <option>Blog</option>
+              <option>Newsletter</option>
+            </select>
+          </label>
+        </div>
+        <label class="set-field">
+          <span>Tanggal (opsional, untuk forecast)</span>
+          <input type="date" id="pf-tanggal">
+        </label>
+        <p class="set-hint">Dari data inilah AI ML/DL menghitung profitabilitas, konversi, ROAS, dan proyeksi pendapatan Anda.</p>
+        <div class="set-status" id="product-status"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-product-demo" class="ghost-btn">Contoh data</button>
+        <span class="modal-spacer"></span>
+        <button id="btn-product-cancel" class="ghost-btn">Batal</button>
+        <button id="btn-product-save" class="primary-btn">Simpan</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ====== MODAL CLOUD ====== -->
   <div class="modal-overlay" id="cloud-modal" hidden>
     <div class="modal" style="max-width:400px">
@@ -115,19 +216,6 @@
     </div>
   </div>
 
-  <!-- ====== MODAL CHART / PANEL SIGNAL ====== -->
-  <div class="modal-overlay" id="chart-modal" hidden>
-    <div class="modal modal-chart">
-      <div class="modal-header">
-        <h3 id="chart-title">Chart</h3>
-        <button id="btn-chart-close" class="modal-close" aria-label="Tutup">×</button>
-      </div>
-      <div class="modal-body" style="padding:0;overflow:hidden">
-        <div id="chart-container" class="chart-container"></div>
-      </div>
-    </div>
-  </div>
-
   <!-- ====== KONFIRMASI ====== -->
   <div class="modal-overlay" id="confirm-modal" hidden>
     <div class="modal" style="max-width:360px">
@@ -150,7 +238,6 @@
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/highlight.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3/dist/umd/supabase.min.js" defer></script>
   <script src="lib/mantra.js"></script>
   <script src="lib/utils.js"></script>
@@ -159,6 +246,7 @@
   <script src="lib/idb-storage.js"></script>
   <script src="lib/ta.js"></script>
   <script src="lib/ml.js"></script>
+  <script src="lib/affiliate.js"></script>
   <script src="app.js"></script>
   <script src="cloud.js"></script>
   <script src="sw-register.js"></script>

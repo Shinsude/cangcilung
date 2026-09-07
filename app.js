@@ -81,7 +81,10 @@
 
   var cloudNotify = null;
   var kbCancel = false;
-  window.__setCloudHook = function (fn) { cloudNotify = fn; };
+  window.__setCloudHook = function (fn) {
+    cloudNotify = fn;
+    if (window.CC) window.CC.onAffChange = function () { if (cloudNotify) cloudNotify('affProducts'); };
+  };
 
   function touchSession() {
     var s = currentSession();
@@ -655,7 +658,9 @@
   function connSub() {
     var el = $('conn-sub');
     if (!el) return;
-    el.textContent = 'XAUUSD • NDX • US30 • SPX • DXY • VIX';
+    var list = (window.CC && window.CC.aff) ? window.CC.aff.getProducts() : [];
+    var n = list && list.length ? list.length : 0;
+    el.textContent = n ? 'Produk aktif: ' + n + ' • Analisis • Optimasi • Prediksi' : 'AI ML & DL — Analisis • Optimasi • Prediksi • Strategi';
   }
 
   function setStatus(msg, isError) {
@@ -861,31 +866,58 @@
 
 /* Layar utama = Live Signal XAUUSD (panel penuh, auto-refresh 45 dtk).
    Dipasang permanen; perintah menambah baris ke transkrip di bawahnya. */
-  var _liveTimer = null;
+  var _dashTimer = null;
   function renderLiveMain() {
     var body = $('live-main-body');
     if (!body) return;
     var zoom = $('live-open-modal');
-    if (zoom && !zoom._wired) { zoom._wired = true; zoom.addEventListener('click', openSignalPanel); }
-    renderSignalPanelInline(body);
-    if (_liveTimer) clearInterval(_liveTimer);
-    _liveTimer = setInterval(function () {
-      var el = $('live-main-body');
-      if (el) renderSignalPanelInline(el);
-    }, 45000);
+    if (zoom && !zoom._affWired) {
+      zoom._affWired = true;
+      zoom.addEventListener('click', function () { handleAffAnalisis(); });
+    }
+    renderAffDashboard();
+    if (_dashTimer) clearInterval(_dashTimer);
+    _dashTimer = setInterval(renderAffDashboard, 60000);
   }
 
-  /* Render panel Live Signal ke dalam div (dipakai dashboard & modal), otomatis
-     memastikan ada signal XAUUSD dan memulai pemeriksa alert. */
-  function renderSignalPanelInline(container) {
-    if (!window.CC || !window.CC.ta) return;
-    var ta = window.CC.ta;
-    requestSignalPermission();
-    ensureXauusdSignal('adaptive');
-    startAlertChecker();
-    startSignalChecker();
-    updateSignalBadge();
-    renderSignalPanel(container);
+  /* Dashboard affiliator: ringkasan laba + rekomendasi cepat dari CC.aff. */
+  function renderAffDashboard() {
+    var body = $('live-main-body');
+    if (!body) return;
+    var html;
+    if (!window.CC || !window.CC.aff) {
+      html = '❌ Mesin AI affiliator `CC.aff` belum dimuat. Muat ulang halaman.';
+    } else {
+      var list = window.CC.aff.getProducts();
+      if (!list || !list.length) {
+        html = 'Belum ada data **produk**.\n\n' +
+          'Tekan **Tambah Produk** (form) untuk input manual, atau jalankan `/demo` untuk 10 produk contoh.\n\n' +
+          'Perintah: `/analisis` `/optimasi` `/prediksi` `/forecast` `/strategi` `/daftar` — ketik `/help` untuk bantuan.';
+      } else {
+        var a = window.CC.aff.analyze(list);
+        var o = window.CC.aff.optimize(list);
+        var lines = ['## Dashboard Affiliator', ''];
+        lines.push('- **Produk**: ' + a.n + ' buah');
+        lines.push('- **Pendapatan**: ' + affRupiah(a.totalPendapatan) + ' · biaya ' + affRupiah(a.totalBiaya));
+        lines.push('- **Laba bersih**: **' + affRupiah(a.laba) + '** (_' + affPct(a.margin) + ' margin_)');
+        lines.push('- **Konversi**: ' + affNum(a.totalKlik) + ' klik → ' + affNum(a.totalKonversi) + ' (' + affPct(a.convRate) + ')');
+        lines.push('- **Niche terbaik**: ' + (a.bestNiche ? a.bestNiche.key : '—') + ' · **Platform terbaik**: ' + (a.bestPlatform ? a.bestPlatform.key : '—'));
+        lines.push('- **Menguntungkan**: ' + a.profitableCount + '/' + a.n);
+        lines.push('');
+        if (o.genjot && o.genjot.length) {
+          lines.push('### 🚀 Genjot produk');
+          o.genjot.forEach(function (n, i) { lines.push((i + 1) + '. `' + n + '`'); });
+          lines.push('');
+        }
+        lines.push('Perintah: `/analisis` `/optimasi` `/prediksi` `/forecast` `/strategi`');
+        html = lines.join('\n');
+      }
+    }
+    body.innerHTML = '';
+    var wrap = document.createElement('div');
+    wrap.className = 'c-out';
+    renderMarkdown(wrap, html);
+    body.appendChild(wrap);
   }
 
 function renderHistory(forceFull) {
@@ -1063,251 +1095,20 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
   }
 
   /* Progress bar operasi panjang (training ML dkk). */
-  function setProgress(e, total, label) {
-    var row = $('prog-row'), fill = $('prog-fill'), lb = $('prog-label');
-    if (!row || !fill) return;
-    row.hidden = false;
-    var pct = total > 0 ? Math.min(100, Math.round((e / total) * 100)) : 0;
-    fill.style.width = pct + '%';
-    if (lb) lb.textContent = (label || 'Proses') + ' — ' + e + '/' + total;
-  }
   function clearProgress() {
     var row = $('prog-row'), fill = $('prog-fill');
     if (row) row.hidden = true;
     if (fill) fill.style.width = '0%';
   }
 
-  function openChartModal(title) {
-    var overlay = $('chart-modal');
-    var titleEl = $('chart-title');
-    var container = $('chart-container');
-    var closeBtn = $('btn-chart-close');
-    if (!overlay || !container) return null;
-    titleEl.textContent = title || 'Chart';
-    overlay.hidden = false;
-    function doClose() {
-      overlay.hidden = true;
-      if (window.CC && window.CC.ta && window.CC.ta.destroyChart) window.CC.ta.destroyChart(container);
-      container.innerHTML = '';
-    }
-    closeBtn.onclick = doClose;
-    overlay.onclick = function (e) { if (e.target === overlay) doClose(); };
-    return container;
-  }
 
-  function handleChart(symbol, interval) {
-    if (!window.CC || !window.CC.ta) {
-      setStatus('Technical Analysis tidak dimuat.', true);
-      return;
-    }
-    var ta = window.CC.ta;
-    var container = openChartModal(symbol.toUpperCase() + ' — ' + interval);
-    if (!container) return;
-    container.innerHTML = '<div style="padding:40px;text-align:center;color:#a0a0b0">⏳ Mengambil data ' + symbol + '...</div>';
-    ta.fetchYahoo(symbol, interval).then(function (result) {
-      var indicators = {
-        ema20: ta.calcEMA(result.data, 20),
-        ema50: ta.calcEMA(result.data, 50),
-        bb: ta.calcBollinger(result.data, 20, 2),
-        volume: result.data.map(function (d) { return { time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }; }),
-        sr: ta.detectSR(result.data),
-        fib: ta.calcFibonacci(result.data),
-        pivots: ta.calcPivots(result.data)
-      };
-      ta.renderChart(container, result.data, indicators, result.name + ' (' + interval + ')');
-      $('chart-title').textContent = result.name + ' — ' + interval;
-    }).catch(function (err) {
-      container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444">Gagal mengambil data: ' + (err.message || err) + '</div>';
-    });
-  }
 
-  function handleRSI(symbol, period) {
-    if (!window.CC || !window.CC.ta) {
-      setStatus('Technical Analysis tidak dimuat.', true);
-      return;
-    }
-    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
-    var ta = window.CC.ta;
-    var container = openChartModal(symbol.toUpperCase() + ' RSI(' + period + ')');
-    if (!container) return;
-    container.innerHTML = '<div style="padding:40px;text-align:center;color:#a0a0b0">⏳ Mengambil data ' + symbol + '...</div>';
-    ta.fetchYahoo(symbol, '1d').then(function (result) {
-      var rsiData = ta.calcRSI(result.data, period);
-      var validRSI = rsiData.filter(function (r) { return r !== null; });
-      var lastRSI = validRSI.length ? validRSI[validRSI.length - 1].value : '-';
-      var chart = LightweightCharts.createChart(container, {
-        width: container.clientWidth, height: 300,
-        layout: { background: { type: 'solid', color: '#1a1a2e' }, textColor: '#a0a0b0' },
-        grid: { vertLines: { color: '#2a2a3e' }, horzLines: { color: '#2a2a3e' } },
-        timeScale: { timeVisible: true },
-        rightPriceScale: { borderColor: '#2a2a3e' }
-      });
-      var rsiSeries = chart.addLineSeries({ color: '#f59e0b', lineWidth: 2, title: 'RSI(' + period + ')' });
-      rsiSeries.setData(validRSI);
-      var obLine = chart.addLineSeries({ color: '#ef4444', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: 'Overbought' });
-      var osLine = chart.addLineSeries({ color: '#22c55e', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: 'Oversold' });
-      var midLine = chart.addLineSeries({ color: '#6b7280', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dotted, title: '50' });
-      if (validRSI.length > 0) {
-        var ts = validRSI.map(function (r) { return r.time; });
-        obLine.setData(ts.map(function (t) { return { time: t, value: 70 }; }));
-        osLine.setData(ts.map(function (t) { return { time: t, value: 30 }; }));
-        midLine.setData(ts.map(function (t) { return { time: t, value: 50 }; }));
-      }
-      chart.timeScale().fitContent();
-      $('chart-title').textContent = symbol.toUpperCase() + ' RSI(' + period + ') = ' + lastRSI;
-      var ro = new ResizeObserver(function () { chart.applyOptions({ width: container.clientWidth }); });
-      ro.observe(container);
-    }).catch(function (err) {
-      container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444">Gagal: ' + (err.message || err) + '</div>';
-    });
-  }
 
-  function buildTANote(symbol) {
-    var _mem = memory && memory.trading;
-    if (!_mem) return '';
-    var parts = [];
-    if (_mem.risk && !_mem.style) parts.push('Profil risiko kamu (' + _mem.risk + ') — sesuaikan ukuran posisi: risiko ' + (_mem.risk === 'konservatif' ? 'rendah (1% atau kurang)' : _mem.risk === 'agresif' ? 'tinggi (boleh lebih dari 2%)' : 'sedang (1-2%)') + ' per trade.');
-    if (_mem.capital) parts.push('Dengan modal ±' + _mem.capital.toLocaleString('id-ID') + ', hindari risiko lebih dari ' + ( ( _mem.risk === 'konservatif' ? 5 : _mem.risk === 'agresif' ? 20 : 10 ) ) + '% modal per posisi.');
-    if (_mem.style) parts.push('Gaya ' + _mem.style + ' — fokus timeframe ' + (_mem.style === 'intraday' ? '5m-1h' : _mem.style === 'scalping' ? '1m-5m' : _mem.style === 'swing' ? '1h-1d' : '1d-1w') + '.');
-    return parts.length ? '### 📌 Catatan personal untuk kamu\n' + parts.join(' ') : '';
-  }
 
   /* Fokus trading: Cangcilung berdiri untuk XAUUSD (emas) saja.
      Semua perintah analisis trading dialihkan ke XAUUSD bila simbol lain diminta. */
-  function focusSym(symbol) {
-    var u = String(symbol || 'XAUUSD').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (u === 'XAUUSD' || u === 'XAU' || u === 'GOLD' || u === 'EMAS') return { s: 'XAUUSD', forced: false };
-    return { s: 'XAUUSD', forced: true, req: String(symbol).toUpperCase().trim() };
-  }
-  function focusNote(f) {
-    if (!f || !f.forced) return;
-    history.push({ role: 'assistant', content: '🔒 Cangcilung difokuskan pada **XAUUSD (emas)** — permintaan *' + f.req + '* dialihkan ke XAUUSD.', t: nowTime() });
-    saveHistory();
-  }
 
-  function handleTA(symbol) {
-    if (!window.CC || !window.CC.ta) {
-      setStatus('Technical Analysis tidak dimuat.', true);
-      return;
-    }
-    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
-    var ta = window.CC.ta;
-    busy = true;
-    setSendUI(true);
-    setStatus('Mengambil data multi-timeframe ' + symbol + '...');
-    var bubble = addBubble('assistant', null);
-    showTyping(bubble);
-    ta.fetchMultiTF(symbol).then(function (mTF) {
-      var daily = mTF['1d'];
-      if (!daily || !daily.data) throw new Error('Data harian tidak tersedia');
-      var analysis = ta.analyze(daily.data);
-      var mtf = ta.multiTFAnalysis(mTF['1d'], mTF['1h'], mTF['15m']);
-      analysis += '\n\n' + ta.formatConfluence(mtf);
-      var taNote = buildTANote(symbol.toUpperCase());
-      if (taNote) analysis += '\n\n' + taNote;
-      var bSug = bundleSuggest(_taSuggestText, symbol);
-      if (bSug) analysis += bSug;
-      var session = ta.getCurrentSession();
-      removeTyping(bubble);
-      history.push({ role: 'assistant', content: analysis, t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-      busy = false;
-      setSendUI(false);
-      setStatus('');
-      openChartModal(symbol.toUpperCase() + ' — Chart (all TF cached)');
-      var container = $('chart-container');
-      if (container) {
-        var indicators = {
-          ema20: ta.calcEMA(daily.data, 20),
-          ema50: ta.calcEMA(daily.data, 50),
-          bb: ta.calcBollinger(daily.data, 20, 2),
-          volume: daily.data.map(function (d) { return { time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' }; }),
-          sr: ta.detectSR(daily.data),
-          fib: ta.calcFibonacci(daily.data),
-          pivots: ta.calcPivots(daily.data)
-        };
-        ta.renderChart(container, daily.data, indicators, symbol.toUpperCase());
-      }
-    }).catch(function (err) {
-      removeTyping(bubble);
-      var msg = '⚠️ Gagal mengambil data: ' + (err.message || err);
-      history.push({ role: 'assistant', content: msg, t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-      busy = false;
-      setSendUI(false);
-      setStatus('');
-    });
-  }
 
-  function handleRekomendasi(symbol) {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
-    var ta = window.CC.ta;
-    busy = true;
-    setSendUI(true);
-    setStatus('Menghitung rekomendasi untuk ' + symbol + '...');
-    var bubble = addBubble('assistant', null);
-    showTyping(bubble);
-    ta.fetchMultiTF(symbol).then(function (mTF) {
-      var daily = mTF['1d'];
-      if (!daily || !daily.data) throw new Error('Data harian tidak tersedia');
-      var analysis = ta.analyze(daily.data);
-      var last = daily.data[daily.data.length - 1];
-      var prev = daily.data[daily.data.length - 2];
-      var change = prev ? ((last.close - prev.close) / prev.close * 100).toFixed(2) : '0';
-      var atrArr = ta.calcATR(daily.data, 14).filter(Boolean);
-      var atr = atrArr.length ? atrArr[atrArr.length - 1].value : (last.high - last.low);
-      var sig = ta.genSignals(daily.data, 'all');
-      var signals = analysis.match(/^-\s.*$/gm) || [];
-      var scoring = ta.scoreSignals(signals, daily.data);
-      var near = ta.detectSR(daily.data);
-      var bias = scoring.bias;
-      var confidence = scoring.confidence;
-      var rec = bias === 'BULLISH' ? '**BELI (BUY/LONG)** 🟢' : bias === 'BEARISH' ? '**JUAL (SELL/SHORT)** 🔴' : '**TUNGGU (WATCH/NEUTRAL)** ⚪';
-      var entry = last.close;
-      var sl = bias === 'BULLISH' ? last.close - 1.5 * atr : bias === 'BEARISH' ? last.close + 1.5 * atr : last.close - atr;
-      var tp = bias === 'BULLISH' ? last.close + 3 * atr : bias === 'BEARISH' ? last.close - 3 * atr : last.close + atr;
-      var rr = bias === 'BULLISH' || bias === 'BEARISH' ? Math.abs(tp - entry) / Math.abs(sl - entry) : 0;
-      var neutralWarn = bias === 'NEUTRAL' ? 'Bias masih netral — hindari entry agresif; tunggu jeda/konfirmasi breakout.' : '';
-      var out = '## Rekomendasi ' + symbol.toUpperCase() + '\n';
-      out += '**Arah:** ' + rec + '\n';
-      out += '**Harga saat ini:** ' + entry.toFixed(2) + ' (' + (change >= 0 ? '+' : '') + change + '%)\n';
-      out += '**Confidence:** ' + confidence + '% (skor ' + scoring.score + '/100, ' + scoring.confluentCount + ' signal searah)\n\n';
-      out += '### Eksekusi (saran, bukan nasihat keuangan)\n';
-      out += '- **Entry:** ~' + entry.toFixed(2) + '\n';
-      out += '- **Stop Loss:** ' + sl.toFixed(2) + '\n';
-      out += '- **Take Profit:** ' + tp.toFixed(2) + '\n';
-      out += '- **R:R:** 1:' + rr.toFixed(2) + '\n';
-      out += '- **Ukuran posisi (1% risiko, akun 10rb):** ~' + (100 / atr).toFixed(3) + ' unit max (lihat /risk utk presisi)\n\n';
-      if (neutralWarn) out += '> ' + neutralWarn + '\n\n';
-      out += '### Dasar bias (signals)\n';
-      var shown = signals.slice(-6);
-      if (shown.length) out += shown.join('\n') + '\n';
-      out += '\n_Disclaimer: ini hasil analisis otomatis, bukan jaminan profit. Selalu verifikasi & kelola risiko._';
-      removeTyping(bubble);
-      history.push({ role: 'assistant', content: out, t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-      busy = false;
-      setSendUI(false);
-      setStatus('');
-    }).catch(function (err) {
-      removeTyping(bubble);
-      var msg = '⚠️ Gagal membuat rekomendasi: ' + (err.message || err);
-      history.push({ role: 'assistant', content: msg, t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-      busy = false;
-      setSendUI(false);
-      setStatus('');
-    });
-  }
 
   function handleSessionCommand() {
     if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
@@ -1332,546 +1133,43 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     setStatus('');
   }
 
-  function handleBacktest(symbol, strategy, rawParams) {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
-    var ta = window.CC.ta;
-    var params = {};
-    var oos = false;
-    (rawParams || []).forEach(function (p) {
-      if (/^oos$/i.test(p.trim())) { oos = true; return; }
-      var m = p.split(':');
-      if (m.length === 2) {
-        var nv = parseFloat(m[1]);
-        params[m[0]] = isNaN(nv) ? m[1] : nv;
-      }
-    });
-    var quant = (params.quant || 0) > 0 ? 100 : 50;
-    busy = true; setSendUI(true);
-    setStatus('Backtest ' + symbol + ' dengan strategi ' + strategy + (oos ? ' (anti-overfitting / OOS)...' : '...'));
-    var bubble = addBubble('assistant', null);
-    showTyping(bubble);
-    ta.fetchYahoo(symbol, params.tf || '1d').then(function (result) {
-      var r = ta.backtest(result.data, strategy, params);
-      if (r.error) throw new Error(r.error);
-      var out;
-      if (oos) {
-        var wf = ta.walkforward(result.data, strategy, params);
-        out = ta.formatWalkforward(wf, symbol) + '\n\n*Sumber: ' + (result.source || 'yahoo') + ' — sinyal dari data historis; % uji = data terbaru.*';
-      } else {
-        out = ta.formatBacktest(r, symbol);
-        var mc = ta.monteCarlo(r, 2000);
-        if (!mc.error) out += '\n\n' + ta.formatMonteCarlo(mc, symbol);
-        out += '\n\n*Sumber: ' + (result.source || 'yahoo') + ' — 1 setel per-TF. Semua sinyal dihitung dari data historis.*';
-      }
-      removeTyping(bubble);
-      history.push({ role: 'assistant', content: out, t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-      busy = false; setSendUI(false); setStatus('');
-      if (r.equityCurve && r.equityCurve.length > 2) {
-        var container = openChartModal(symbol.toUpperCase() + ' — Equity Curve (' + r.strategy + ')');
-        if (container && ta.renderEquityCurve) ta.renderEquityCurve(container, r.equityCurve, 'Equity');
-      }
-    }).catch(function (err) {
-      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
-      history.push({ role: 'assistant', content: '⚠️ Gagal backtest: ' + (err.message || err), t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-    });
-  }
 
-  function handleNews(symbol) {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var ta = window.CC.ta;
-    busy = true; setSendUI(true);
-    setStatus('Mengambil berita terbaru ' + symbol + '...');
-    var bubble = addBubble('assistant', null);
-    showTyping(bubble);
-    ta.fetchNewsSentiment(symbol, { newsKey: settings.newsKey || '' }).then(function (ns) {
-      var out = ta.formatNewsSentiment(ns);
-      removeTyping(bubble);
-      history.push({ role: 'assistant', content: out, t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-      busy = false; setSendUI(false); setStatus('');
-    }).catch(function (err) {
-      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
-      history.push({ role: 'assistant', content: '⚠️ Gagal ambil berita: ' + (err.message || err), t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-    });
-  }
 
-  function handleAlertsList() {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var out = window.CC.ta.formatAlerts();
-    history.push({ role: 'assistant', content: out, t: nowTime() });
-    saveHistory(); renderHistory();
-    busy = false; setSendUI(false); setStatus('');
-  }
 
-  function handleAlertAdd(symbol, target, label) {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var ta = window.CC.ta;
-    var r = ta.addAlert(symbol, target, label);
-    var out;
-    if (r.error) out = '⚠️ ' + r.error;
-    else out = '✅ Alert terpasang: **' + r.alert.symbol + ' @ ' + r.alert.target + '**' + (r.alert.label ? ' (' + r.alert.label + ')' : '') + '\nTotal alert aktif: ' + r.count;
-    history.push({ role: 'assistant', content: out, t: nowTime() });
-    saveHistory(); renderHistory();
-    busy = false; setSendUI(false); setStatus('');
-  }
 
-  function handleAlertDelete(id) {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var r = window.CC.ta.removeAlert(id);
-    var out = r.removed ? '🗑️ Alert dihapus.' : '⚠️ Alert tidak ditemukan.';
-    history.push({ role: 'assistant', content: out, t: nowTime() });
-    saveHistory(); renderHistory();
-    busy = false; setSendUI(false); setStatus('');
-  }
 
-  function handleSignalAdd(symbol, strategy, rawParams) {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
-    var ta = window.CC.ta;
-    var params = {};
-    (rawParams || []).forEach(function (p) {
-      var m = p.split(':');
-      if (m.length === 2 && !isNaN(parseFloat(m[1]))) params[m[0]] = parseFloat(m[1]);
-    });
-    var r = ta.addSignalAlert(symbol, strategy, params);
-    var out;
-    if (r.error) out = '⚠️ ' + r.error;
-    else out = '✅ Live signal terpasang: **' + r.signal.symbol + '** · ' + r.signal.strategy.toUpperCase() +
-      ' (period ' + r.signal.params.period + ', OB ' + r.signal.params.overbought + ', OS ' + r.signal.params.oversold + ')\n' +
-      'Cangcilung pantau tiap menit & kirim notifikasi saat sinyal BUY/SELL muncul. Total: ' + r.count;
-    history.push({ role: 'assistant', content: out, t: nowTime() });
-    saveHistory(); renderHistory();
-    busy = false; setSendUI(false); setStatus('');
-    startSignalChecker();
-  }
 
-  function handleSignalTest() {
-    // uji notifikasi sistem + suara + toast — tanpa perlu menunggu crossing
-    var out = '🔔 **Uji notifikasi sinyal dikirim.**\n';
-    out += 'Jika notifikasi sistem belum muncul, pastikan izin diberikan:\n';
-    out += '1. Klik ikon 🔒 di address bar → izinkan **Notifications**\n';
-    out += '2. Kalau diblokir: susun ulang izin situs, muat ulang halaman, lalu ulangi `/sinyal-test`\n\n';
-    requestSignalPermission();
-    setTimeout(function () {
-      playAlertSound();
-      showSignalNotification({ side: 'long', symbol: 'XAUUSD', strategy: 'test', price: '—', confluence: 100, verdict: 'UJI' });
-      if (window.CC && window.CC.ui) window.CC.ui.showToast('🔔 Uji notifikasi sinyal berhasil dikirim.', 4000);
-    }, 300);
-    history.push({ role: 'assistant', content: out, t: nowTime() });
-    saveHistory(); renderHistory();
-    busy = false; setSendUI(false); setStatus('');
-  }
 
-  function handleSignalList() {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var out = window.CC.ta.formatSignalAlerts();
-    history.push({ role: 'assistant', content: out, t: nowTime() });
-    saveHistory(); renderHistory();
-    busy = false; setSendUI(false); setStatus('');
-  }
 
-  function handleSignalDelete(id) {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var r = window.CC.ta.removeSignalAlert(id);
-    var out = r.removed ? '🗑️ Live signal dihapus.' : '⚠️ Live signal tidak ditemukan.';
-    history.push({ role: 'assistant', content: out, t: nowTime() });
-    saveHistory(); renderHistory();
-    busy = false; setSendUI(false); setStatus('');
-  }
 
-  function handleSignalClear() {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    window.CC.ta.clearSignalAlerts();
-    var out = '🧹 Semua live signal dibersihkan.';
-    history.push({ role: 'assistant', content: out, t: nowTime() });
-    saveHistory(); renderHistory();
-    busy = false; setSendUI(false); setStatus('');
-  }
 
-  function handleSignalHistory() {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var out;
-    if (window.CC.ta.listSignalLog().length && window.CC.ta.formatSignalLog) {
-      out = window.CC.ta.formatSignalLog();
-    } else {
-      out = 'Belum ada riwayat sinyal. Aktifkan `/sinyal XAUUSD <strategi>` lalu tunggu crossing BUY/SELL.';
-    }
-    history.push({ role: 'assistant', content: out, t: nowTime() });
-    saveHistory(); renderHistory();
-    busy = false; setSendUI(false); setStatus('');
-  }
 
-  function updateSignalBadge() {
-    var badge = $('signal-badge');
-    if (!badge) return;
-    try {
-      var n = window.CC && window.CC.ta && window.CC.ta.listSignalAlerts ? window.CC.ta.listSignalAlerts().length : 0;
-      if (n > 0) { badge.textContent = n > 99 ? '99+' : n; badge.hidden = false; }
-      else badge.hidden = true;
-    } catch (e) {}
-  }
 
   /* Panel menu Signal: pantau live signal utk XAUUSD via antarmuka (tanpa ketik).
      Auto-mulai segera saat dibuka — tidak perlu klik apa pun. Dropdown strategi
      mengganti indikator yang dipantau secara otomatis. */
-  function openSignalPanel() {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var ta = window.CC.ta;
-    requestSignalPermission();
-    var container = openChartModal('Live Signal — XAUUSD');
-    if (!container) return;
-    if (window._signalPanelTimer) clearInterval(window._signalPanelTimer);
-
-    /* Auto-mulai: pastikan ada signal XAUUSD ADAPTIVE (jika belum ada). */
-    ensureXauusdSignal('adaptive');
-
-    /* Auto-refresh tiap 45 dtk selama panel terbuka */
-    window._signalPanelTimer = setInterval(function () {
-      var overlay = $('chart-modal');
-      if (!overlay || overlay.hidden) { clearInterval(window._signalPanelTimer); window._signalPanelTimer = null; return; }
-      renderSignalPanel(container);
-    }, 45000);
-    renderSignalPanel(container);
-    updateSignalBadge();
-  }
 
   /* Pastikan ada signal XAUUSD untuk strategi pilihan; jika strategi lain sedang
      aktif, ganti ke strategi baru (satu signal XAUUSD per menu). */
-  function ensureXauusdSignal(strategy) {
-    if (!window.CC || !window.CC.ta) return null;
-    var ta = window.CC.ta;
-    requestSignalPermission();
-    var active = ta.listSignalAlerts ? ta.listSignalAlerts() : [];
-    var existing = active.filter(function (s) { return s.symbol === 'XAUUSD'; });
-    var same = existing.filter(function (s) { return s.strategy === strategy; });
-    if (same.length) { startSignalChecker(); return same[0]; }
-    /* Hapus signal XAUUSD lama, ganti dgn strategi baru */
-    existing.forEach(function (s) { ta.removeSignalAlert(s.id); });
-    var r = ta.addSignalAlert('XAUUSD', strategy, { period: 14, overbought: 70, oversold: 30 });
-    startSignalChecker();
-    updateSignalBadge();
-    return r.ok ? r.signal : null;
-  }
 
-  function renderSignalPanel(container) {
-    if (!container) return;
-    var ta = window.CC.ta;
-    var active = ta.listSignalAlerts ? ta.listSignalAlerts() : [];
-    var xau = active.filter(function (s) { return s.symbol === 'XAUUSD'; });
-    var cur = (xau.length ? xau[0].strategy : 'adaptive').toLowerCase();
-    var log = ta.listSignalLog ? ta.listSignalLog() : [];
-    var mInfo = typeof ta.marketStatusInfo === 'function' ? ta.marketStatusInfo() : null;
-    var html = '<div class="sig-panel">';
 
-    /* Banner status pasar: selalu tampil, paling mencolok saat TUTUP */
-    if (mInfo) {
-      html += '<div class="sig-banner' + (mInfo.open ? ' sig-open' : '') + '">' +
-        (mInfo.open ? '🟢 Market ' + mInfo.label + ' — data live' : '⛔ Market ' + mInfo.label + ' — sinyal berdasar bar penutupan terakhir hingga Jumat 21:00 UTC. Mulai lagi saat pasar buka (Min 22:00 UTC)') +
-        '</div>';
-    }
-
-    /* Kartu keputusan BUY/SELL/WAIT (satu-satunya tampilan) */
-    html += '<div class="sig-card"><div class="sig-label" style="text-align:center">Keputusan Live</div>';
-    html += '<div id="sig-conf-body" style="color:var(--text-dim);font-size:13px">Menghitung…</div>';
-    html += '</div>';
-
-    html += '<div class="sig-tip">Auto-memantau ' + (cur || 'adaptive').toUpperCase() + ' · auto-refresh 45 dtk · BUY/SELL = arah kuat & searah; WAIT = tunggu konfirmasi; keputusan dihitung saat pasar buka.</div>';
-    html += '<div class="sig-source">Sumber data: Yahoo Finance (via proxy Vercel) — bar harian XAUUSD. Analisis dihasilkan mesin (TA + contekan konfluensi); diperiksa mandiri sebelum trading — bukan saran investasi/finansial.</div>';
-    html += '</div>';
-    container.innerHTML = html;
-
-    /* Konfluensi live: keputusan utk signal XAUUSD aktif (defensif — selalu hitung,
-       tak bergantung pada keberadaan signal tersimpan) */
-    var confBody = container.querySelector('#sig-conf-body');
-    var activeXau = xau[0];
-    function withTimeout(p, ms) {
-      return Promise.race([
-        p,
-        new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, ms); })
-      ]);
-    }
-    if (confBody && typeof ta.fetchYahoo === 'function' && typeof ta.analyzeConfluence === 'function') {
-      (function (bodyEl, sig) {
-        /* Hard timeout agar status "Menghitung…" tidak menggantung selamanya */
-        withTimeout(ta.fetchYahoo('XAUUSD', '1d'), 15000).then(function (r) {
-          if (!bodyEl) return;
-          var strat = sig && sig.strategy ? sig.strategy : 'adaptive';
-          var params = (sig && sig.params) ? sig.params : { period: 14, overbought: 70, oversold: 30 };
-          var conf = ta.analyzeConfluence(r ? (r.data || r) : null, strat, params);
-          var dec = conf.decision || 'wait';
-          var decMap = { buy: { txt: 'BUY', sym: '▲', cls: 'c-up', bg: 'bg-up' }, sell: { txt: 'SELL', sym: '▼', cls: 'c-down', bg: 'bg-down' }, wait: { txt: 'WAIT', sym: '⏳', cls: 'c-warn', bg: 'bg-warn' } };
-          var d = decMap[dec] || decMap.wait;
-          /* Saat market tutup / data basi: keputusan bukan live — demote ke MENUNGGU,
-             analisis tetap ditampilkan sebagai pratayang yang jujur. */
-          var fresh = !(mInfo && !mInfo.open) && (typeof ta.barIsFresh !== 'function' || ta.barIsFresh(r && r.data ? r.data : (r || null)));
-          var pDec = typeof ta.panelDecision === 'function' ? ta.panelDecision(mInfo, fresh, dec) : { demote: false, preview: (dec === 'buy' ? 'BUY' : dec === 'sell' ? 'SELL' : 'WAIT') };
-          var demote = pDec.demote;
-          if (demote) {
-            d = decMap.wait;
-            why = pDec.reason || (('Market tutup / data basi — keputusan BUY/SELL baru dihitung saat pasar buka. Analisis pratayang saat ini: ' + pDec.preview) + '.');
-          }
-          var h = '<div class="sig-decision">';
-          h += '<div class="sig-dec-symbol ' + d.cls + '">' + d.sym + '</div>';
-          h += '<div class="sig-dec-txt ' + d.cls + '">' + d.txt + '</div>';
-          /* alasan singkat */
-          var why;
-          if (strat === 'adaptive' && conf.slopeRegime && conf.slopeRegime.ok) {
-            var routed = conf.slopeRegime.regime === 'trending' ? (conf.slopeRegime.dir === 'up' ? 'NAIK → all (long)' : 'TURUN → smc (long+short)') : 'RANGE → bb (long)';
-            if (dec === 'buy') why = 'ADAPTIF (' + routed + '): arah kuat & searah — layak pertimbangkan BUY.';
-            else if (dec === 'sell') why = 'ADAPTIF (' + routed + '): tren TURUN terkonfirmasi — layak pertimbangkan SELL.';
-            else if (conf.signal === 'flat' || !conf.signal) why = 'ADAPTIF (' + routed + '): belum ada crossing yang sah. Tunggu sinyal.';
-            else why = 'ADAPTIF (' + routed + '): sinyal ada tapi belum cukup kuat — tunggu konfirmasi.';
-          } else {
-            if (dec === 'buy') why = 'Arah kuat & searah regime — layak pertimbangkan masuk BUY.';
-            else if (dec === 'sell') why = 'Arah kuat & searah regime — layak pertimbangkan masuk SELL.';
-            else if (conf.signal === 'flat' || !conf.signal) why = 'Belum ada arah jelas dari indikator. Tunggu crossing.';
-            else why = 'Sinyal ada tapi belum cukup kuat/searah — tunggu konfirmasi lebih dulu.';
-          }
-          h += '<div class="sig-dec-why">' + why + '</div>';
-          h += '</div>';
-          /* Info batas data saat market tutup / data basi — jangan ditafsirkan sebagai sinyal real-time */
-          if (demote) {
-            var lastT = (r && r.data && r.data.length) ? r.data[r.data.length - 1].time : null;
-            var barDate = lastT ? new Date(lastT * 1000).toISOString().slice(0, 10) : '';
-            h += '<div style="color:var(--warn);font-size:12px;margin-top:8px">Data penutupan terakhir: <b>' + (barDate || '—') + '</b>. Market ' + (mInfo ? mInfo.label : '') + ' — evaluasi ulang saat pasar buka.</div>';
-          }
-          bodyEl.innerHTML = h;
-          /* ledakan visual kecil saat keputusan berganti */
-          try { bodyEl.style.transition = 'none'; bodyEl.style.opacity = '.2'; void bodyEl.offsetWidth; bodyEl.style.transition = 'opacity .3s'; bodyEl.style.opacity = '1'; } catch (e) {}
-        }).catch(function (err) {
-          if (bodyEl) bodyEl.innerHTML = '<div style="text-align:center;padding:10px;color:var(--warn);font-size:13px">Tidak bisa ambil data pasar (offline/CORS). Coba lagi dalam beberapa saat.</div>';
-          if (window.console) console.error('Signal fetch gagal:', err && err.message);
-        });
-      })(confBody, activeXau);
-    }
-  }
-
-  function showSignalNotification(s) {
-    try {
-      var title = (s.side === 'long' ? '🟢 BUY' : '🔴 SELL') + ' — ' + s.symbol;
-      var body = s.strategy.toUpperCase() + ' → ' + (s.side === 'long' ? 'BUY' : 'SELL') + ' @ ' + s.price;
-      if (s.confluence != null) body += '\nKonfluensi: ' + s.confluence + '% (' + s.verdict + ')';
-      if (s.edgeScore) body += '\nKekuatan: ' + s.edgeScore;
-      if (s.regime) body += '\nRegime: ' + s.regime;
-      if (s.gate) body += '\n⚠ ' + s.gate;
-      if (s.reasons && s.reasons.length) body += '\n' + s.reasons.slice(0, 3).join(' · ');
-      if (s.sessionOpen === false) body += '\n⛔ MARKET TUTUP — data ' + (s.barDate || 'tersedia') + ', bukan sinyal real-time saat pasar buka.';
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        var n = new Notification(title, { body: body, tag: 'cangcilung-signal' });
-        n.onclick = function () { try { window.focus(); n.close(); } catch (e) {} };
-      }
-    } catch (e) {}
-  }
   // minta izin notifikasi sistem sekali (dipicu saat live signal diaktifkan/tombol panel)
-  function requestSignalPermission() {
-    try {
-      if (typeof Notification === 'undefined') return;
-      if (Notification.permission === 'denied') return;
-      if (Notification.permission !== 'granted') Notification.requestPermission();
-    } catch (e) {}
-  }
 
-  function startSignalChecker() {
-    if (window.__signalTimer) return;
-    function st() {
-      if (!window.CC || !window.CC.ta || !window.CC.ta.listSignalAlerts) return;
-      if (signalChecking) return;
-      var sigs = window.CC.ta.listSignalAlerts();
-      if (!sigs.length) return;
-      var checked = {};
-      var ta = window.CC.ta;
-      sigs.forEach(function (s) {
-        if (checked[s.symbol]) return;
-        checked[s.symbol] = true;
-        signalChecking = true;
-        ta.fetchYahoo(s.symbol, '1d').then(function (r) {
-          var res = ta.checkSignalAlerts(r);
-          res.fired.forEach(function (f) {
-            var confTxt = f.confluence != null ? ' · konfluensi ' + f.confluence + '% (' + f.verdict + ')' : '';
-            var gateTxt = f.gate ? ' · ' + f.gate : '';
-            /* market tutup (Sabtu/Minggu/libur): info tetap, tapi diberi label jelas + tanpa suara alarm */
-            var closedTxt = f.sessionOpen === false ? ' · ⚠️ MARKET TUTUP (' + (f.sessionLabel || '') + ') — data ' + (f.barDate || 'sebelumnya') : '';
-            if (window.CC && window.CC.ui) window.CC.ui.showToast((f.side === 'long' ? '🟢 BUY' : '🔴 SELL') + ' ' + f.symbol + ' (' + f.strategy + ')' + confTxt + gateTxt + closedTxt + ' @ ' + f.price);
-            showSignalNotification(f);
-            if (f.sessionOpen !== false) playAlertSound();
-          });
-          signalChecking = false;
-        }).catch(function () { signalChecking = false; });
-      });
-    }
-    st();
-    window.__signalTimer = setInterval(st, 60000);
-  }
 
-  function playAlertSound() {
-    try {
-      if (settings.soundEnabled === false) return;
-      var ctx = window.__alertAudioCtx || (window.__alertAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
-      var now = ctx.currentTime;
-      [880, 660, 880].forEach(function (freq, i) {
-        var osc = ctx.createOscillator();
-        var gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.0001, now + i * 0.15);
-        gain.gain.exponentialRampToValueAtTime(0.3, now + i * 0.15 + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.15 + 0.14);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(now + i * 0.15);
-        osc.stop(now + i * 0.15 + 0.15);
-      });
-    } catch (e) {}
-  }
 
-  function showAlertNotification(f) {
-    try {
-      if (typeof Notification === 'undefined') return;
-      if (Notification.permission === 'granted') {
-        new Notification('🔔 Alert Harga: ' + f.symbol, {
-          body: f.symbol + ' mencapai ' + f.price + (f.label ? ' (' + f.label + ')' : ''),
-          tag: 'cangcilung-alert'
-        });
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission();
-      }
-    } catch (e) {}
-  }
 
-  function startAlertChecker() {
-    if (window.__alertTimer) return;
-    function tick() {
-      if (window.CC && window.CC.ta && window.CC.ta.listAlerts) {
-        var alerts = window.CC.ta.listAlerts();
-        if (!alerts.length) return;
-        var checked = {};
-        alerts.forEach(function (a) {
-          if (checked[a.symbol] || alertChecking) return;
-          checked[a.symbol] = true;
-          alertChecking = true;
-          var ta = window.CC.ta;
-          ta.fetchYahoo(a.symbol, '1d').then(function (r) {
-            var res = ta.checkAlerts(r);
-            res.fired.forEach(function (f) {
-              if (window.CC && window.CC.ui) window.CC.ui.showToast('🔔 Alert: ' + f.symbol + ' mencapai ' + f.price);
-              playAlertSound();
-              showAlertNotification(f);
-            });
-            alertChecking = false;
-          }).catch(function () { alertChecking = false; });
-        });
-      }
-    }
-    tick();
-    window.__alertTimer = setInterval(tick, 60000);
-  }
 
   /* ---------- Machine Learning & Deep Learning (/ml & /ml-signal) ---------- */
   // Parsing opsi: engine:vanilla|tfjs, horizon:N, epochs:N, tf:on
-  function parseMLOpts(arr) {
-    var o = {};
-    (arr || []).forEach(function (p) {
-      var m = String(p).split(':');
-      if (m.length === 2) {
-        var k = m[0].toLowerCase();
-        if (k === 'engine') o.engine = m[1].toLowerCase();
-        else if (k === 'tf') o.engine = (m[1] === 'on' || m[1] === '1' || m[1] === 'true') ? 'tfjs' : 'vanilla';
-        else if (k === 'horizon' && !isNaN(parseInt(m[1]))) o.horizon = parseInt(m[1]);
-        else if (k === 'epochs' && !isNaN(parseInt(m[1]))) o.epochs = parseInt(m[1]);
-      }
-    });
-    return o;
-  }
   function finalizeMessage(out) {
     history.push({ role: 'assistant', content: out, t: nowTime() });
-    renderHistory();
-    busy = false; setSendUI(false); setStatus(''); clearProgress();
-  }
-  function failMessage(bubble, err) {
-    removeTyping(bubble);
-    var msg = '⚠️ ML gagal: ' + (err.message || err);
-    history.push({ role: 'assistant', content: msg, t: nowTime() });
-    if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
     renderHistory();
     busy = false; setSendUI(false); setStatus(''); clearProgress();
   }
   // /ml SYM — latih model arah (Model A) + laporan validasi.
   // Vanilla: training di-chunk (UI tidak beku), deterministik (seed 42) & hasil disimpan di
   // localStorage -> pemanggilan berikutnya langsung dari cache (instan, tanpa training ulang).
-  function handleML(symbol, optsArr) {
-    if (!window.CC || !window.CC.ml) { setStatus('ML tidak dimuat.', true); return; }
-    if (!window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
-    var ml = window.CC.ml, ta = window.CC.ta;
-    var opts = parseMLOpts(optsArr);
-    busy = true; setSendUI(true);
-    setStatus('Mengambil data ' + symbol + '...');
-    var bubble = addBubble('assistant', null);
-    showTyping(bubble);
-    ta.fetchYahoo(symbol, '1d').then(function (o) {
-      if (!o || !o.data || o.data.length < 150) throw new Error('Data harian tidak cukup (< 150 bar)');
-      var ds = ml.buildDatasets(o.data, opts);
-      if (ds.error) throw new Error(ds.error);
-      var canCache = opts.engine !== 'tfjs';
-      var sig = ml.dataSig(o.data);
-      var key = canCache ? ml.cacheKey(symbol, ds.H, ds.n, sig) : null;
-      if (canCache) {
-        var cache = ml.loadModelCache(key);
-        if (cache && cache.st && cache.st.W1) {
-          var m = ml.restoreMLP(cache.st);
-          if (m) {
-            var tr = ml.evalModel(ds.trainX.map(function (x) { return m.predictProb(x); }), ds.trainY);
-            var te = ml.evalModel(ds.testX.map(function (x) { return m.predictProb(x); }), ds.testY, ds.trainY.filter(function (y) { return y === 1; }).length / ds.trainY.length);
-            var repC = { ok: true, engine: 'vanilla', kind: m.kind, model: m, train: tr, test: te, scaler: ds.scaler, names: ds.names, ds: ds, H: ds.H, seed: opts.seed || 42, cached: true };
-            return ml.formatMl(repC, symbol);
-          }
-        }
-      }
-      opts.onProgress = function (e, total) { setStatus('Training model ' + symbol + '... ' + e + '/' + total + ' epoch'); setProgress(e, total, 'Training ' + symbol); };
-      return ml.trainDirection(o.data, opts).then(function (r) {
-        if (r.error) return '⚠️ ' + r.error;
-        if (canCache && r.engine === 'vanilla' && r.model && r.model._state) ml.saveModelCache(key, { st: r.model._state });
-        return ml.formatMl(r, symbol);
-      });
-    }).then(finalizeMessage).catch(function (err) { failMessage(bubble, err); });
-  }
   // /ml-signal SYM STRAT — prediksi arah (Model A) + skor sinyal TA (Model B, pakai hasil Model A)
-  function handleMLSignal(symbol, strategy, rawParams) {
-    if (!window.CC || !window.CC.ml) { setStatus('ML tidak dimuat.', true); return; }
-    if (!window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
-    var ml = window.CC.ml, ta = window.CC.ta;
-    var opts = parseMLOpts(rawParams);
-    busy = true; setSendUI(true);
-    setStatus('Menganalisis arah ' + symbol + ' dengan ML...');
-    var bubble = addBubble('assistant', null);
-    showTyping(bubble);
-    opts.onProgress = function (e, total) { setStatus('Training model arah... ' + e + '/' + total + ' epoch'); setProgress(e, total, 'Training model arah'); };
-    ta.fetchYahoo(symbol, '1d').then(function (o) {
-      if (!o || !o.data || o.data.length < 150) throw new Error('Data harian tidak cukup (< 150 bar)');
-      removeTyping(bubble);
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      return ml.predictDirection(o.data, opts).then(function (p) {
-        if (p.error) return '⚠️ ' + p.error;
-        var sOpts = Object.assign({}, opts, { pre: p });
-        return ml.scoreSignal(o.data, strategy, null, sOpts).then(function (s) {
-          return ml.formatPredict(p, symbol) + '\n\n' + (s.error ? '⚠️ ' + s.error : ml.formatSignalScore(s, symbol));
-        });
-      });
-    }).then(finalizeMessage).catch(function (err) { failMessage(bubble, err); });
-  }
 
   /* ---- Skills & Bundles (pola MANTRA: katalog + bundel terurut) ----
      Data + rekomendasi murni diekstrak ke lib/mantra.js. */
@@ -1879,26 +1177,19 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
   var SKILLS = MANTRA.SKILLS || {};
   var BUNDLES = MANTRA.BUNDLES || {};
   function executeSkill(handler, args) {
+    args = args || [];
     switch (handler) {
-      case 'ta': return handleTA((args[0] || 'XAUUSD'));
-      case 'chart': return handleChart((args[0] || 'XAUUSD'), (args[1] || '1d'));
-      case 'rsi': return handleRSI((args[0] || 'XAUUSD'), (parseInt(args[1]) || 14));
-      case 'structure': return handleStructure((args[0] || 'XAUUSD'));
+      case 'tambah': return addProductFromCommand(args.join(' '));
+      case 'list': return handleAffList();
+      case 'hapus': return handleAffHapus(args[0] || '');
+      case 'beres': return handleAffClear();
+      case 'demo': return handleAffDemo();
+      case 'analisis': return handleAffAnalisis();
+      case 'optimasi': return handleAffOptimasi();
+      case 'prediksi': return handleAffPrediksi(args[0] || '');
+      case 'forecast': return handleAffForecast(args[0] || '');
+      case 'strategi': return handleAffStrategi();
       case 'session': return handleSessionCommand();
-      case 'profile': return handleProfile((args[0] || 'XAUUSD'), (args[1] || '1d'));
-      case 'risk': return handleRisk((args[0] || 'XAUUSD'), (parseFloat(String(args[1] || '10000').replace(/,/g, '')) || 10000), (parseFloat(args[2]) || 1));
-      case 'corr': return handleCorrelation((args[0] || 'XAUUSD'));
-      case 'backtest': return handleBacktest((args[0] || 'XAUUSD'), (args[1] || 'adaptive'), (args[2] || ''));
-      case 'news': return handleNews((args[0] || 'XAUUSD'));
-      case 'alert': return handleAlertAdd((args[0] || 'XAUUSD'), (args[1] || ''), '');
-      case 'alerts': return handleAlertsList();
-      case 'signal': return handleSignalAdd((args[0] || 'XAUUSD'), (args[1] || 'adaptive'), [].concat(args[2] || []));
-      case 'signal-test': return handleSignalTest();
-      case 'signals': return handleSignalList();
-      case 'signal-del': return handleSignalDelete(args[0] || '');
-      case 'signal-clear': return handleSignalClear();
-      case 'ml': return handleML((args[0] || 'XAUUSD'), [].concat(args.slice(1)));
-      case 'ml-signal': return handleMLSignal((args[0] || 'XAUUSD'), (args[1] || 'adaptive'), [].concat(args.slice(2)));
       default: return false;
     }
   }
@@ -1908,7 +1199,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
   function bundleSuggest(text, symbol) {
     var bn = bundleRecommend(text || '');
     if (!bn) return '';
-    return renderBundle(bn, (symbol || 'XAUUSD').toUpperCase(), bn === 'analisa' ? 'ta' : null);
+    return renderBundle(bn, (symbol || 'XAUUSD').toUpperCase(), bn === 'analisa' ? 'analisis' : null);
   }
   function renderBundle(bundleName, symbol, triggerSkill) {
     var b = BUNDLES[bundleName];
@@ -1934,250 +1225,279 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
   function handleSkillsCommand(raw) {
     var rest = (raw || '').replace(/^\/skills/, '').trim();
     var arg = rest.split(/\s+/).filter(Boolean);
-    var symbol = 'XAUUSD';
-    var mSym = raw.match(/\b(xau(?:usd)?|gold|emas|ndx|nasdaq|dji|dow|us30|spx|dxy|vix)\b/i);
-    if (mSym) { symbol = mSym[1].toUpperCase(); if (symbol === 'S&P' || symbol === 'SPX') symbol = 'SPX'; if (symbol === 'XAU' || symbol === 'XAUUSD' || symbol === 'GOLD' || symbol === 'EMAS') symbol = 'XAUUSD'; if (symbol === 'NDX' || symbol === 'NASDAQ') symbol = 'NDX'; if (symbol === 'DJI' || symbol === 'DOW' || symbol === 'US30') symbol = 'US30'; }
-    var bundleName = arg[1] && BUNDLES[arg[1].toLowerCase()] ? arg[1].toLowerCase() : (arg[0] && BUNDLES[arg[0].toLowerCase()] ? arg[0].toLowerCase() : null);
+    var bundleName = arg[0] && BUNDLES[arg[0].toLowerCase()] ? arg[0].toLowerCase() : null;
     var skillName = null;
     if (!bundleName && arg[0] && SKILLS[arg[0].toLowerCase()]) skillName = arg[0].toLowerCase();
     if (bundleName) {
-      var trigger = bundleName === 'analisa' ? 'ta' : bundleName === 'risiko' ? 'risk' : bundleName === 'teknikal' ? 'rsi' : bundleName === 'berita' ? 'news' : 'backtest';
-      executeSkill(trigger, [symbol]);
-      return;
+      var trigger = bundleName === 'analisa' ? 'analisis' : bundleName;
+      if (executeSkill(trigger, arg.slice(1)) !== false) return;
     }
     if (skillName) {
-      executeSkill(skillName, [symbol, arg[1], arg[2]]);
-      return;
+      if (executeSkill(skillName, arg.slice(1)) !== false) return;
     }
     var out = '## 🧩 Katalog Skill & Bundel\n\n### Perintah (skill)\n';
-    Object.keys(SKILLS).forEach(function (n) { out += '- `/skills ' + n + ' SYM` → `' + SKILLS[n].cmd + '` — ' + SKILLS[n].desc + '\n'; });
+    Object.keys(SKILLS).forEach(function (n) { out += '- `/skills ' + n + '` → `' + SKILLS[n].cmd + '` — ' + SKILLS[n].desc + '\n'; });
     out += '\n### Bundel (alur terurut)\n';
-    Object.keys(BUNDLES).forEach(function (n) { out += '- `/skills ' + n + ' SYM` — ' + BUNDLES[n].desc + '\n'; });
-    out += '\nContoh: `/skills analisa XAUUSD` (tren → struktur → risiko). Ketik `/help` untuk daftar lengkap.';
+    Object.keys(BUNDLES).forEach(function (n) { out += '- `/skills ' + n + '` — ' + BUNDLES[n].desc + '\n'; });
+    out += '\nContoh: `/skills analisa` (ringkasan → optimasi → prediksi). Ketik `/help` untuk daftar lengkap.';
     pushMessage(out);
   }
   function handleHelpCommand() {
-    var out = '## Perintah CangCilung 📊\n\n';
-    out += '> 🔒 Cangcilung **fokus khusus XAUUSD (emas)** — semua analisis trading otomatis memakai XAUUSD.`\n';
-    out += '### Trading / Market\n';
-    out += '- `/ta XAUUSD` — analisis lengkap semua indikator + SMC + verdict\n';
-    out += '- `/rekomendasi XAUUSD` — arah (BUY/SELL/WATCH) + entry/SL/TP/RR\n';
-    out += '- `/chart XAUUSD 1h` — tampilkan chart (interval: 5m/15m/30m/1h/1d/1w)\n';
-    out += '- `/rsi XAUUSD 14` — RSI + MACD + BB\n';
-    out += '- `/structure XAUUSD` — market structure (HH/HL/LH/LL)\n';
-    out += '- `/mtf XAUUSD` — dashboard struktur multi-timeframe (BOS/CHoCH searah?)\n';
-    out += '- `/session` — sesi market aktif & jadwal\n';
-    out += '- `/profile XAUUSD 1h` — volume profile (POC/HVN/LVN)\n';
-    out += '- `/risk XAUUSD 10000 1` — risk management (SL/TP/lot)\n';
-    out += '- `/corr XAUUSD` — korelasi XAU vs DXY (atau NDX vs VIX)\n';
-    out += '- `/backtest XAUUSD rsi 14:70:30` — uji strategi (rsi/bb/sma/ema/vwap/ma/smc/cvd/all/adaptive) + Sharpe + heatmap hari/jam + **Monte Carlo & stress-test otomatis**\n';
-    out += '  · ⭐ `adaptive` = otomatis memilih strategi terbaik per kondisi market (NAIK→all-long, TURUN→smc, RANGE→bb) & jadi default\n';
-    out += '  · opsional `cost:N` utk biaya per trade (mis. `cost:0.5`) agar hasil lebih realistis\n';
-    out += '  · opsional `costModel:session spreadBase:0.25 commission:0.1` — biaya memakai spread emas dinamis per sesi (Asia>Eropa>NY) + komisi\n';
-    out += '  · opsional `tf:1h` (atau `tf:5m/15m/30m/1d/1w`) — timeframe data backtest\n';
-    out += '  · tambah `oos` utk validasi anti-overfitting (uji data terbaru)\n';
-    out += '- `/news XAUUSD` atau `/berita XAUUSD` — sentimen berita terbaru\n';
-    out += '- `/alert XAUUSD 3200` — pasang alert harga\n';
-    out += '- `/alerts` — lihat alert aktif · `/alert-del <id>` — hapus\n';
-    out += '- `/sinyal XAUUSD rsi` — pantau live signal BUY/SELL + konfluensi, regime & kekuatan (rsi/bb/sma/ema/vwap/ma/smc/cvd/all/adaptive)\n';
-    out += '  · opsional `period:14:70:30` utk parameter (mis. `period:9:70:30`)\n';
-    out += '  · `/sinyal-list` lihat aktif · `/sinyal-history` riwayat · `/sinyal-del <id>` hapus · `/sinyal-clear` bersihkan · `/sinyal-test` uji notifikasi\n';
-    out += '### Machine Learning / Deep Learning (baru) 🧠\n';
-    out += '- `/ml XAUUSD` — latih neural network di browser (TensorFlow.js online / fallback offline) → prediksi arah harga + laporan validasi OOS (anti-overfit)\n';
-    out += '  · deterministik (seed 42) + hasil **disimpan** (panggil ulang → instan dari cache)\n';
-    out += '  · opsional `engine:vanilla` (offline murni JS & tanpa CDN) · `horizon:N` (default 3) · `epochs:N`\n';
-    out += '- `/ml-signal XAUUSD rsi` — prediksi arah ML + probabilitas sinyal TA (BUY/SELL) saat ini benar (rsi/bb/sma/ema/vwap/ma/smc/cvd/all/adaptive)\n';
-    out += '  · contoh: `/ml-signal XAUUSD adaptive` · `/ml XAUUSD engine:vanilla`\n\n';
-    out += '### Bundel (alur analisis, baru)\n';
-    out += '- `/skills` — katalog skill & bundel\n';
-    out += '- `/skills analisa XAUUSD` — tren → struktur → risiko\n';
-    out += '- `/skills risiko XAUUSD` — posisi → korelasi → alert\n';
-    out += '- `/skills teknikal XAUUSD` — indikator → chart → profile\n';
-    out += '- `/skills berita XAUUSD` — sentimen → bias harga\n';
-    out += '- `/skills sinyal XAUUSD` — backtest → alert\n\n';
-    out += 'Simbol: `XAUUSD`, `NDX`, `US30`, `SPX`, `DXY`, `VIX`\n\n';
-    out += '### Umum: ketik `help` untuk bantuan AI';
-    history.push({ role: 'assistant', content: out, t: nowTime() });
-    saveHistory();
-    renderHistory();
-    busy = false;
-    setSendUI(false);
-    setStatus('');
+    var out = '## Perintah CangCilung Affiliate 🤖\n\n';
+    out += '> 🎯 Konsol **AI ML & Deep Learning** untuk affiliator penjualan: analisis data produk, optimasi konten & strategi, prediksi konversi/pendapatan. Data tersimpan lokal (PWA) dan siap sinkron cloud.\n';
+    out += '### Data produk\n';
+    out += '- `/tambah` — buka form tambah produk (`/tambah nama=.. harga=.. komisi=.. klik=.. konversi=.. pendapatan=.. biaya=.. niche=.. konten=.. platform=..`)\n';
+    out += '- `/daftar` — tabel semua produk & laba\n';
+    out += '- `/hapus <nama/id>` — hapus satu produk · `/beres` — bersihkan semua\n';
+    out += '- `/demo` — muat 10 produk contoh (belajar)\n';
+    out += '### Analisis & Optimasi\n';
+    out += '- `/analisis` — pendapatan, biaya, laba, margin, konversi + terbaik per niche/platform/konten\n';
+    out += '- `/optimasi` — produk **DIGENJOT** vs **DIEVALUASI** + saran konkret\n';
+    out += '### Prediksi & Strategi\n';
+    out += '- `/prediksi` — latih neural network di browser (seed 42) → skor p(untung) tiap produk + validasi OOS\n';
+    out += '  · opsional `epochs:N` `engine:vanilla|tfjs` — hasil disimpan & dipanggil ulang instan\n';
+    out += '- `/forecast` — proyeksi pendapatan periode berikutnya (default `bulanan`, opsional `harian`/`tahunan`)\n';
+    out += '- `/strategi` — langkah konkret menaikkan komisi\n';
+    out += '### Lainnya\n';
+    out += '- `/skills` — katalog skill & bundel · `/session` — kelola sesi\n';
+    out += '- Teks bebas juga diterima, misal: *"produk mana yang harus di-genjot?"*\n\n';
+    out += '💡 Pastikan angka realistic: `pendapatan` = nilai penjualan yang tercatat, `biaya` = modal/iklan/ongkos produk.';
+    pushMessage(out);
   }
 
-  function handleStructure(symbol) {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
-    var ta = window.CC.ta;
-    busy = true; setSendUI(true);
-    setStatus('Analisis struktur market ' + symbol + '...');
-    var bubble = addBubble('assistant', null);
-    showTyping(bubble);
-    ta.fetchYahoo(symbol, '1d').then(function (result) {
-      var ms = ta.detectMarketStructure(result.data);
-      var session = ta.getCurrentSession();
-      var out = '## Market Structure ' + symbol.toUpperCase() + '\n';
-      out += '**Struktur:** ' + ms.structure + '\n\n';
-      out += '- HH: ' + ms.hh + ' | HL: ' + ms.hl + ' | LH: ' + ms.lh + ' | LL: ' + ms.ll + '\n';
-      out += '- Swing High terakhir: ' + ms.swingHighs.slice(-3).map(function (s) { return s.price.toFixed(2); }).join(' → ') + '\n';
-      out += '- Swing Low terakhir: ' + ms.swingLows.slice(-3).map(function (s) { return s.price.toFixed(2); }).join(' → ') + '\n';
-      out += '- Sesi: ' + session.label + '\n';
-      removeTyping(bubble);
-      history.push({ role: 'assistant', content: out, t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-      busy = false; setSendUI(false); setStatus('');
-    }).catch(function (err) {
-      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
-      history.push({ role: 'assistant', content: '⚠️ Gagal: ' + (err.message || err), t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
+
+
+
+
+
+
+  /* ═══════════════ AFFILIATE: input data, dashboard, & perintah konsol ═══════════════ */
+
+  function affRupiah(v) {
+    return 'Rp' + Math.round(Number(v) || 0).toLocaleString('id-ID');
+  }
+  function affPct(v) {
+    return ((Number(v) || 0) * 100).toFixed(1) + '%';
+  }
+  function affNum(v) {
+    return Math.round(Number(v) || 0).toLocaleString('id-ID');
+  }
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function parseAffArgs(text) {
+    var out = {};
+    String(text || '').split(/\s+/).forEach(function (t) {
+      var m = t.match(/^([a-zA-Z]+)=(.+)$/);
+      if (m) out[m[1].toLowerCase()] = m[2];
     });
+    return out;
   }
 
-  function handleStructureMtf(symbol) {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
-    var ta = window.CC.ta;
-    busy = true; setSendUI(true);
-    setStatus('Dashboard struktur multi-timeframe ' + symbol + '...');
-    var bubble = addBubble('assistant', null);
-    showTyping(bubble);
-    ta.fetchMultiTF(symbol).then(function (m) {
-      var tfs = {};
-      tfs['1D'] = m['1d'] ? m['1d'].data : null;
-      tfs['1H'] = m['1h'] ? m['1h'].data : null;
-      tfs['M15'] = m['15m'] ? m['15m'].data : null;
-      var dash = ta.mtfStructureDashboard({ tfs: tfs });
-      var out = '## Struktur Multi-Timeframe ' + symbol.toUpperCase() + '\n';
-      out += 'Kesepakatan arah struktur antar timeframe (BOS/CHoCH + trend):\n\n';
-      out += '| Pasangan | Timeframe tinggi | Timeframe rendah | Status |\n';
-      out += '|----------|------------------|------------------|--------|\n';
-      dash.rows.forEach(function (row) {
-        var icon = row.align === true ? '✅ ✓' : row.align === false ? '❌ ✗' : '—';
-        out += '| ' + row.pair + ' | ' + row.hiBias + ' | ' + row.loBias + ' | ' + (row.label) + ' ' + icon + ' |\n';
+  function setProductStatus(msg, isError) {
+    var el = $('product-status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = 'set-status' + (isError ? ' error' : '');
+  }
+  function productById(id) {
+    if (!window.CC || !window.CC.aff) return null;
+    var list = window.CC.aff.getProducts();
+    for (var i = 0; i < list.length; i++) if (String(list[i].id) === String(id)) return list[i];
+    return null;
+  }
+  function readProductForm() {
+    return {
+      nama: ($('pf-nama').value || '').trim(),
+      niche: $('pf-niche').value || 'Umum',
+      harga: parseFloat($('pf-harga').value) || 0,
+      komisiPct: parseFloat($('pf-komisi').value) || 0,
+      klik: parseInt($('pf-klik').value, 10) || 0,
+      konversi: parseInt($('pf-konversi').value, 10) || 0,
+      pendapatan: parseFloat($('pf-pendapatan').value) || 0,
+      biaya: parseFloat($('pf-biaya').value) || 0,
+      konten: $('pf-konten').value || 'Review',
+      platform: $('pf-platform').value || 'TikTok',
+      tanggal: $('pf-tanggal').value || todayStr()
+    };
+  }
+  function setProductForm(id, rec) {
+    $('pf-id').value = id || '';
+    $('pf-nama').value = rec && rec.nama ? rec.nama : '';
+    $('pf-niche').value = rec && rec.niche ? rec.niche : 'Umum';
+    $('pf-harga').value = rec && rec.harga ? rec.harga : '';
+    $('pf-komisi').value = rec && rec.komisiPct ? rec.komisiPct : '';
+    $('pf-klik').value = rec && rec.klik ? rec.klik : '';
+    $('pf-konversi').value = rec && rec.konversi ? rec.konversi : '';
+    $('pf-pendapatan').value = rec && rec.pendapatan ? rec.pendapatan : '';
+    $('pf-biaya').value = rec && rec.biaya ? rec.biaya : '';
+    $('pf-konten').value = rec && rec.konten ? rec.konten : 'Review';
+    $('pf-platform').value = rec && rec.platform ? rec.platform : 'TikTok';
+    $('pf-tanggal').value = rec && rec.tanggal ? rec.tanggal : todayStr();
+  }
+  function openProductForm(id) {
+    var modal = $('product-modal');
+    if (!modal) return;
+    if (id) {
+      var rec = productById(id);
+      if (!rec) { setProductStatus('Produk tidak ditemukan.', true); return; }
+      $('product-modal-title').textContent = 'Edit Produk';
+      setProductForm(id, rec);
+    } else {
+      $('product-modal-title').textContent = 'Tambah Produk';
+      setProductForm(null, null);
+    }
+    setProductStatus('');
+    openModal('product-modal');
+  }
+  function closeProductForm() {
+    closeModal('product-modal');
+  }
+  function saveProductFromForm() {
+    if (!window.CC || !window.CC.aff) { setProductStatus('Mesin AI belum dimuat.', true); return; }
+    var data = readProductForm();
+    if (!data.nama) { setProductStatus('Nama produk wajib diisi.', true); return; }
+    var id = $('pf-id').value;
+    var res = id ? window.CC.aff.updateProduct(id, data) : window.CC.aff.addProduct(data);
+    if (res && res.error) { setProductStatus(res.error, true); return; }
+    closeProductForm();
+    renderAffDashboard();
+    connSub();
+    showToast(id ? 'Produk diperbarui.' : 'Produk ditambahkan.');
+  }
+  function demoProductsFromForm() {
+    if (!window.CC || !window.CC.aff) return;
+    window.CC.aff.seedDemo();
+    closeProductForm();
+    renderAffDashboard();
+    connSub();
+    showToast('Contoh data dimuat (10 produk).');
+  }
+  function addProductFromCommand(rest) {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    var kv = parseAffArgs(rest);
+    var nama = (kv.nama || '').replace(/_/g, ' ').trim();
+    if (!nama) { openProductForm(); return; }
+    var rec = {
+      nama: nama,
+      niche: kv.niche || 'Umum',
+      harga: parseFloat(String(kv.harga || '0').replace(/,/g, '')) || 0,
+      komisiPct: parseFloat(String(kv.komisi || '0').replace(/,/g, '')) || 0,
+      klik: parseInt(kv.klik, 10) || 0,
+      konversi: parseInt(kv.konversi, 10) || 0,
+      pendapatan: parseFloat(String(kv.pendapatan || '0').replace(/,/g, '')) || 0,
+      biaya: parseFloat(String(kv.biaya || '0').replace(/,/g, '')) || 0,
+      konten: kv.konten || 'Review',
+      platform: kv.platform || 'TikTok',
+      tanggal: kv.tanggal || todayStr()
+    };
+    var res = window.CC.aff.addProduct(rec);
+    if (res && res.error) { setStatus(res.error, true); return; }
+    renderAffDashboard();
+    connSub();
+    finalizeMessage('✅ Produk **' + rec.nama + '** ditambahkan (total ' + res.count + ').\n\n`/daftar` untuk melihat semua, `/analisis` untuk ringkasan.');
+  }
+
+  function handleAffList() {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    finalizeMessage(window.CC.aff.formatProducts(window.CC.aff.getProducts()));
+  }
+  function handleAffAnalisis() {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    var a = window.CC.aff.analyze(window.CC.aff.getProducts());
+    finalizeMessage(window.CC.aff.formatAnalysis(a));
+  }
+  function handleAffOptimasi() {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    var o = window.CC.aff.optimize(window.CC.aff.getProducts());
+    finalizeMessage(window.CC.aff.formatOptimize(o));
+  }
+  function handleAffStrategi() {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    var s = window.CC.aff.strategy(window.CC.aff.getProducts());
+    finalizeMessage(window.CC.aff.formatStrategy(s));
+  }
+  function handleAffDemo() {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    window.CC.aff.seedDemo();
+    renderAffDashboard();
+    connSub();
+    finalizeMessage('🎲 **10 produk contoh** dimuat.\n\nCoba: `/analisis`, `/optimasi`, `/prediksi`, `/forecast`.');
+  }
+  function handleAffHapus(q) {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    if (!q) { finalizeMessage('Gunakan: `/hapus <nama>` atau `/hapus #<id>`.'); return; }
+    var target = null;
+    if (/^#/.test(q)) target = productById(q.slice(1));
+    if (!target) {
+      var pat = String(q).toLowerCase();
+      window.CC.aff.getProducts().forEach(function (p) {
+        if (!target && String(p.nama).toLowerCase().indexOf(pat) > -1) target = p;
       });
-      out += '\n**Kesimpulan:** ' + dash.verdict + ' (agreement ' + (dash.agreement >= 0 ? '+' : '') + dash.agreement + ')';
-      out += '\n\n>Strategi paling sehat umumnya saat semua timeframe **searah**. Bila divergen, pertimbangkan menunggu atau berhenti (stand-aside).';
-      removeTyping(bubble);
-      history.push({ role: 'assistant', content: out, t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-      busy = false; setSendUI(false); setStatus('');
-    }).catch(function (err) {
-      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
-      history.push({ role: 'assistant', content: '⚠️ Gagal: ' + (err.message || err), t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-    });
+    }
+    if (!target) { finalizeMessage('⚠️ Produk tidak ditemukan: `' + q + '`. Ketik `/daftar` untuk melihat daftar.'); return; }
+    var res = window.CC.aff.deleteProduct(target.id);
+    if (res && res.error) { setStatus(res.error, true); return; }
+    renderAffDashboard();
+    connSub();
+    finalizeMessage('🗑️ **' + target.nama + '** dihapus (sisa ' + res.count + ').');
   }
-
-  function handleRisk(symbol, accSize, riskPct) {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
-    var ta = window.CC.ta;
+  function handleAffClear() {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    window.CC.aff.clearProducts();
+    renderAffDashboard();
+    connSub();
+    finalizeMessage('🧹 Semua data produk dibersihkan. Tambahkan lewat `/tambah` atau `/demo`.');
+  }
+  function handleAffPrediksi(raw) {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    var kv = parseAffArgs(raw);
+    var list = window.CC.aff.getProducts();
+    if (!list || !list.length) { finalizeMessage('⚠️ Belum ada data. Tambahkan dulu (`/tambah` / `/demo`).'); return; }
+    if (list.length < 5) { finalizeMessage('⚠️ Butuh **minimal 5 produk** untuk melatih model. Tambahkan lagi (`/tambah`).'); return; }
     busy = true; setSendUI(true);
-    setStatus('Kalkulasi risk management ' + symbol + '...');
+    setStatus('Melatih model MLP… (seed 42, deterministik)');
     var bubble = addBubble('assistant', null);
     showTyping(bubble);
-    ta.fetchYahoo(symbol, '1d').then(function (result) {
-      var rm = ta.calcRiskManagement(result.data, accSize, riskPct);
-      var out = '## Risk Management ' + symbol.toUpperCase() + '\n';
-      out += 'Akun $' + accSize.toLocaleString() + ' | Risk ' + riskPct + '%\n';
-      out += '- **Entry:** ' + rm.entry + '\n';
-      out += '- **Stop Loss:** ' + rm.stopLoss + ' (' + rm.slDistance + ' dari entry)\n';
-      out += '- **Take Profit:** ' + rm.takeProfit + ' (' + rm.tpDistance + ' dari entry)\n';
-      out += '- **Risk:Reward:** 1 : ' + rm.riskReward + '\n';
-      out += '- **Risk Amount:** $' + rm.riskAmount.toLocaleString() + '\n';
-      out += '- **Lot Size (100oz):** ' + rm.lotSize + '\n';
-      out += '- **ATR(14):** ' + rm.atr + '\n';
+    var opt = {};
+    if (kv.epochs) opt.epochs = parseInt(kv.epochs, 10);
+    if (kv.engine === 'tfjs' || kv.engine === 'vanilla') opt.engine = kv.engine;
+    window.CC.aff.scoreProducts(list, opt).then(function (res) {
       removeTyping(bubble);
-      history.push({ role: 'assistant', content: out, t: nowTime() });
-      saveHistory();
       if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-      busy = false; setSendUI(false); setStatus('');
-    }).catch(function (err) {
-      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
-      history.push({ role: 'assistant', content: '⚠️ Gagal: ' + (err.message || err), t: nowTime() });
-      saveHistory();
+      if (res.error) { finalizeMessage('⚠️ ML gagal: ' + res.error); return; }
+      finalizeMessage(window.CC.aff.formatScores(res));
+      renderAffDashboard();
+      connSub();
+    }).catch(function (e) {
+      removeTyping(bubble);
       if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
+      finalizeMessage('⚠️ ML gagal: ' + (e && e.message ? e.message : e));
     });
   }
-
-  function handleCorrelation(symbol) {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
-    var ta = window.CC.ta;
+  function handleAffForecast(raw) {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    var period = 'bulanan';
+    if (/harian|hari|daily/.test(String(raw))) period = 'harian';
+    else if (/tahunan|tahun|yearly/.test(String(raw))) period = 'tahunan';
+    var list = window.CC.aff.getProducts();
+    if (!list || !list.length) { finalizeMessage('⚠️ Belum ada data bertanggal. Tambahkan produk dulu.'); return; }
     busy = true; setSendUI(true);
-    setStatus('Analisis korelasi ' + symbol + '...');
+    setStatus('Menghitung proyeksi pendapatan…');
     var bubble = addBubble('assistant', null);
     showTyping(bubble);
-    Promise.all([ta.fetchYahoo(symbol, '1d'), ta.fetchCorrelation(symbol)]).then(function (r) {
-      var main = r[0], corr = r[1];
-      if (!corr) throw new Error('Tidak ada korelasi untuk ' + symbol + '. Gunakan /corr XAUUSD atau /corr NDX');
-      var c = ta.calcCorrelation(main.data, corr.data);
-      var mainLast = main.data[main.data.length - 1];
-      var corrLast = corr.data[corr.data.length - 1];
-      var out = '## Korelasi ' + main.name + ' vs ' + corr.name + '\n';
-      out += '- Korelasi: **' + c.label + '**\n';
-      out += '- ' + main.name + ': ' + mainLast.close.toFixed(2) + '\n';
-      out += '- ' + corr.name + ': ' + corrLast.close.toFixed(2) + '\n\n';
-      if (c.direction === 'negatif') out += '- Ini berarti saat ' + corr.name + ' naik, ' + main.name + ' cenderung turun (dan sebaliknya).';
-      else out += '- Ini berarti saat ' + corr.name + ' naik, ' + main.name + ' cenderung ikut naik.';
+    window.CC.aff.forecast(list, { period: period }).then(function (res) {
       removeTyping(bubble);
-      history.push({ role: 'assistant', content: out, t: nowTime() });
-      saveHistory();
       if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-      busy = false; setSendUI(false); setStatus('');
-    }).catch(function (err) {
-      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
-      history.push({ role: 'assistant', content: '⚠️ Gagal: ' + (err.message || err), t: nowTime() });
-      saveHistory();
+      if (res.error) { finalizeMessage('⚠️ ' + res.error); return; }
+      finalizeMessage(window.CC.aff.formatForecast(res));
+    }).catch(function (e) {
+      removeTyping(bubble);
       if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
+      finalizeMessage('⚠️ Forecast gagal: ' + (e && e.message ? e.message : e));
     });
   }
-
-  function handleProfile(symbol, tf) {
-    if (!window.CC || !window.CC.ta) { setStatus('TA tidak dimuat.', true); return; }
-    var f = focusSym(symbol); if (f.forced) focusNote(f); symbol = f.s;
-    var ta = window.CC.ta;
-    busy = true; setSendUI(true);
-    setStatus('Menghitung Volume Profile ' + symbol + '...');
-    var bubble = addBubble('assistant', null);
-    showTyping(bubble);
-    ta.fetchYahoo(symbol, tf || '1d').then(function (result) {
-      var vp = ta.calcVolumeProfile(result.data);
-      var last = result.data[result.data.length - 1];
-      if (!vp) throw new Error('Data tidak cukup untuk Volume Profile');
-      var out = '## Volume Profile ' + symbol.toUpperCase() + ' (' + (tf || '1d') + ')\n';
-      out += '- **POC:** ' + vp.poc.mid.toFixed(2) + ' (harga ' + (last.close > vp.poc.mid ? 'di atas' : 'di bawah') + ' POC)\n';
-      out += '- **High Volume Nodes (HVN):** ' + vp.hvn.slice(0, 4).map(function (h) { return h.mid.toFixed(2) + ' (' + h.volume + ')'; }).join(' | ') + '\n';
-      out += '- **Low Volume Nodes (LVN):** ' + vp.lvn.slice(0, 4).map(function (l) { return l.mid.toFixed(2) + ' (' + l.volume + ')'; }).join(' | ') + '\n';
-      out += '- **Value Area:** ' + vp.valueArea[0].low.toFixed(2) + ' - ' + vp.valueArea[vp.valueArea.length - 1].high.toFixed(2) + '\n\n';
-      out += 'HVN = area hemat keuntungan (support/resistance kuat). LVN = area magnet (harga bergerak cepat).';
-      removeTyping(bubble);
-      history.push({ role: 'assistant', content: out, t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-      busy = false; setSendUI(false); setStatus('');
-    }).catch(function (err) {
-      removeTyping(bubble); busy = false; setSendUI(false); setStatus('');
-      history.push({ role: 'assistant', content: '⚠️ Gagal: ' + (err.message || err), t: nowTime() });
-      saveHistory();
-      if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);
-      renderHistory();
-    });
-  }
-
 
   function addUserMessage(text) {
     history.push({ role: 'user', content: text, t: nowTime() });
@@ -2187,18 +1507,11 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
   function sendChat() {
     var input = $('chat-input');
     var text = (input && input.value || '').trim();
-    if (/^\/(alerts|alert|alert-del|help|session|skills)/i.test(text)) {
+    if (/^(help|skills|session)\b/i.test(text)) {
       input.value = '';
       if (/^\/help\b/i.test(text)) { handleHelpCommand(); return; }
       if (/^\/skills\b/i.test(text)) { handleSkillsCommand(text); return; }
       if (/^\/session\b/i.test(text)) { handleSessionCommand(); return; }
-      if (/^\/alert-del\b/i.test(text)) { handleAlertDelete(text.replace(/^\/alert-del\s*/i, '').trim()); return; }
-      if (/^\/alerts\b/i.test(text)) { handleAlertsList(); return; }
-      if (/^\/alert\b/i.test(text)) {
-        var am = text.match(/^\/alert\s+(\S+)\s+(\S+)(?:\s+(.+))?/i);
-        handleAlertAdd(am && am[1] ? am[1] : 'XAUUSD', am && am[2] ? am[2] : '', am && am[3] ? am[3].trim() : '');
-        return;
-      }
       return;
     }
     if (busy) {
@@ -2211,227 +1524,47 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     }
     kbCancel = false;
     var webProgressId = null;
-    var input = $('chat-input');
     var text = input.value.trim();
-    _taSuggestText = text;
-    if (/^\/(chart|grafik)\b/i.test(text)) {
-      var m = text.match(/^\/(?:chart|grafik)\s+(\S+)\s*(\S*)/i);
-      var sym = m ? m[1] : 'XAUUSD';
-      var iv = m && m[2] ? m[2] : '1d';
-      input.value = '';
-      handleChart(sym, iv);
-      return;
-    }
-    if (/^\/rsi\b/i.test(text)) {
-      var m = text.match(/^\/rsi\s+(\S+)\s*(\d*)/i);
-      var sym = m ? m[1] : 'XAUUSD';
-      var period = m && m[2] ? parseInt(m[2]) : 14;
-      input.value = '';
-      handleRSI(sym, period);
-      return;
-    }
-    if (/^\/(ta|analyze|analisa)\s*(xau|gold|emas|ndx|nasdaq|dji|dow|spx|dxy|vix|us30|s&p)/i.test(text)) {
-      var m = text.match(/^\/(?:ta|analyze|analisa)\s+(\S+)/i);
-      var sym = m ? m[1] : 'XAUUSD';
-      input.value = '';
-      handleTA(sym);
-      return;
-    }
-    if (/^\/(rekomendasi|rekom|rec|signal)\b/i.test(text)) {
-      var m = text.match(/^\/(?:rekomendasi|rekom|rec|signal)\s+(\S+)/i);
-      var sym = m && m[1] ? m[1] : 'XAUUSD';
-      input.value = '';
-      handleRekomendasi(sym);
-      return;
-    }
-    var taIntent = text.match(/(analisa|analisis|analyse|analyze|prediksi|ramal|proyeksi|forecast|breakout|breakdown|resistance|support|candlestick|sinyal (?:beli|jual)|momentum|trend(?:line)?)/i);
-    var taSymbol = /(xau(?:usd)?|gold|emas|ndx|nasdaq|ixic|dji|dow\b|djia|spx|s&p|dxy|dollar index|vix|us30)/i;
-    var taSym = text.match(taSymbol);
-    var taDir = /(melesat|anjlok|menguat|melemah|breakout|breakdown|naik apa turun|naik atau turun|akan naik|akan turun|naik nggak|turun gak|turun nggak|harga (?:emas|gold|ndx|nasdaq|dji|dow|spx|s&p|naik|turun|hari ini|sekarang)\b|(?:emas|gold|ndx|nasdaq|dji|dow|spx|s&p)\s+(?:naik\??|turun\??|menguat\??|melemah\??))/i;
-    var taHasDir = taDir.test(text);
-    var taNotDef = /\b(kenapa|why|sejarah|history|contoh|contohnya|inflasi|misal|misalnya|kapan|semenjak|belajar|tutorial|arti|apa itu|definisi|pengertian|jelaskan apa)\b/i;
-    if (taSym && taSym[1] && text.length <= 80 && taIntent && !taNotDef.test(text)) {
-      var sym = taSym[1].toUpperCase();
-      if (sym === 'S&P' || sym === 'SPX') sym = 'SPX';
-      if (sym === 'XAU' || sym === 'XAUUSD' || sym === 'GOLD' || sym === 'EMAS') sym = 'XAUUSD';
-      if (sym === 'NDX' || sym === 'NASDAQ' || sym === 'IXIC') sym = 'NDX';
-      if (sym === 'DJI' || sym === 'DJIA' || sym === 'DOW' || sym === 'US30') sym = 'US30';
-      if (sym === 'DOLLAR INDEX' || sym === 'DXY') sym = 'DXY';
-      input.value = '';
-      handleTA(sym);
-      return;
-    }
-    if (taSym && taSym[1] && taHasDir && text.length <= 70 && !taNotDef.test(text)) {
-      var sym = taSym[1].toUpperCase();
-      if (sym === 'S&P' || sym === 'SPX') sym = 'SPX';
-      if (sym === 'XAU' || sym === 'XAUUSD' || sym === 'GOLD' || sym === 'EMAS') sym = 'XAUUSD';
-      if (sym === 'NDX' || sym === 'NASDAQ' || sym === 'IXIC') sym = 'NDX';
-      if (sym === 'DJI' || sym === 'DJIA' || sym === 'DOW' || sym === 'US30') sym = 'US30';
-      if (sym === 'DOLLAR INDEX' || sym === 'DXY') sym = 'DXY';
-      input.value = '';
-      handleTA(sym);
-      return;
-    }
-    if (/^\/(structure|struktur)\b/i.test(text)) {
-      var m = text.match(/^\/(?:structure|struktur)\s+(\S+)/i);
-      var sym = m ? m[1] : 'XAUUSD';
-      input.value = '';
-      handleStructure(sym);
-      return;
-    }
-    if (/^\/(structure-mtf|struktur-mtf|strmtf|mtf)\b/i.test(text)) {
-      var m = text.match(/^\/(?:structure-mtf|struktur-mtf|strmtf|mtf)\s+(\S+)/i);
-      var sym = m ? m[1] : 'XAUUSD';
-      input.value = '';
-      handleStructureMtf(sym);
-      return;
-    }
-    if (/^\/(risk|rm)\b/i.test(text)) {
-      var m = text.match(/^\/(?:risk|rm)\s+(\S+)(?:\s+([\d,.]+))?(?:\s+([\d.]+))?/i);
-      var sym = m && m[1] ? m[1] : 'XAUUSD';
-      var acc = m && m[2] ? parseFloat(String(m[2]).replace(/,/g, '')) : 10000;
-      var riskPct = m && m[3] ? parseFloat(m[3]) : 1;
-      input.value = '';
-      handleRisk(sym, acc, riskPct);
-      return;
-    }
-    if (/^\/(corr|correlation)\b/i.test(text)) {
-      var m = text.match(/^\/(?:corr|correlation)\s+(\S+)/i);
-      var sym = m ? m[1] : 'XAUUSD';
-      input.value = '';
-      handleCorrelation(sym);
-      return;
-    }
-    if (/^\/(profile|vp|volume|vol)\b/i.test(text)) {
-      var m = text.match(/^\/(?:profile|vp|volume|vol)\s+(\S+)\s*(\S*)/i);
-      var sym = m && m[1] ? m[1] : 'XAUUSD';
-      var tf = m && m[2] ? m[2] : '1d';
-      input.value = '';
-      handleProfile(sym, tf);
-      return;
-    }
-    if (/^\/session\b/i.test(text)) {
-      input.value = '';
-      handleSessionCommand();
-      return;
-    }
-    if (/^\/alert-del\b/i.test(text)) {
-      var id = text.replace(/^\/alert-del\s*/i, '').trim();
-      input.value = '';
-      handleAlertDelete(id);
-      return;
-    }
-    if (/^\/alerts\b/i.test(text)) {
-      input.value = '';
-      handleAlertsList();
-      return;
-    }
-    if (/^\/alert\b/i.test(text)) {
-      var m = text.match(/^\/alert\s+(\S+)\s+(\S+)(?:\s+(.+))?/i);
-      var sym = m && m[1] ? m[1] : 'XAUUSD';
-      var target = m && m[2] ? m[2] : '';
-      var label = m && m[3] ? m[3].trim() : '';
-      input.value = '';
-      handleAlertAdd(sym, target, label);
-      return;
-    }
-    if (/^\/sinyal-test\b/i.test(text)) {
-      input.value = '';
-      handleSignalTest();
-      return;
-    }
-    if (/^\/(sinyal-history|sinyal-log|sinyalhist)\b/i.test(text)) {
-      input.value = '';
-      handleSignalHistory();
-      return;
-    }
-    if (/^\/(sinyal-list|sinyals|livesignals|sig-list)\b/i.test(text)) {
-      input.value = '';
-      handleSignalList();
-      return;
-    }
-    if (/^\/sinyal-clear\b/i.test(text)) {
-      input.value = '';
-      handleSignalClear();
-      return;
-    }
-    if (/^\/(sinyal|livesignal|sig)\b/i.test(text)) {
-      var sm = text.match(/^\/(?:sinyal|livesignal|sig)-del\s+(\S+)/i);
-      if (sm) { input.value = ''; handleSignalDelete(sm[1]); return; }
-      var sm2 = text.match(/^\/(?:sinyal|livesignal|sig)\s+(\S+)\s*([a-z]+)?\s*(.*)/i);
-      input.value = '';
-      handleSignalAdd(sm2 && sm2[1] ? sm2[1] : 'XAUUSD', sm2 && sm2[2] ? sm2[2].toLowerCase() : 'adaptive', (sm2 && sm2[3] ? sm2[3].trim().split(/\s+/).filter(Boolean) : []));
-      return;
-    }
-    if (/^\/(news|berita)\b/i.test(text)) {
-      var m = text.match(/^\/(?:news|berita)\s+(\S+)/i);
-      var sym = m && m[1] ? m[1] : 'XAUUSD';
-      input.value = '';
-      handleNews(sym);
-      return;
-    }
-    if (/^\/backtest\b/i.test(text)) {
-      var m = text.match(/^\/backtest\s+(\S+)\s+(\S+)\s*(.*)/i);
-      var sym = m && m[1] ? m[1] : 'XAUUSD';
-      var strat = m && m[2] ? m[2].toLowerCase() : 'adaptive';
-      var rawParams = m && m[3] ? m[3].trim().split(/\s+/).filter(Boolean) : [];
-      input.value = '';
-      handleBacktest(sym, strat, rawParams);
-      return;
-    }
-if (/^\/ml-signal\b/i.test(text)) {
-      var mms = text.match(/^\/ml-signal\s+(\S+)\s*([a-z]+)?\s*(.*)/i);
-      input.value = '';
-      handleMLSignal(mms && mms[1] ? mms[1] : 'XAUUSD', mms && mms[2] ? mms[2].toLowerCase() : 'adaptive', (mms && mms[3] ? mms[3].trim().split(/\s+/).filter(Boolean) : []));
-      return;
-    }
-    if (/^\/ml\b/i.test(text)) {
-      var mm = text.match(/^\/ml\s+(\S+)?\s*(.*)/i);
-      input.value = '';
-      handleML(mm && mm[1] ? mm[1] : 'XAUUSD', (mm && mm[2] ? mm[2].trim().split(/\s+/).filter(Boolean) : []));
-      return;
-    }
-    if (/^\/help\b/i.test(text)) {
-      input.value = '';
-      handleHelpCommand();
-      return;
-    }
-    if (/^\/skills\b/i.test(text)) {
-      input.value = '';
-      handleSkillsCommand(text);
-      return;
-    }
-    /* ── CangCilung = konsol ML & DL signal trading ── */
-    /* Perintah natural-language TA (mis. "analisis XAUUSD") sudah ditangkap
-       di atas. Sisanya = teks bebas → tayang bantuan perintah trading.
-       Jalur LLM/chat (di bawah, setelah titik ini) TIDAK PERNAH dijangkau. */
-    if (/^\/analyze\b/i.test(text)) {
-      var am = text.match(/^\/analyze\s+(\S+)/i);
-      input.value = '';
-      handleTA(am && am[1] ? am[1] : 'XAUUSD');
-      return;
-    }
     if (!text) return;
-    if (busy) { if (abortCtrl) abortCtrl.abort(); else { busy = false; setSendUI(false); setStatus('⏹ Dihentikan.'); } return; }
+    input.value = '';
+    if (/^\/tambah\b/i.test(text)) {
+      var rest = text.replace(/^\/tambah\b\s*/i, '').trim();
+      if (rest) addProductFromCommand(rest);
+      else openProductForm();
+      return;
+    }
+    if (/^\/(daftar|list|produk)\b/i.test(text)) { handleAffList(); return; }
+    if (/^\/hapus\b/i.test(text)) { handleAffHapus(text.replace(/^\/hapus\b\s*/i, '').trim()); return; }
+    if (/^\/beres\b/i.test(text)) { handleAffClear(); return; }
+    if (/^\/demo\b/i.test(text)) { handleAffDemo(); return; }
+    if (/^\/(analisis|analisa)\b/i.test(text)) { handleAffAnalisis(); return; }
+    if (/^\/optimasi\b/i.test(text)) { handleAffOptimasi(); return; }
+    if (/^\/(prediksi|skor)\b/i.test(text)) { handleAffPrediksi(text.replace(/^\/(prediksi|skor)\b\s*/i, '').trim()); return; }
+    if (/^\/(forecast|proyeksi)\b/i.test(text)) { handleAffForecast(text.replace(/^\/(forecast|proyeksi)\b\s*/i, '').trim()); return; }
+    if (/^\/strategi\b/i.test(text)) { handleAffStrategi(); return; }
 
     addUserMessage(text);
 
     var g = text.replace(/[.,!?;:]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
     if (g.length <= 40 && /(^|\s)(hi|halo|hallo|helo|hello|hai|oy|hey|p|oke|ok|okay|sip|mantap|makasih|terima kasih|thanks|thank you|assalamualaikum|pagi|siang|sore|malam)(\s|$)/.test(g) && !/\//.test(text)) {
       finalizeMessage(
-        'Halo! Konsol **ML &amp; DL signal trading** siap dipakai.\n\n' +
-        'Coba: `/ta XAUUSD`, `/backtest XAUUSD adaptive`, `/ml XAUUSD`, atau lihat **Signal XAUUSD** di header.\n' +
-        'Ketik `/help` untuk daftar lengkap perintah.'
+        'Halo! Konsol **AI ML &amp; DL affiliator** siap dipakai.\n\n' +
+        'Coba: `/analisis`, `/optimasi`, `/prediksi`, `/forecast`.\n' +
+        'Ketik `/help` untuk daftar perintah.'
       );
       return;
     }
-
+    if (/produk|affiliat|afiliat|komisi|penjualan|konversi|klik|niche|strategi|genjot|laba|pendapatan|untung|optimasi|konten|platform/i.test(text) && text.length <= 100) {
+      handleAffAnalisis();
+      return;
+    }
     finalizeMessage(
       'Perintah **tidak dikenali**: `' + text + '`\n\n' +
-      'Konsol ini untuk perintah trading. Contoh cepat:\n\n' +
-      '- `/ta XAUUSD` — analisis teknikal lengkap\n' +
-      '- `/ml XAUUSD` — latih model machine/deep learning\n' +
-      '- `/sinyal XAUUSD adaptive` — pantau sinyal live\n\n' +
+      'Konsol ini adalah bantuan affiliator. Contoh cepat:\n\n' +
+      '- `/analisis` — ringkasan penjualan & laba\n' +
+      '- `/prediksi` — skor ML profitabilitas produk\n' +
+      '- `/forecast` — proyeksi pendapatan berikutnya\n' +
+      '- `/strategi` — langkah menaikkan komisi\n\n' +
       'Ketik `/help` untuk daftar perintah lengkap.'
     );
     return;
@@ -2594,8 +1727,8 @@ if (/^\/ml-signal\b/i.test(text)) {
     var themeBtn = $('btn-theme');
     if (themeBtn) { themeBtn.hidden = false; themeBtn.addEventListener('click', cycleTheme); }
 
-    var signalBtn = $('btn-signal');
-    if (signalBtn) signalBtn.addEventListener('click', openSignalPanel);
+    var addBtn = $('btn-add-product');
+    if (addBtn) addBtn.addEventListener('click', function () { openProductForm(); });
 
     var scrollBtn = $('btn-scroll-down');
     if (scrollBtn) scrollBtn.addEventListener('click', scrollToBottom);
@@ -2630,21 +1763,24 @@ if (/^\/ml-signal\b/i.test(text)) {
     var cfmModal = $('confirm-modal');
     if (cfmModal) cfmModal.addEventListener('click', function (e) { if (e.target === cfmModal) closeConfirm(); });
 
-    /* ── Modal Chart / Panel Signal ── */
-    var chartClose = $('btn-chart-close');
-    if (chartClose) chartClose.addEventListener('click', function () { closeModal('chart-modal'); });
-    var chartModal = $('chart-modal');
-    if (chartModal) chartModal.addEventListener('click', function (e) { if (e.target === chartModal) closeModal('chart-modal'); });
+    /* ── Modal Produk ── */
+    var pmClose = $('btn-product-close'), pmCancel = $('btn-product-cancel'), pmSave = $('btn-product-save'), pmDemo = $('btn-product-demo');
+    if (pmClose) pmClose.addEventListener('click', closeProductForm);
+    if (pmCancel) pmCancel.addEventListener('click', closeProductForm);
+    if (pmSave) pmSave.addEventListener('click', saveProductFromForm);
+    if (pmDemo) pmDemo.addEventListener('click', demoProductsFromForm);
+    var pModal = $('product-modal');
+    if (pModal) pModal.addEventListener('click', function (e) { if (e.target === pModal) closeProductForm(); });
 
-    startAlertChecker();
-    startSignalChecker();
-    updateSignalBadge();
+    renderAffDashboard();
   }
 
   /** @type {Object} Public API for cloud.js, kb.js, and external consumers */
   window.cangcilung = {
     /** @returns {Array<Object>} Shallow copy of all sessions */
     getSessions: function () { return sessions.slice(); },
+    /** @returns {Array<Object>} Copy of all affiliate products */
+    getAffProducts: function () { return (window.CC && window.CC.aff) ? window.CC.aff.getProducts() : []; },
     /** @returns {Object} Current settings object (live reference) */
     getSettings: function () { return settings; },
     /** @returns {{ date: string, requests: number }} Today's usage stats */
@@ -2706,6 +1842,13 @@ if (/^\/ml-signal\b/i.test(text)) {
         try { localStorage.setItem(USAGE_KEY, JSON.stringify({ date: u.date, requests: u.requests })); } catch (e) {}
         renderUsage();
       }
+    },
+    /** @param {Array<Object>} arr - Cloud-synced affiliate products */
+    applyCloudProducts: function (arr) {
+      if (!Array.isArray(arr) || !window.CC || !window.CC.aff) return;
+      window.CC.aff.setProducts(arr);
+      window.CC.aff.saveProducts();
+      renderAffDashboard();
     },
     /** @param {string} msg - Status message text */
     setStatus: setStatus,

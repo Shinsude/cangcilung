@@ -472,6 +472,82 @@ suite('lib/ml.js (Machine Learning & Deep Learning)');
   }).catch((e) => { fail++; errors.push('FAIL: skipConfluence error: ' + e); });
 })();
 
+/* ---------- affiliate.js: AI ML & DL untuk affiliator ---------- */
+suite('lib/affiliate.js (AI ML & DL Affiliator)');
+(function () {
+  loadBrowser('lib/ta.js');
+  loadBrowser('lib/ml.js');
+  const aff = loadBrowser('lib/affiliate.js').CC.aff;
+  assert(aff && typeof aff.analyze === 'function', 'CC.aff terdefinisi (analyze)');
+  assert(typeof aff.trainModel === 'function' && typeof aff.seedDemo === 'function', 'trainModel & seedDemo terdefinisi');
+
+  aff.clearProducts();
+  const demo = aff.seedDemo();
+  assert(Array.isArray(demo) && demo.length === 10, 'seedDemo menghasilkan 10 produk: ' + demo.length);
+  assert(aff.getProducts().length === 10, 'getProducts membaca 10 produk');
+  assert(demo.every((p) => p.nama && typeof p.pendapatan === 'number'), 'setiap produk punya nama & pendapatan numerik');
+
+  const fe = aff.buildFeatures(demo);
+  assert(fe.ok === true, 'buildFeatures berhasil: ' + (fe.error || ''));
+  assert(Array.isArray(fe.X) && fe.X.length === demo.length, 'baris fitur = jumlah produk: ' + fe.X.length);
+  assert(fe.X.every((row) => row.every((v) => isFinite(v))), 'semua fitur numerik (tanpa NaN/Inf)');
+  assert(Array.isArray(fe.labels) && fe.labels.every((l) => l === 0 || l === 1), 'label biner profit/loss');
+
+  const ds = aff.buildDatasets(demo, { trainFrac: 0.7 });
+  assert(ds.ok === true, 'buildDatasets berhasil: ' + (ds.error || ''));
+  assert(ds.testX.length + ds.trainX.length === demo.length, 'split tidak membuang sampel: ' + ds.trainX.length + '+' + ds.testX.length);
+  assert(ds.cut > 0 && ds.cut < demo.length, 'titik potong valid: ' + ds.cut + '/' + demo.length);
+
+  const inVerdicts = new Set(['GENJOT', 'PERTAHANKAN', 'EVALUASI']);
+  aff.scoreProducts(demo).then((sc) => {
+    assert(sc.ok === true, 'scoreProducts berhasil: ' + (sc.error || ''));
+    assert(sc.scored.length === demo.length, 'skor untuk semua produk: ' + sc.scored.length);
+    assert(sc.scored.every((r) => inVerdicts.has(r.verdict)), 'verdict selalu GENJOT/PERTAHANKAN/EVALUASI');
+    assert(sc.scored.every((r) => r.pProfit >= 0 && r.pProfit <= 1), 'p(profit) dalam 0-1');
+    assert(sc.scored[0].pProfit >= sc.scored[sc.scored.length - 1].pProfit, 'skor terurut menurun');
+    assert(aff.formatScores(sc).indexOf('Produk') !== -1, 'formatScores menghasilkan tabel');
+    return aff.trainModel(demo);
+  }).then((tr) => {
+    assert(tr.ok === true, 'trainModel berhasil: ' + (tr.error || ''));
+    assert(typeof tr.kind === 'string' && tr.kind.length > 0, 'kind model ada: ' + tr.kind);
+    assert(typeof tr.test.acc === 'number' && tr.test.acc >= 0 && tr.test.acc <= 100, 'akurasi uji OOS dalam 0-100: ' + tr.test.acc);
+    assert(typeof tr.test.baseline === 'number' && tr.test.baseline >= 0, 'baseline terdefinisi: ' + tr.test.baseline);
+    return aff.forecast(demo, { period: 'bulanan' });
+  }).then((f) => {
+    assert(f.ok === true, 'forecast bulanan berhasil: ' + (f.error || ''));
+    assert(f.forecast.pendapatan >= 0, 'proyeksi pendapatan non-negatif: ' + f.forecast.pendapatan);
+    assert(isFinite(f.growthPct) && isFinite(f.trend.r2), 'growth & R2 finite');
+    assert(aff.formatForecast(f).indexOf('Forecast') !== -1, 'formatForecast menghasilkan tabel');
+  }).catch((e) => { fail++; errors.push('FAIL: affiliate async: ' + e); });
+
+  const a = aff.analyze(demo);
+  assert(a.ok === true, 'analyze berhasil: ' + (a.error || ''));
+  assert(a.totalPendapatan > 0 && a.laba > 0, 'pendapatan & laba agregat positif: ' + a.totalPendapatan + '/' + a.laba);
+  assert(a.bestNiche && typeof a.bestNiche.key === 'string', 'niche terbaik teridentifikasi: ' + (a.bestNiche && a.bestNiche.key));
+  assert(aff.formatAnalysis(a).indexOf('Laba bersih') !== -1, 'formatAnalysis menghasilkan ringkasan laba');
+
+  const o = aff.optimize(demo);
+  assert(o.ok === true && Array.isArray(o.genjot) && o.genjot.length > 0, 'optimize menemukan produk DIGENJOT: ' + o.genjot.join(', '));
+  assert(aff.formatOptimize(o).indexOf('DIGENJOT') !== -1, 'formatOptimize memuat seksi DIGENJOT');
+
+  const st = aff.strategy(demo);
+  assert(st.ok === true && st.steps.length >= 3, 'strategi memuat minimal 3 langkah: ' + st.steps.length);
+  assert(aff.formatStrategy(st).indexOf('Strategi') !== -1, 'formatStrategy menampilkan langkah');
+
+  assert(aff.formatProducts(demo).indexOf('Produk') !== -1, 'formatProducts membuat tabel produk');
+
+  const bad = aff.addProduct({ nama: '' });
+  assert(!!bad.error, 'validasi: nama kosong ditolak: ' + (bad.error || ''));
+  const ap = aff.addProduct({ nama: 'Produk Uji', niche: 'Kesehatan', harga: 99000, komisiPct: 30, klik: 200, konversi: 5, pendapatan: 1500000, biaya: 400000, konten: 'Review', platform: 'TikTok', tanggal: '2026-09-01' });
+  assert(ap.ok === true && ap.count === 11, 'addProduct berhasil (count 11): ' + (ap.ok && ap.count));
+  const up = aff.updateProduct(ap.product.id, { klik: 400 });
+  assert(up.ok === true && up.product.klik === 400, 'updateProduct memperbarui klik');
+  const del = aff.deleteProduct(ap.product.id);
+  assert(del.ok === true && del.count === 10, 'deleteProduct menghapus produk (count 10)');
+  aff.clearProducts();
+  assert(aff.getProducts().length === 0, 'clearProducts mengosongkan data');
+})();
+
 /* ---------- ringkasan ---------- */
 Promise.resolve().then(function () {
   fs.writeFileSync(path.join(ROOT, 'test', 'results.txt'), results.join('\n') + '\n');

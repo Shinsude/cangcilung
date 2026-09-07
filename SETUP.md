@@ -1,4 +1,4 @@
-# Setup Supabase Sync — CangCilung (ML & DL Signal Trading)
+# Setup Supabase Sync — CangCilung Affiliate (AI ML & DL)
 
 Fitur cloud **otomatis aktif** begitu kredensial terisi — tidak ada kode yang perlu diubah.
 Tanpa kredensial, seluruh aplikasi tetap berjalan 100% lokal (data di localStorage).
@@ -27,9 +27,9 @@ Lalu di Vercel: **Project → Settings → Environment Variables** tambahkan:
 ## Cara pakai
 
 - **Sinkron**: buka aplikasi → ikon **☁️** di header menunjukkan status. Pengguna anonim otomatis tersambung; data lokal diunggah pertama kali. Klik ☁️ untuk status / hubungkan email.
-- **Riwayat konsol** (perintah trading yang dijalankan) & pengaturan disinkronkan lintas perangkat.
+- **Riwayat sesi konsol** & pengaturan disinkronkan lintas perangkat.
 
-> Yang disinkronkan: `settings` (pengaturan), `usage` (pemakaian), dan `sessions` (riwayat konsol). News API key tetap lokal di perangkat.
+> Yang disinkronkan: `settings` (pengaturan), `usage` (pemakaian), `sessions` (riwayat konsol), dan `affproducts` (data produk affiliator). News API key tetap lokal di perangkat.
 
 ## Menonaktifkan
 

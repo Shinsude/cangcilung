@@ -28,6 +28,18 @@ create table if not exists public.usage (
   primary key (user_id, date)
 );
 
+-- ================= Produk affiliator =================
+-- Sinkronisasi data produk (data affiliasi) lintas perangkat.
+-- Produk disimpan utuh sebagai jsonb; struktur tumbuh tanpa migrasi kolom.
+
+create table if not exists public.affproducts (
+  user_id uuid not null,
+  id text not null,
+  product jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
 -- ================= Catatan: RAG (pgvector) telah dibuang =================
 -- Fitur chat/knowledge base (kb.js + RAG) dihapus. Bila database ini pernah
 -- memakai schema RAG lama, objek berikut bisa dihapus manual (aplikasi tidak
@@ -36,6 +48,7 @@ create table if not exists public.usage (
 
 create index if not exists sessions_user on public.sessions (user_id, updated_at);
 create index if not exists usage_user_date on public.usage (user_id, date);
+create index if not exists affproducts_user on public.affproducts (user_id, updated_at);
 
 -- ================= Row Level Security =================
 -- Setiap baris hanya bisa dilihat/diubah oleh pemiliknya (user anonymous punya auth.uid()).
@@ -43,6 +56,7 @@ create index if not exists usage_user_date on public.usage (user_id, date);
 alter table public.sessions enable row level security;
 alter table public.settings enable row level security;
 alter table public.usage enable row level security;
+alter table public.affproducts enable row level security;
 
 drop policy if exists "sessions_all_own" on public.sessions;
 create policy "sessions_all_own" on public.sessions
@@ -56,7 +70,12 @@ drop policy if exists "usage_all_own" on public.usage;
 create policy "usage_all_own" on public.usage
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+drop policy if exists "affproducts_all_own" on public.affproducts;
+create policy "affproducts_all_own" on public.affproducts
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 -- ================= Realtime (sinkron lintas perangkat) =================
 -- Supabase Wajib: publication default sudah ada. Tambahkan tabel sessions.
 
 alter publication supabase_realtime add table public.sessions;
+alter publication supabase_realtime add table public.affproducts;

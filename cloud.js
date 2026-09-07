@@ -15,9 +15,11 @@
     syncing: false,
     suppress: false,
     inited: false,
-    dirty: { sessions: false, settings: false, usage: false },
+    dirty: { sessions: false, settings: false, usage: false, affProducts: false },
     pendingDeletes: [],
-    timer: null
+    timer: null,
+    channel: null,
+    affChannel: null
   };
 
   function log() { if (window.__cloudDebug) console.log('[cloud]', [].slice.call(arguments)); }
@@ -61,6 +63,7 @@
   function notify(kind, payload) {
     if (!state.enabled || !state.ready || !state.user || state.suppress || state.syncing) return;
     if (kind === 'deleteSession') { state.pendingDeletes.push(payload); markDirty('sessions'); return; }
+    if (kind === 'affProducts') { markDirty('affProducts'); return; }
     markDirty(kind);
   }
 
@@ -120,16 +123,28 @@
         requests: u.requests
       }, { onConflict: 'user_id,date' }).then(function (r) { if (r.error) throw r.error; }));
     }
+    if (state.dirty.affProducts && a && a.getAffProducts) {
+      var arows = a.getAffProducts().map(function (p) {
+        return {
+          user_id: state.user.id,
+          id: String(p.id),
+          product: p,
+          updated_at: new Date(p.updatedAt || Date.now()).toISOString()
+        };
+      });
+      jobs.push(state.client.from('affproducts').upsert(arows, { onConflict: 'user_id,id' })
+        .then(function (r) { if (r.error) throw r.error; }));
+    }
     Promise.all(jobs)
       .then(function () {
-        state.dirty = { sessions: false, settings: false, usage: false };
+        state.dirty = { sessions: false, settings: false, usage: false, affProducts: false };
         setInd('ok');
         var s = stamp(); s.lastPushAt = Date.now(); setStamp(s);
       })
       .catch(function (e) { log('push gagal', e); setInd('err', 'Sinkronisasi gagal'); })
       .finally(function () {
         state.syncing = false;
-        if (state.dirty.sessions || state.dirty.settings || state.dirty.usage || state.pendingDeletes.length) {
+        if (state.dirty.sessions || state.dirty.settings || state.dirty.usage || state.dirty.affProducts || state.pendingDeletes.length) {
           clearTimeout(state.timer);
           state.timer = setTimeout(pushAll, 400);
         }
@@ -137,7 +152,7 @@
   }
 
   /* ---------- pull + gabungkan ---------- */
-  function mergeCloud(cloudRows, withSettings, withUsage) {
+  function mergeCloud(cloudRows, withSettings, withUsage, withAff) {
     var a = app();
     if (!a) return;
     state.suppress = true;
@@ -200,8 +215,28 @@
           state.dirty.usage = true;
         }
       }
+      if (withAff && a.getAffProducts && a.applyCloudProducts) {
+        var cAff = cloudRows.__aff || [];
+        var localP = a.getAffProducts();
+        var pmap = {};
+        localP.forEach(function (p) { pmap[String(p.id)] = p; });
+        var pChanged = false;
+        cAff.forEach(function (r) {
+          var t = new Date(r.updated_at).getTime();
+          var id = String(r.id);
+          if (pmap[id]) {
+            var lt = pmap[id].updatedAt || 0;
+            if (t > lt) { pmap[id] = Object.assign({}, pmap[id], r.product || {}, { updatedAt: t }); pChanged = true; }
+            else if (lt > t) state.dirty.affProducts = true;
+          } else {
+            pmap[id] = Object.assign({}, r.product || {}, { updatedAt: t });
+            pChanged = true;
+          }
+        });
+        if (pChanged) a.applyCloudProducts(Object.keys(pmap).map(function (k) { return pmap[k]; }));
+      }
 
-      if (state.dirty.sessions || state.dirty.settings || state.dirty.usage) {
+      if (state.dirty.sessions || state.dirty.settings || state.dirty.usage || state.dirty.affProducts) {
         clearTimeout(state.timer);
         state.timer = setTimeout(pushAll, 300);
       } else {
@@ -233,12 +268,14 @@
     Promise.all([
       state.client.from('sessions').select('id,name,data,updated_at').then(function (r) { if (r.error) throw r.error; return r.data; }),
       state.client.from('settings').select('settings,updated_at').maybeSingle().then(function (r) { if (r.error) throw r.error; return r.data; }),
-      state.client.from('usage').select('date,requests').gte('date', todayStr()).order('date', { ascending: false }).limit(1).then(function (r) { if (r.error) throw r.error; return r.data && r.data[0]; })
+      state.client.from('usage').select('date,requests').gte('date', todayStr()).order('date', { ascending: false }).limit(1).then(function (r) { if (r.error) throw r.error; return r.data && r.data[0]; }),
+      state.client.from('affproducts').select('id,product,updated_at').then(function (r) { if (r.error) throw r.error; return r.data; })
     ]).then(function (res) {
       var rows = res[0] || [];
       rows.__settings = res[1];
       rows.__usage = res[2];
-      mergeCloud(rows, true, true);
+      rows.__aff = res[3] || [];
+      mergeCloud(rows, true, true, true);
     }).catch(function (e) {
       log('pull gagal', e);
       cloudErr('Gagal memuat data cloud', e && e.message ? e.message : e);
@@ -257,6 +294,7 @@
   function subscribeRealtime() {
     try {
       if (state.channel) { state.client.removeChannel(state.channel); state.channel = null; }
+      if (state.affChannel) { state.client.removeChannel(state.affChannel); state.affChannel = null; }
       var ch = state.client.channel('sessions-' + state.user.id);
       ch.on('postgres_changes', {
         event: '*', schema: 'public', table: 'sessions', filter: 'user_id=eq.' + state.user.id
@@ -267,6 +305,16 @@
       });
       ch.subscribe();
       state.channel = ch;
+      var ac = state.client.channel('affproducts-' + state.user.id);
+      ac.on('postgres_changes', {
+        event: '*', schema: 'public', table: 'affproducts', filter: 'user_id=eq.' + state.user.id
+      }, function () {
+        if (state.suppress || state.syncing) return;
+        clearTimeout(state.timer);
+        state.timer = setTimeout(pullAll, 800);
+      });
+      ac.subscribe();
+      state.affChannel = ac;
     } catch (e) { log('realtime gagal', e); }
   }
 
@@ -391,7 +439,7 @@
       if (msg) msg.textContent = 'Menunggu autentikasi...';
       hideAll();
     } else if (state.user.is_anonymous) {
-      if (msg) msg.textContent = 'Tersambung sebagai pengguna anonim. Riwayat disinkronkan otomatis (cadangan perangkat ini). Untuk lintas perangkat, buat akun email atau Masuk.';
+      if (msg) msg.textContent = 'Tersambung sebagai pengguna anonim. Riwayat & data produk disinkronkan otomatis (cadangan perangkat ini). Untuk lintas perangkat, buat akun email atau Masuk.';
       if (emailWrap) emailWrap.hidden = false;
       if (passWrap) passWrap.hidden = false;
       if (emailNote) emailNote.hidden = false;
@@ -400,7 +448,7 @@
       if (loginBtn) loginBtn.hidden = false;
       if (outBtn) outBtn.hidden = false;
     } else {
-      if (msg) msg.textContent = 'Tersambung dengan akun: ' + (state.user.email || state.user.id) + '. Riwayat sinkron lintas perangkat.';
+      if (msg) msg.textContent = 'Tersambung dengan akun: ' + (state.user.email || state.user.id) + '. Riwayat & data produk sinkron lintas perangkat.';
       hideAll();
       if (outBtn) outBtn.hidden = false;
     }

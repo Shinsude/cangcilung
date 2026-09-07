@@ -1,7 +1,7 @@
-# Keamanan — CangCilung (ML & DL Signal Trading)
+﻿# Keamanan — CangCilung Affiliate (AI ML & DL)
 
 Cangcilung adalah aplikasi **client-side murni** (HTML/CSS/JS di browser). Semua
-perhitungan, ML/DL, dan sinyal berjalan di perangkat pengguna. Tidak ada endpoint
+perhitungan dan ML/DL berjalan di perangkat pengguna. Tidak ada endpoint
 chat/LLM, tidak ada basis pengetahuan (RAG), dan tidak ada *API key* model yang
 disimpan.
 
