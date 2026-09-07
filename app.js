@@ -1251,6 +1251,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '- `/tambah` — buka form tambah produk (`/tambah nama=.. harga=.. komisi=.. klik=.. konversi=.. pendapatan=.. biaya=.. niche=.. konten=.. platform=..`)\n';
     out += '- `/daftar` — tabel semua produk & laba\n';
     out += '- `/hapus <nama/id>` — hapus satu produk · `/beres` — bersihkan semua\n';
+    out += '- `/edit <nama/id>` — ubah data produk (buka form terisi)\n';
     out += '- `/demo` — muat 10 produk contoh (belajar)\n';
     out += '- `/export` — unduh cadangan data (file JSON) · `/import` — muat kembali file cadangan\n';
     out += '### Analisis & Optimasi\n';
@@ -1446,6 +1447,22 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     connSub();
     finalizeMessage('🗑️ **' + target.nama + '** dihapus (sisa ' + res.count + ').');
   }
+  function handleAffEdit(q) {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    var list = window.CC.aff.getProducts();
+    if (!list || !list.length) { finalizeMessage('⚠️ Belum ada data. Tambahkan dulu (`/tambah` / `/demo`).'); return; }
+    if (!q) { finalizeMessage('Gunakan: `/edit <nama>` atau `/edit #<id>`.'); return; }
+    var target = null;
+    if (/^#/.test(q)) target = productById(q.slice(1));
+    if (!target) {
+      var pat = String(q).toLowerCase();
+      list.forEach(function (p) { if (!target && String(p.nama).toLowerCase().indexOf(pat) > -1) target = p; });
+    }
+    if (!target) { finalizeMessage('⚠️ Produk tidak ditemukan: `' + q + '`. Ketik `/daftar` untuk melihat daftar.'); return; }
+    openProductForm(target.id);
+    setStatus('Mengedit **' + target.nama + '** — ubah kolom lalu Simpan.');
+    finalizeMessage('✏️ Form edit dibuka untuk **' + target.nama + '** (ID `' + target.id + '`). Ubah datanya lalu tekan **Simpan**.\n\nTips: atur ulang angka pendapatan/biaya lalu `/analisis` untuk ringkasan terbaru.');
+  }
   function handleAffClear() {
     if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
     window.CC.aff.clearProducts();
@@ -1590,6 +1607,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     }
     if (/^\/(daftar|list|produk)\b/i.test(text)) { handleAffList(); return; }
     if (/^\/hapus\b/i.test(text)) { handleAffHapus(text.replace(/^\/hapus\b\s*/i, '').trim()); return; }
+    if (/^\/edit\b/i.test(text)) { handleAffEdit(text.replace(/^\/edit\b\s*/i, '').trim()); return; }
     if (/^\/beres\b/i.test(text)) { handleAffClear(); return; }
     if (/^\/demo\b/i.test(text)) { handleAffDemo(); return; }
     if (/^\/(analisis|analisa)\b/i.test(text)) { handleAffAnalisis(); return; }

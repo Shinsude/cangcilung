@@ -34,6 +34,7 @@ Buka `https://cangcilung.vercel.app` (atau `index.html` lokal), lalu ketik di ko
 | `/forecast` · `/forecast harian` | Proyeksi pendapatan periode berikutnya |
 | `/strategi` | Langkah menaikkan komisi |
 | `/hapus <nama/id>` · `/beres` | Kelola data produk |
+| `/edit <nama/id>` | Ubah data produk (buka form terisi) |
 | `/skills` · `/help` | Katalog skill/bundel · daftar perintah |
 
 Teks bebas (mis. *"produk mana yang harus di-genjot?"*) juga diterima dan langsung memicu analisis.

@@ -240,6 +240,29 @@ done.then(() => {
       console.log('WARN tidak ada listener click pada #btn-product-save');
     }
 
+    // Jalur edit produk: /edit <nama> → form terisi, Simpan → update (tanpa duplikasi)
+    typeCmd('/edit Produk Dari Form');
+    const pfId = elements['pf-id'];
+    const pfTitle = elements['product-modal-title'];
+    const pfModalHidden = elements['product-modal'] ? elements['product-modal'].hidden : undefined;
+    const editFilled = pfId && String(pfId.value).length > 0 && pfTitle && pfTitle.textContent === 'Edit Produk' && pfModalHidden === false;
+    console.log(editFilled ? 'OK  /edit membuka form terisi (id=' + pfId.value + ', judul="' + (pfTitle && pfTitle.textContent) + '")' : 'FAIL /edit tidak membuka form edit');
+    if (!editFilled) fail('/edit form terbuka');
+    const beforeEdit = (aff.getProducts() || []).length;
+    const editedName = elements['pf-nama'].value;
+    elements['pf-pendapatan'].value = '777000';
+    elements['pf-komisi'].value = '42';
+    const editBtn = getElementById('btn-product-save');
+    if (editBtn && editBtn.listeners.click) editBtn.listeners.click.forEach((fn) => fn({ target: editBtn }));
+    const afterEdit = aff.getProducts() || [];
+    const edited = afterEdit.find((p) => String(p.id) === String(pfId.value));
+    const editOk = afterEdit.length === beforeEdit && edited && edited.pendapatan === 777000 && edited.komisiPct === 42 && edited.nama === editedName;
+    console.log(editOk ? 'OK  Simpan memperbarui produk (tanpa duplikat, jumlah ' + afterEdit.length + ')' : 'FAIL Simpan edit produk (jumlah ' + afterEdit.length + ' vs ' + beforeEdit + ', pendapatan=' + (edited && edited.pendapatan) + ')');
+    if (!editOk) fail('Simpan edit produk');
+    typeCmd('/edit #'); // id kosong → pesan aman
+    typeCmd('/edit TidakAdaProdukXYZ');
+    console.log('OK  /edit dengan argumen tidak dikenal → pesan aman');
+
     // Jalur export/import (cadangan JSON)
     const appApi = windowStubBase.cangcilung = ctx.cangcilung;
     if (!appApi || typeof appApi.buildAffExportPayload !== 'function') {
