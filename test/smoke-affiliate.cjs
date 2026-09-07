@@ -309,9 +309,33 @@ done.then(() => {
       console.log(idSet.size === (aff.getProducts() || []).length ? 'OK  id impor unik berurutan (' + idSet.size + ')' : 'FAIL id impor tidak unik');
       if (!(idSet.size === (aff.getProducts() || []).length)) fail('id impor unik');
 
+      // Jalur import CSV (bulk): header + nilai berkoma, replace + abort
+      const csv2 = 'nama,harga,komisi,klik,konversi,pendapatan,biaya,niche,konten,platform,tanggal\n"Produk CSV, Satu",200000,35,300,12,2400000,500000,Digital,Review,Instagram,2026-09-03\nProduk CSV Dua,100000,20,150,6,600000,200000,Kesehatan,Artikel,Blog,2026-09-04';
+      let cimp = null;
+      try { cimp = appApi.applyAffImport(csv2); } catch (e) { fail('applyAffImport CSV throw', e); }
+      const csvOk = cimp && cimp.ok && cimp.count === 2 && (aff.getProducts() || []).length === 2;
+      const cnames = csvOk && (aff.getProducts() || []).map((p) => p.nama).sort().join('|');
+      console.log(csvOk ? 'OK  applyAffImport CSV → 2 produk: ' + cnames : 'FAIL import CSV (garpu ' + JSON.stringify(cimp) + ', produk=' + (aff.getProducts() || []).length + ')');
+      if (!csvOk) fail('import CSV');
+      const csvAbort = appApi.applyAffImport(csv2, () => false);
+      console.log(csvAbort && !csvAbort.ok && csvAbort.aborted && (aff.getProducts() || []).length === 2 ? 'OK  import CSV dibatalkan konfirmasi (data tetap 2)' : 'FAIL import CSV abort');
+      if (!(csvAbort && !csvAbort.ok && csvAbort.aborted)) fail('import CSV abort');
+      // Verifikasi UI pasca-impor: perintah me-render output dengan data CSV
+      typeCmd('/daftar');
+      const chatBox = getElementById('chat-messages');
+      const chKids = chatBox.children || [];
+      const lastOut = chKids.length ? String(chKids[chKids.length - 1].innerHTML || chKids[chKids.length - 1].textContent || '') : '';
+      const csvUiOk = lastOut.indexOf('Produk CSV, Satu') !== -1 && lastOut.indexOf('Produk CSV Dua') !== -1;
+      console.log(csvUiOk ? 'OK  /daftar pasca-CSV menampilkan 2 produk impor' : 'FAIL /daftar pasca-CSV (' + lastOut.replace(/\s+/g, ' ').slice(0, 90) + ')');
+      if (!csvUiOk) fail('dashboard CSV');
+
       typeCmd('/import');
-      console.log('OK  /import menampilkan instruksi & membuka pemilih file');
-      console.log('OK  dashboard setelah import: ' + dashText().replace(/\s+/g, ' ').slice(0, 90));
+      const impBox = getElementById('chat-messages');
+      const imKids = impBox.children || [];
+      const impLast = imKids.length ? String(imKids[imKids.length - 1].innerHTML || imKids[imKids.length - 1].textContent || '') : '';
+      const impMsgOk = impLast.indexOf('.json') !== -1 && impLast.indexOf('.csv') !== -1;
+      console.log(impMsgOk ? 'OK  /import menampilkan instruksi .json/.csv & membuka pemilih file' : 'FAIL /import instruksi (bubble ' + impLast.replace(/\s+/g, ' ').slice(0, 80) + ')');
+      if (!impMsgOk) fail('/import instruksi');
     }
 
     console.log('');

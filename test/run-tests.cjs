@@ -556,6 +556,44 @@ suite('lib/affiliate.js (AI ML & DL Affiliator)');
   assert(aff.getProducts().length === 0, 'clearProducts mengosongkan data');
 })();
 
+/* ---------- affiliate.js: CSV impor + tombstone ---------- */
+(function () {
+  const wL = loadBrowser('lib/affiliate.js');
+  const aff = wL.CC.aff;
+
+  const csv1 = aff.parseAffCSV('nama,harga,komisi,klik,konversi,pendapatan,biaya,niche,platform,tanggal\n"Produk, A",500000,30,100,5,1500000,200000,Keuangan,TikTok,2026-01-01\nProduk B,75000,60,200,10,750000,50000,Kesehatan,Email,2026-02-01');
+  assert(csv1.ok === true && csv1.rows.length === 2, 'parseAffCSV membaca 2 baris (+ nama berkoma): ' + (csv1.error || csv1.rows.length));
+  assert(csv1.ok && csv1.rows[0].nama === 'Produk, A' && csv1.rows[0].harga === 500000 && csv1.rows[0].pendapatan === 1500000, 'parseAffCSV memetakan kolom & angka Rp');
+  assert(csv1.ok && csv1.rows[1].konversi === 10 && csv1.rows[1].komisiPct === 60, 'parseAffCSV baris kedua (komisi/konversi): ' + csv1.rows[1].konversi);
+
+  const csvEn = aff.parseAffCSV('name,price,commission,clicks,conversions,revenue,cost\nX,100000,20,50,3,300000,100000');
+  assert(csvEn.ok === true && csvEn.rows.length === 1 && csvEn.rows[0].nama === 'X' && csvEn.rows[0].pendapatan === 300000, 'parseAffCSV alias Inggris: ' + (csvEn.error || csvEn.rows[0].nama));
+
+  const csvEmptyRow = aff.parseAffCSV('nama,harga,komisi\n\nProb,1,1\n');
+  assert(csvEmptyRow.ok === true && csvEmptyRow.rows.length === 1, 'parseAffCSV melewati baris kosong');
+
+  const csvNoName = aff.parseAffCSV('nama,harga\npass,1\n,2');
+  assert(csvNoName.ok === false && /Baris 3/.test(csvNoName.error), 'parseAffCSV menolak baris tanpa nama: ' + (csvNoName.error || ''));
+  const csvNoHeader = aff.parseAffCSV('harga,komisi\n1,2');
+  assert(csvNoHeader.ok === false, 'parseAffCSV butuh kolom nama');
+  const csvBadQuote = aff.parseAffCSV('nama,harga\n"abc,1');
+  assert(csvBadQuote.ok === false, 'parseAffCSV menolak kutip tak tertutup');
+
+  aff.setProducts([]);
+  aff.clearTombstones(); // mulai bersih (suite sebelumnya sudah mencatat tombstone)
+  aff.addProduct({ nama: 'T1', harga: 1, komisiPct: 1, klik: 1, konversi: 1, pendapatan: 1, biaya: 0, konten: 'Review', platform: 'X', niche: 'Umum' });
+  aff.addProduct({ nama: 'T2', harga: 2, komisiPct: 1, klik: 1, konversi: 1, pendapatan: 1, biaya: 1, konten: 'Review', platform: 'Y', niche: 'Umum' });
+  const tlist = aff.getProducts();
+  const delT = aff.deleteProduct(tlist[0].id);
+  assert(delT.ok && aff.getTombstones().some((t) => String(t.id) === String(tlist[0].id)), 'deleteProduct mencatat tombstone id ' + tlist[0].id);
+  assert(aff.getTombstones().length === 1, 'tombstone hanya 1 setelah 1 hapus: ' + aff.getTombstones().length);
+  const afterTs = Date.now();
+  assert(aff.clearTombstones(afterTs) === 0 && aff.getTombstones().length === 0, 'clearTombstones(until=ts) menghapus tombstone yang sudah dikirim');
+  aff.clearProducts();
+  assert(aff.getTombstones().some((t) => String(t.id) === String(tlist[1].id)), 'clearProducts mencatat tombstone produk tersisa');
+  aff.clearTombstones();
+})();
+
 /* ---------- ringkasan ---------- */
 Promise.resolve().then(function () {
   fs.writeFileSync(path.join(ROOT, 'test', 'results.txt'), results.join('\n') + '\n');

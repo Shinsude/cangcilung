@@ -32,6 +32,7 @@
     try { localStorage.setItem(SYNC_KEY, JSON.stringify(s)); } catch (e) {}
   }
   function todayStr() { return new Date().toISOString().slice(0, 10); }
+  function num(v, def) { var n = Number(v); return isFinite(n) ? n : (def == null ? 0 : def); }
 
   var readyListeners = [];
   function fireReady() {
@@ -124,7 +125,15 @@
       }, { onConflict: 'user_id,date' }).then(function (r) { if (r.error) throw r.error; }));
     }
     if (state.dirty.affProducts && a && a.getAffProducts) {
-      var arows = a.getAffProducts().map(function (p) {
+      /* produk yang baru dihapus ditandai tombstone → dikirim sebagai baris
+         { _deleted:true, ... } agar perangkat lain ikut menghapusnya. */
+      var tombs = (a.getTombstones ? a.getTombstones() : []).map(function (t) {
+        return { id: String(t.id), updatedAt: num(t.updatedAt, Date.now()) };
+      });
+      var tombIds = {};
+      var maxTombTs = 0;
+      tombs.forEach(function (t) { tombIds[t.id] = true; if (t.updatedAt > maxTombTs) maxTombTs = t.updatedAt; });
+      var arows = a.getAffProducts().filter(function (p) { return !tombIds[String(p.id)]; }).map(function (p) {
         return {
           user_id: state.user.id,
           id: String(p.id),
@@ -132,8 +141,17 @@
           updated_at: new Date(p.updatedAt || Date.now()).toISOString()
         };
       });
+      tombs.forEach(function (t) {
+        arows.push({
+          user_id: state.user.id,
+          id: t.id,
+          product: { _deleted: true, id: t.id, updatedAt: t.updatedAt },
+          updated_at: new Date(t.updatedAt).toISOString()
+        });
+      });
       jobs.push(state.client.from('affproducts').upsert(arows, { onConflict: 'user_id,id' })
-        .then(function (r) { if (r.error) throw r.error; }));
+        .then(function (r) { if (r.error) throw r.error; })
+        .then(function () { if (a.clearTombstones) a.clearTombstones(maxTombTs); }));
     }
     Promise.all(jobs)
       .then(function () {
@@ -224,12 +242,25 @@
         cAff.forEach(function (r) {
           var t = new Date(r.updated_at).getTime();
           var id = String(r.id);
+          var prod = r.product || {};
+          /* tombstone: hapus produk lokal (bila cloud lebih baru) — jangan
+             re-add dan jangan tandai dirty (menghindari re-push yang memunculkan
+             kembali produk yang sudah dihapus). */
+          if (prod._deleted === true) {
+            var lp = pmap[id];
+            if (lp) {
+              var lt = lp.updatedAt || 0;
+              if (t > lt) { delete pmap[id]; pChanged = true; }
+              else if (lt > t) state.dirty.affProducts = true; // lokal lebih baru → balas push
+            }
+            return;
+          }
           if (pmap[id]) {
-            var lt = pmap[id].updatedAt || 0;
-            if (t > lt) { pmap[id] = Object.assign({}, pmap[id], r.product || {}, { updatedAt: t }); pChanged = true; }
-            else if (lt > t) state.dirty.affProducts = true;
+            var lt2 = pmap[id].updatedAt || 0;
+            if (t > lt2) { pmap[id] = Object.assign({}, pmap[id], prod, { updatedAt: t }); pChanged = true; }
+            else if (lt2 > t) state.dirty.affProducts = true;
           } else {
-            pmap[id] = Object.assign({}, r.product || {}, { updatedAt: t });
+            pmap[id] = Object.assign({}, prod, { updatedAt: t });
             pChanged = true;
           }
         });

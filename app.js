@@ -1531,10 +1531,19 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     };
   }
   function applyAffImport(raw, confirmFn) {
-    var parsed;
-    try { parsed = JSON.parse(raw); } catch (e) { return { ok: false, error: 'JSON tidak valid: ' + (e && e.message ? e.message : e) }; }
-    var arr = Array.isArray(parsed) ? parsed : (parsed && parsed.type === 'affiliates' && Array.isArray(parsed.products) ? parsed.products : null);
-    if (!Array.isArray(arr)) return { ok: false, error: 'Format tidak dikenal — gunakan file hasil `/export`.' };
+    if (raw == null) return { ok: false, error: 'File kosong.' };
+    var parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
+    var arr = null;
+    if (parsed) {
+      arr = Array.isArray(parsed) ? parsed : (parsed && parsed.type === 'affiliates' && Array.isArray(parsed.products) ? parsed.products : null);
+      if (!Array.isArray(arr)) return { ok: false, error: 'Format tidak dikenal — gunakan file hasil `/export` (JSON) atau CSV (header: nama,harga,komisi,...).' };
+    } else {
+      if (!window.CC || !window.CC.aff || typeof window.CC.aff.parseAffCSV !== 'function') return { ok: false, error: 'Mesin AI belum dimuat.' };
+      var csv = window.CC.aff.parseAffCSV(raw);
+      if (!csv.ok) return { ok: false, error: csv.error || 'CSV tidak valid.' };
+      arr = csv.rows;
+    }
     if (!arr.length) return { ok: true, count: 0, replaced: false };
     var bad = arr.filter(function (p) { return !p || !String(p.nama || '').trim(); });
     if (bad.length) return { ok: false, error: bad.length + ' baris tanpa nama produk.' };
@@ -1578,7 +1587,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
     var inp = $('file-aff-import');
     if (!inp) { finalizeMessage('❌ Pemuat file belum tersedia.'); return; }
-    finalizeMessage('📂 Pilih file **.json** hasil `/export`. Produk saat ini akan **diganti** dengan isi file.');
+    finalizeMessage('📂 Pilih file **.json** hasil `/export` atau **.csv** (baris pertama = header: `nama,harga,komisi,klik,konversi,pendapatan,biaya,...`). Produk saat ini akan **diganti** dengan isi file.');
     inp.click();
   }
 

@@ -27,7 +27,7 @@ Buka `https://cangcilung.vercel.app` (atau `index.html` lokal), lalu ketik di ko
 | `/daftar` | Tabel semua produk & laba |
 | `/demo` | Muat 10 produk contoh |
 | `/export` | Unduh cadangan data produk (file JSON) |
-| `/import` | Muat kembali file cadangan JSON |
+| `/import` | Muat kembali file cadangan JSON atau CSV (header: `nama,harga,komisi,...`) |
 | `/analisis` | Ringkasan penjualan, laba, margin, konversi |
 | `/optimasi` | Produk DIGENJOT vs DIEVALUASI + saran |
 | `/prediksi` | Latih model ML di browser → skor p(untung) + validasi k-fold CV |
@@ -50,6 +50,7 @@ Teks bebas (mis. *"produk mana yang harus di-genjot?"*) juga diterima dan langsu
 
 - Modul browser memakai pola `var CC = window.CC || (window.CC = {})` (`CC.ta`, `CC.ml`, `CC.aff`, dst).
 - `lib/affiliate.js` memperlihatkan `CC.aff`: `getProducts/setProducts/addProduct/updateProduct/deleteProduct/clearProducts/seedDemo/buildFeatures/buildDatasets/trainModel/scoreProducts/analyze/optimize/forecast/strategy` + `format*`.
+- `parseAffCSV(text)` mengubah CSV bulk (alias Indonesia/Inggris, nilai berkoma, `Rp` diabaikan) menjadi baris produk; `getTombstones/recordTombstone/clearTombstones` mendukung propagasi hapus antar-perangkat via cloud.
 
 ## Menjalankan/test
 
