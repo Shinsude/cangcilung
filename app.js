@@ -485,6 +485,8 @@
     for (var i = 0; i < sessions.length; i++) if (sessions[i].id === id) s = sessions[i];
     if (!s) return;
     renameSessionId = id;
+    var inpE = $('rename-input');
+    if (!inpE) return;
     $('rename-input').value = s.name;
     $('rename-status').textContent = '';
     $('rename-status').className = 'set-status';

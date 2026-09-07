@@ -52,6 +52,9 @@ Teks bebas (mis. *"produk mana yang harus di-genjot?"*) juga diterima dan langsu
 
 - `node -c app.js` untuk cek sintaks.
 - `node test/run-tests.cjs` untuk unit/sanity test (ta.js, ml.js, affiliate.js).
+- `node test/smoke-affiliate.cjs` untuk smoke test runtime penuh (semua lib + app.js
+  dimuat dalam vm sandbox dengan stub DOM; menjalankan `init`, dashboard, dan alur
+  perintah konsol + form produk).
 - Deploy Vercel: `vercel deploy --prod --yes` (lihat `deploy.bat`).
 
 Lisensi penggunaan: edukasi & pengelolaan bisnis affiliasi.
