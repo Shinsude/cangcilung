@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const ROOT = path.join(__dirname, '..');
+const ROOT = 'D:\\fajrin\\OPENCODE PROJECT\\CANGCILUNG';
 const errors = [];
 const fired = [];
 const listeners = { document: {}, window: {} };
@@ -129,6 +129,9 @@ Object.assign(ctx, {
 ctx.window = ctx; // window === global sandbox
 ctx.self = ctx;
 ctx.globalThis = ctx;
+// Stub download helper agar jalur unduhan /export bisa dieksekusi (createObjectURL tidak ada di Node).
+if (ctx.URL && typeof ctx.URL.createObjectURL !== 'function') ctx.URL.createObjectURL = function () { return 'blob:mock://export'; };
+if (ctx.URL && typeof ctx.URL.revokeObjectURL !== 'function') ctx.URL.revokeObjectURL = function () {};
 
 function load(name) {
   const code = fs.readFileSync(path.join(ROOT, name), 'utf8');
@@ -235,6 +238,44 @@ done.then(() => {
       else if (crop) console.log('OK  field form tersimpan utuh (harga/komisi/klik/konversi/pendapatan/biaya/niche/konten/platform/durasi)');
     } else {
       console.log('WARN tidak ada listener click pada #btn-product-save');
+    }
+
+    // Jalur export/import (cadangan JSON)
+    const appApi = windowStubBase.cangcilung = ctx.cangcilung;
+    if (!appApi || typeof appApi.buildAffExportPayload !== 'function') {
+      fail('public API buildAffExportPayload tidak tersedia');
+    } else {
+      typeCmd('/export');
+      const payload = appApi.buildAffExportPayload();
+      const okPayload = payload && payload.type === 'affiliates' && Array.isArray(payload.products) && payload.products.length === (aff.getProducts() || []).length;
+      console.log(okPayload ? 'OK  /export + buildAffExportPayload ({type,version,products:' + payload.products.length + '})' : 'FAIL payload export rusak');
+      if (!okPayload) fail('buildAffExportPayload');
+
+      const json2 = JSON.stringify({ type: 'affiliates', version: 1, products: [
+        { nama: 'Produk Impor 1', niche: 'Digital', harga: 50000, komisiPct: 40, klik: 100, konversi: 5, pendapatan: 1000000, biaya: 200000, konten: 'Artikel', platform: 'Blog', tanggal: '2026-09-01' },
+        { nama: 'Produk Impor 2', niche: 'Kesehatan', harga: 150000, komisiPct: 25, klik: 80, konversi: 2, pendapatan: 400000, biaya: 100000, konten: 'Video', platform: 'TikTok', tanggal: '2026-09-02' }
+      ] });
+      let imp = null;
+      try { imp = appApi.applyAffImport(json2); } catch (e) { fail('applyAffImport throw', e); }
+      const impOk = imp && imp.ok && imp.count === 2 && (aff.getProducts() || []).length === 2;
+      const impNames = impOk && (aff.getProducts() || []).map((p) => p.nama).join('|');
+      console.log(impOk ? 'OK  applyAffImport ganti jadi 2 produk: ' + impNames : 'FAIL import (garpu ' + JSON.stringify(imp) + ', produk=' + (aff.getProducts() || []).length + ')');
+      if (!impOk) fail('applyAffImport');
+
+      const rBad = appApi.applyAffImport('{rusak');
+      const rEmpty = appApi.applyAffImport(JSON.stringify({ type: 'affiliates', products: [] }));
+      console.log(rBad && !rBad.ok ? 'OK  import menolak JSON invalid' : 'FAIL import JSON invalid');
+      console.log(rEmpty && rEmpty.ok && rEmpty.count === 0 && !rEmpty.replaced ? 'OK  import file kosong aman (tidak mengubah data)' : 'FAIL import file kosong');
+      if (!(rBad && !rBad.ok)) fail('import invalid');
+      if (!(rEmpty && rEmpty.ok && rEmpty.count === 0)) fail('import kosong');
+
+      const badProd = appApi.applyAffImport(JSON.stringify({ type: 'affiliates', products: [{ nama: '' }, { nama: 'Halo' }] }));
+      console.log(badProd && !badProd.ok && (aff.getProducts() || []).length === 2 ? 'OK  import menolak baris tanpa nama (data tetap 2)' : 'FAIL import baris tanpa nama');
+      if (!(badProd && !badProd.ok)) fail('import tanpa nama');
+
+      typeCmd('/import');
+      console.log('OK  /import menampilkan instruksi & membuka pemilih file');
+      console.log('OK  dashboard setelah import: ' + dashText().replace(/\s+/g, ' ').slice(0, 90));
     }
 
     console.log('');

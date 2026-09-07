@@ -60,6 +60,8 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
+  <input type="file" id="file-aff-import" accept=".json,application/json" hidden>
+
   <!-- ====== MODAL PENGATURAN ====== -->
   <div class="modal-overlay" id="settings-modal" hidden>
     <div class="modal">
@@ -69,11 +71,7 @@
       </div>
       <div class="modal-body">
         <div class="settings-panel active">
-          <label class="set-field">
-            <span>News API Key (opsional)</span>
-            <input type="password" id="set-news-key" placeholder="gnews.io / newsapi.org key">
-          </label>
-          <p class="set-hint">Untuk sentimen berita real-time via API. Isi opsional — bila kosong pakai pencarian berita umum. Buat gratis di <code>gnews.io</code>.</p>
+          <p class="set-hint">Data produk tersimpan lokal (PWA) dan siap tersinkron cloud (opsional). Backup data dengan `/export` dan pulihkan dengan `/import`.</p>
         </div>
         <div class="set-status" id="set-status"></div>
       </div>

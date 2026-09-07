@@ -894,7 +894,7 @@
       if (!list || !list.length) {
         html = 'Belum ada data **produk**.\n\n' +
           'Tekan **Tambah Produk** (form) untuk input manual, atau jalankan `/demo` untuk 10 produk contoh.\n\n' +
-          'Perintah: `/analisis` `/optimasi` `/prediksi` `/forecast` `/strategi` `/daftar` — ketik `/help` untuk bantuan.';
+          'Perintah: `/analisis` `/optimasi` `/prediksi` `/forecast` `/strategi` `/daftar` · backup: `/export` `/import` — ketik `/help` untuk bantuan.';
       } else {
         var a = window.CC.aff.analyze(list);
         var o = window.CC.aff.optimize(list);
@@ -911,7 +911,7 @@
           o.genjot.forEach(function (n, i) { lines.push((i + 1) + '. `' + n + '`'); });
           lines.push('');
         }
-        lines.push('Perintah: `/analisis` `/optimasi` `/prediksi` `/forecast` `/strategi`');
+        lines.push('Perintah: `/analisis` `/optimasi` `/prediksi` `/forecast` `/strategi` · backup: `/export` `/import`');
         html = lines.join('\n');
       }
     }
@@ -1252,6 +1252,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     out += '- `/daftar` — tabel semua produk & laba\n';
     out += '- `/hapus <nama/id>` — hapus satu produk · `/beres` — bersihkan semua\n';
     out += '- `/demo` — muat 10 produk contoh (belajar)\n';
+    out += '- `/export` — unduh cadangan data (file JSON) · `/import` — muat kembali file cadangan\n';
     out += '### Analisis & Optimasi\n';
     out += '- `/analisis` — pendapatan, biaya, laba, margin, konversi + terbaik per niche/platform/konten\n';
     out += '- `/optimasi` — produk **DIGENJOT** vs **DIEVALUASI** + saran konkret\n';
@@ -1501,6 +1502,58 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     });
   }
 
+  /* ---------- export / import data (cadangan JSON) ---------- */
+  function buildAffExportPayload() {
+    var list = (window.CC && window.CC.aff) ? window.CC.aff.getProducts() : [];
+    return {
+      app: 'cangcilung-affiliate',
+      type: 'affiliates',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      products: list
+    };
+  }
+  function applyAffImport(raw) {
+    var parsed;
+    try { parsed = JSON.parse(raw); } catch (e) { return { ok: false, error: 'JSON tidak valid: ' + (e && e.message ? e.message : e) }; }
+    var arr = Array.isArray(parsed) ? parsed : (parsed && parsed.type === 'affiliates' && Array.isArray(parsed.products) ? parsed.products : null);
+    if (!Array.isArray(arr)) return { ok: false, error: 'Format tidak dikenal — gunakan file hasil `/export`.' };
+    if (!arr.length) return { ok: true, count: 0, replaced: false };
+    var bad = arr.filter(function (p) { return !p || !String(p.nama || '').trim(); });
+    if (bad.length) return { ok: false, error: bad.length + ' baris tanpa nama produk.' };
+    if (!window.CC || !window.CC.aff) return { ok: false, error: 'Mesin AI belum dimuat.' };
+    window.CC.aff.clearProducts();
+    arr.forEach(function (p) { window.CC.aff.addProduct(p); });
+    return { ok: true, count: arr.length, replaced: true };
+  }
+  function handleAffExport() {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    var list = window.CC.aff.getProducts();
+    if (!list || !list.length) { finalizeMessage('📭 Belum ada data produk untuk diekspor. Isi dulu: `/tambah` atau `/demo`.'); return; }
+    var payload = buildAffExportPayload();
+    var fname = 'cangcilung-affiliates-' + todayStr() + '.json';
+    try {
+      var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+      finalizeMessage('💾 **' + list.length + ' produk** diekspor → `' + fname + '`.\n\nSimpan file sebagai cadangan; impor lagi kapan saja dengan `/import`.');
+    } catch (e) {
+      finalizeMessage('📄 Unduhan diblokir browser. Salin JSON berikut:\n\n```json\n' + JSON.stringify(payload, null, 2) + '\n```');
+    }
+  }
+  function handleAffImport() {
+    if (!window.CC || !window.CC.aff) { setStatus('Mesin AI belum dimuat.', true); return; }
+    var inp = $('file-aff-import');
+    if (!inp) { finalizeMessage('❌ Pemuat file belum tersedia.'); return; }
+    finalizeMessage('📂 Pilih file **.json** hasil `/export`. Produk saat ini akan **diganti** dengan isi file.');
+    inp.click();
+  }
+
   function addUserMessage(text) {
     history.push({ role: 'user', content: text, t: nowTime() });
     renderHistory();
@@ -1544,6 +1597,8 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     if (/^\/(prediksi|skor)\b/i.test(text)) { handleAffPrediksi(text.replace(/^\/(prediksi|skor)\b\s*/i, '').trim()); return; }
     if (/^\/(forecast|proyeksi)\b/i.test(text)) { handleAffForecast(text.replace(/^\/(forecast|proyeksi)\b\s*/i, '').trim()); return; }
     if (/^\/strategi\b/i.test(text)) { handleAffStrategi(); return; }
+    if (/^\/export\b/i.test(text)) { handleAffExport(); return; }
+    if (/^\/import\b/i.test(text)) { handleAffImport(); return; }
 
     addUserMessage(text);
 
@@ -1774,6 +1829,30 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     var pModal = $('product-modal');
     if (pModal) pModal.addEventListener('click', function (e) { if (e.target === pModal) closeProductForm(); });
 
+    /* ── Import produk (file JSON hasil /export) ── */
+    var affFile = $('file-aff-import');
+    if (affFile) affFile.addEventListener('change', function () {
+      var f = affFile.files && affFile.files[0];
+      affFile.value = '';
+      if (!f) return;
+      var rd = new FileReader();
+      rd.onload = function () {
+        var r = applyAffImport(String(rd.result || ''));
+        if (r && r.ok) {
+          renderAffDashboard();
+          connSub();
+          if (r.replaced) setStatus(r.count + ' produk dimuat dari file.');
+          else setStatus('File kosong — data tidak diubah.');
+          finalizeMessage('✅ Import selesai: **' + r.count + ' produk** dimuat' + (r.replaced ? ' (data sebelumnya diganti).' : '.') + ' Coba `/analisis` atau `/daftar`.');
+        } else {
+          setStatus((r && r.error) || 'Gagal membuka file.', true);
+          finalizeMessage('❌ ' + ((r && r.error) || 'Gagal membaca file.'));
+        }
+      };
+      rd.onerror = function () { setStatus('Gagal membaca file.', true); };
+      rd.readAsText(f);
+    });
+
     renderAffDashboard();
   }
 
@@ -1852,6 +1931,10 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       window.CC.aff.saveProducts();
       renderAffDashboard();
     },
+    /** @returns {Object} Payload JSON untuk cadangan data */
+    buildAffExportPayload: buildAffExportPayload,
+    /** @param {string} raw - Isi file JSON cadangan */
+    applyAffImport: applyAffImport,
     /** @param {string} msg - Status message text */
     setStatus: setStatus,
     /** @param {string} title - Dialog title @param {string} msg - Dialog message @param {string} okLabel - OK button label @param {Function} cb - Callback on confirm */

@@ -26,6 +26,8 @@ Buka `https://cangcilung.vercel.app` (atau `index.html` lokal), lalu ketik di ko
 | `/tambah` | Buka form tambah produk (atau `/tambah nama=.. harga=.. komisi=.. klik=.. konversi=.. pendapatan=.. biaya=..`) |
 | `/daftar` | Tabel semua produk & laba |
 | `/demo` | Muat 10 produk contoh |
+| `/export` | Unduh cadangan data produk (file JSON) |
+| `/import` | Muat kembali file cadangan JSON |
 | `/analisis` | Ringkasan penjualan, laba, margin, konversi |
 | `/optimasi` | Produk DIGENJOT vs DIEVALUASI + saran |
 | `/prediksi` | Latih model ML di browser → skor p(untung) + validasi OOS |
