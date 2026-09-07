@@ -9,7 +9,7 @@ Asisten **AI ML & DL** untuk **affiliator penjualan**, berbasis web (HTML/CSS/JS
 - **Form input produk**: tambah/ubah produk dengan harga, komisi, klik, konversi, pendapatan, biaya, niche, format konten, dan platform.
 - **Analisis data penjualan** (`/analisis`): pendapatan, biaya, laba bersih, margin, konversi, plus kategori terbaik per niche/platform/format konten.
 - **Optimasi produk & konten** (`/optimasi`): produk **DIGENJOT** vs **DIEVALUASI** berdasarkan laba & ROAS + saran praktis.
-- **Prediksi profitabilitas** (`/prediksi`): neural network (MLP) + logistic regression deterministik (seed 42) dilatih di browser — skor `p(untung)` tiap produk + validasi OOS (anti-overfit) + verdict `GENJOT / PERTAHANKAN / EVALUASI`.
+- **Prediksi profitabilitas** (`/prediksi`): neural network (MLP) + logistic regression deterministik (seed 42) dilatih di browser — skor `p(untung)` tiap produk + validasi k-fold CV (acak, seeded) + warning bila model tak mengalahkan tebakan mayoritas + verdict `GENJOT / PERTAHANKAN / EVALUASI`.
 - **Forecast pendapatan** (`/forecast`): proyeksi periode berikutnya (bulanan/harian/tahunan) dari tren deret waktu.
 - **Strategi affiliator** (`/strategi`): langkah konkret menaikkan komisi.
 - **Dashboard pribadi**: ringkasan laba, margin, dan produk terbaik langsung di header.
@@ -30,7 +30,7 @@ Buka `https://cangcilung.vercel.app` (atau `index.html` lokal), lalu ketik di ko
 | `/import` | Muat kembali file cadangan JSON |
 | `/analisis` | Ringkasan penjualan, laba, margin, konversi |
 | `/optimasi` | Produk DIGENJOT vs DIEVALUASI + saran |
-| `/prediksi` | Latih model ML di browser → skor p(untung) + validasi OOS |
+| `/prediksi` | Latih model ML di browser → skor p(untung) + validasi k-fold CV |
 | `/forecast` · `/forecast harian` | Proyeksi pendapatan periode berikutnya |
 | `/strategi` | Langkah menaikkan komisi |
 | `/hapus <nama/id>` · `/beres` | Kelola data produk |
@@ -43,7 +43,7 @@ Teks bebas (mis. *"produk mana yang harus di-genjot?"*) juga diterima dan langsu
 
 - **Fitur**: 10 fitur numerik (harga, komisi %, klik, konversi, conv. rate, EPC, margin, komisi tersedia, ROAS, pendapatan) + one-hot niche/konten/platform — tanpa lookahead.
 - **Label**: `pendapatan − biaya > 0` (produk menguntungkan).
-- **Model**: MLP deterministik (seed 42) via `lib/ml.js` (vanilla offline / TensorFlow.js), split kronologis 70/30, evaluasi OOS jujur, hasil di-cache untuk panggilan ulang yang instan.
+- **Model**: MLP deterministik (seed 42) via `lib/ml.js` (vanilla offline / TensorFlow.js); fitur tanpa bocor label (harga/komisi/klik/konversi/kategori — bukan pendapatan/biaya), validasi k-fold CV acak seeded.
 - **Verdict**: `p ≥ 0.66` → GENJOT · `p ≥ 0.50` → PERTAHANKAN · lainnya → EVALUASI.
 
 ## Strategi penamaan konvensi
