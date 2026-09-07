@@ -510,13 +510,17 @@ suite('lib/affiliate.js (AI ML & DL Affiliator)');
   }).then((tr) => {
     assert(tr.ok === true, 'trainModel berhasil: ' + (tr.error || ''));
     assert(typeof tr.kind === 'string' && tr.kind.length > 0, 'kind model ada: ' + tr.kind);
-    assert(typeof tr.test.acc === 'number' && tr.test.acc >= 0 && tr.test.acc <= 100, 'akurasi uji OOS dalam 0-100: ' + tr.test.acc);
-    assert(typeof tr.test.baseline === 'number' && tr.test.baseline >= 0, 'baseline terdefinisi: ' + tr.test.baseline);
+    assert(typeof tr.train.acc === 'number' && tr.train.acc >= 0 && tr.train.acc <= 100, 'akurasi in-sample dalam 0-100: ' + tr.train.acc);
+    assert(tr.cv && tr.cv.ok === true, 'validasi k-fold tersedia: ' + (tr.error || ''));
+    assert(tr.cv.k >= 2 && tr.cv.folds && tr.cv.folds.length === tr.cv.k, 'k-fold konsisten: ' + (tr.cv && tr.cv.k));
+    assert(typeof tr.cv.acc === 'number' && tr.cv.acc >= 0 && tr.cv.acc <= 100, 'akurasi rata2 CV dalam 0-100: ' + tr.cv.acc);
+    assert(typeof tr.cv.baseline === 'number' && tr.cv.baseline >= 0, 'baseline CV terdefinisi: ' + tr.cv.baseline);
     return aff.forecast(demo, { period: 'bulanan' });
   }).then((f) => {
     assert(f.ok === true, 'forecast bulanan berhasil: ' + (f.error || ''));
     assert(f.forecast.pendapatan >= 0, 'proyeksi pendapatan non-negatif: ' + f.forecast.pendapatan);
     assert(isFinite(f.growthPct) && isFinite(f.trend.r2), 'growth & R2 finite');
+    assert(f.confidence && isFinite(f.confidence.low) && isFinite(f.confidence.high) && f.confidence.high >= f.forecast.pendapatan, 'C.I. forecast terdefinisi & konsisten: ' + f.confidence.low + '-' + f.confidence.high);
     assert(aff.formatForecast(f).indexOf('Forecast') !== -1, 'formatForecast menghasilkan tabel');
   }).catch((e) => { fail++; errors.push('FAIL: affiliate async: ' + e); });
 
@@ -542,6 +546,10 @@ suite('lib/affiliate.js (AI ML & DL Affiliator)');
   assert(ap.ok === true && ap.count === 11, 'addProduct berhasil (count 11): ' + (ap.ok && ap.count));
   const up = aff.updateProduct(ap.product.id, { klik: 400 });
   assert(up.ok === true && up.product.klik === 400, 'updateProduct memperbarui klik');
+  const dup = aff.addProduct({ id: ap.product.id, nama: 'Produk Duplikat ID', harga: 1000, komisiPct: 10, klik: 1, konversi: 0, pendapatan: 0, biaya: 0 });
+  assert(dup.ok === true && String(dup.product.id) !== String(ap.product.id), 'addProduct menolak tabrakan id (dapat id baru): ' + dup.product.id + ' vs ' + ap.product.id);
+  const dupDel = aff.deleteProduct(dup.product.id);
+  assert(dupDel.ok === true && dupDel.count === 11, 'produk duplikat dihapus (count 11)');
   const del = aff.deleteProduct(ap.product.id);
   assert(del.ok === true && del.count === 10, 'deleteProduct menghapus produk (count 10)');
   aff.clearProducts();

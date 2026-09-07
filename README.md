@@ -37,7 +37,7 @@ Buka `https://cangcilung.vercel.app` (atau `index.html` lokal), lalu ketik di ko
 | `/edit <nama/id>` | Ubah data produk (buka form terisi) |
 | `/skills` · `/help` | Katalog skill/bundel · daftar perintah |
 
-Teks bebas (mis. *"produk mana yang harus di-genjot?"*) juga diterima dan langsung memicu analisis.
+Teks bebas (mis. *"produk mana yang harus di-genjot?"*) juga diterima dan langsung memicu analisis. Tombol perintah cepat (chips) di atas kolom input memberi akses satu-klik ke `/analisis`, `/optimasi`, `/prediksi`, `/forecast`, `/strategi`, `/daftar`.
 
 ## Engine ML (lib/affiliate.js)
 

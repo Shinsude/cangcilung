@@ -1530,7 +1530,7 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       products: list
     };
   }
-  function applyAffImport(raw) {
+  function applyAffImport(raw, confirmFn) {
     var parsed;
     try { parsed = JSON.parse(raw); } catch (e) { return { ok: false, error: 'JSON tidak valid: ' + (e && e.message ? e.message : e) }; }
     var arr = Array.isArray(parsed) ? parsed : (parsed && parsed.type === 'affiliates' && Array.isArray(parsed.products) ? parsed.products : null);
@@ -1539,8 +1539,19 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
     var bad = arr.filter(function (p) { return !p || !String(p.nama || '').trim(); });
     if (bad.length) return { ok: false, error: bad.length + ' baris tanpa nama produk.' };
     if (!window.CC || !window.CC.aff) return { ok: false, error: 'Mesin AI belum dimuat.' };
+    var n = window.CC.aff.getProducts().length;
+    if (typeof confirmFn === 'function') {
+      var ok2 = false;
+      try { ok2 = confirmFn(arr.length, n); } catch (e) { ok2 = false; }
+      if (!ok2) return { ok: false, aborted: true, count: arr.length, active: n, error: 'Impor dibatalkan.' };
+    }
     window.CC.aff.clearProducts();
-    arr.forEach(function (p) { window.CC.aff.addProduct(p); });
+    // id lama dibuang & di-reset berurutan agar dua cadangan/pengguna tak pernah tabrakan id.
+    arr.forEach(function (p, i) {
+      var rec = {};
+      Object.keys(p).forEach(function (k) { if (k !== 'id' && k !== 'updatedAt') rec[k] = p[k]; });
+      window.CC.aff.addProduct(rec);
+    });
     return { ok: true, count: arr.length, replaced: true };
   }
   function handleAffExport() {
@@ -1855,13 +1866,19 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       if (!f) return;
       var rd = new FileReader();
       rd.onload = function () {
-        var r = applyAffImport(String(rd.result || ''));
+        var r = applyAffImport(String(rd.result || ''), function (incoming, active) {
+          return window.confirm
+            ? window.confirm('Memuat ' + incoming + ' produk dari file — mengganti ' + active + ' produk saat ini? Data lama dibuang.')
+            : true;
+        });
         if (r && r.ok) {
           renderAffDashboard();
           connSub();
           if (r.replaced) setStatus(r.count + ' produk dimuat dari file.');
           else setStatus('File kosong — data tidak diubah.');
           finalizeMessage('✅ Import selesai: **' + r.count + ' produk** dimuat' + (r.replaced ? ' (data sebelumnya diganti).' : '.') + ' Coba `/analisis` atau `/daftar`.');
+        } else if (r && r.aborted) {
+          finalizeMessage('⏸️ Impor dibatalkan — ' + r.active + ' produk saat ini tetap aman.');
         } else {
           setStatus((r && r.error) || 'Gagal membuka file.', true);
           finalizeMessage('❌ ' + ((r && r.error) || 'Gagal membaca file.'));
@@ -1869,6 +1886,19 @@ function chartSymbol(query) { return SEARCH && SEARCH.chartSymbol ? SEARCH.chart
       };
       rd.onerror = function () { setStatus('Gagal membaca file.', true); };
       rd.readAsText(f);
+    });
+
+    /* ── Perintah cepat (chips) ── */
+    var cmdChips = $('cmd-chips');
+    if (cmdChips) cmdChips.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('[data-cmd]') : null;
+      if (!btn) return;
+      var box = $('chat-input');
+      if (!box) return;
+      var cmd = btn.getAttribute('data-cmd');
+      if (!cmd) return;
+      box.value = cmd;
+      sendChat();
     });
 
     renderAffDashboard();

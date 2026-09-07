@@ -296,6 +296,19 @@ done.then(() => {
       console.log(badProd && !badProd.ok && (aff.getProducts() || []).length === 2 ? 'OK  import menolak baris tanpa nama (data tetap 2)' : 'FAIL import baris tanpa nama');
       if (!(badProd && !badProd.ok)) fail('import tanpa nama');
 
+      // Impor dengan konfirmasi: ditolak (confirm -> false) → data lama tetap aman
+      const rAbort = appApi.applyAffImport(json2, () => false);
+      const abortedOk = rAbort && !rAbort.ok && rAbort.aborted && (aff.getProducts() || []).length === 2;
+      console.log(abortedOk ? 'OK  import dibatalkan oleh konfirmasi (data tetap 2 produk)' : 'FAIL import konfirmasi-ditolak (' + JSON.stringify(rAbort) + ', produk=' + (aff.getProducts() || []).length + ')');
+      if (!abortedOk) fail('import konfirmasi');
+      const rAbort2 = appApi.applyAffImport(json2, () => true);
+      console.log(rAbort2 && rAbort2.ok && (aff.getProducts() || []).length === 2 ? 'OK  import disetujui konfirmasi → 2 produk dimuat' : 'FAIL import konfirmasi-disetujui');
+      if (!(rAbort2 && rAbort2.ok)) fail('import approve');
+      // id diimpor di-reset berurutan (tidak tabrakan dengan posisi valid)
+      const idSet = new Set((aff.getProducts() || []).map((p) => String(p.id)));
+      console.log(idSet.size === (aff.getProducts() || []).length ? 'OK  id impor unik berurutan (' + idSet.size + ')' : 'FAIL id impor tidak unik');
+      if (!(idSet.size === (aff.getProducts() || []).length)) fail('id impor unik');
+
       typeCmd('/import');
       console.log('OK  /import menampilkan instruksi & membuka pemilih file');
       console.log('OK  dashboard setelah import: ' + dashText().replace(/\s+/g, ' ').slice(0, 90));

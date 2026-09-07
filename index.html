@@ -43,8 +43,16 @@
       <div id="chat-messages" class="chat-messages" hidden></div>
       <button id="btn-scroll-down" class="scroll-down-btn" title="Ke output terbaru" aria-label="Ke bawah" hidden><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
       <div class="chat-input-area">
+        <div class="cmd-chips" id="cmd-chips" role="toolbar" aria-label="Perintah cepat">
+          <button type="button" class="cmd-chip" data-cmd="/analisis"><span class="cmd-slash">/</span>analisis</button>
+          <button type="button" class="cmd-chip" data-cmd="/optimasi"><span class="cmd-slash">/</span>optimasi</button>
+          <button type="button" class="cmd-chip" data-cmd="/prediksi"><span class="cmd-slash">/</span>prediksi</button>
+          <button type="button" class="cmd-chip" data-cmd="/forecast"><span class="cmd-slash">/</span>forecast</button>
+          <button type="button" class="cmd-chip" data-cmd="/strategi"><span class="cmd-slash">/</span>strategi</button>
+          <button type="button" class="cmd-chip" data-cmd="/daftar"><span class="cmd-slash">/</span>daftar</button>
+        </div>
         <div class="chat-input-wrap">
-          <textarea id="chat-input" rows="1" placeholder=""></textarea>
+          <textarea id="chat-input" rows="1" placeholder="Ketik perintah — mis. /analisis — atau pertanyaan Anda…"></textarea>
         </div>
         <div class="status-row">
           <div class="chat-status" id="chat-status" aria-live="polite"></div>
